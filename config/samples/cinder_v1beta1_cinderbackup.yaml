@@ -1,0 +1,7 @@
+apiVersion: cinder.openstack.org/v1beta1
+kind: CinderBackup
+metadata:
+  name: cinderbackup-sample
+spec:
+  # Add fields here
+  foo: bar

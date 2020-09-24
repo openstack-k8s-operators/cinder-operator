@@ -1,0 +1,123 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.0
+  creationTimestamp: null
+  name: cinders.cinder.openstack.org
+spec:
+  group: cinder.openstack.org
+  names:
+    kind: Cinder
+    listKind: CinderList
+    plural: cinders
+    singular: cinder
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: Cinder is the Schema for the cinders API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: CinderSpec defines the desired state of Cinder
+          properties:
+            cinderAPIContainerImage:
+              description: Cinder API Container Image URL
+              type: string
+            cinderAPIReplicas:
+              description: Cinder API Replicas
+              format: int32
+              type: integer
+            cinderBackupContainerImage:
+              description: Cinder Backup Container Image URL
+              type: string
+            cinderBackupNodeSelectorRoleName:
+              description: Cinder Backup node selector
+              type: string
+            cinderBackupReplicas:
+              description: Cinder Backup Replicas
+              format: int32
+              type: integer
+            cinderSchedulerContainerImage:
+              description: Cinder Scheduler Container Image URL
+              type: string
+            cinderSchedulerReplicas:
+              description: Cinder Scheduler Replicas
+              format: int32
+              type: integer
+            cinderSecret:
+              description: 'Secret containing: CinderPassword, TransportURL'
+              type: string
+            cinderVolumes:
+              description: Cells to create
+              items:
+                description: Volume defines cinder volume configuration parameters
+                properties:
+                  cinderVolumeContainerImage:
+                    description: Cinder Volume Container Image URL
+                    type: string
+                  cinderVolumeNodeSelectorRoleName:
+                    description: Cinder Volume node selector
+                    type: string
+                  cinderVolumeReplicas:
+                    description: Cinder Volume Replicas
+                    format: int32
+                    type: integer
+                  name:
+                    description: Name of cinder volume service
+                    type: string
+                required:
+                - cinderVolumeReplicas
+                type: object
+              type: array
+            databaseHostname:
+              description: Cinder Database Hostname String
+              type: string
+            novaSecret:
+              description: 'Secret containing: NovaPassword'
+              type: string
+          required:
+          - cinderAPIReplicas
+          - cinderBackupReplicas
+          - cinderSchedulerReplicas
+          type: object
+        status:
+          description: CinderStatus defines the observed state of Cinder
+          properties:
+            apiEndpoint:
+              description: API endpoint
+              type: string
+            dbSyncHash:
+              description: DbSyncHash db sync hash
+              type: string
+          required:
+          - apiEndpoint
+          - dbSyncHash
+          type: object
+      type: object
+  version: v1beta1
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

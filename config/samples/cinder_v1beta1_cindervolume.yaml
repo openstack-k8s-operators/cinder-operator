@@ -1,0 +1,12 @@
+apiVersion: cinder.openstack.org/v1beta1
+kind: CinderVolume
+metadata:
+  name: cinder-volume
+  namespace: openstack
+spec:
+  managingCrName: cinder
+  databaseHostname: mariadb
+  replicas: 1
+  cinderSecret: cinder-secret
+  novaSecret: nova-secret
+  containerImage: docker.io/tripleomaster/centos-binary-cinder-volume:current-tripleo

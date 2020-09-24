@@ -1,0 +1,23 @@
+domain: openstack.org
+layout: go.kubebuilder.io/v2
+projectName: cinder-operator
+repo: github.com/openstack-k8s-operators/cinder-operator
+resources:
+- group: cinder
+  kind: CinderAPI
+  version: v1beta1
+- group: cinder
+  kind: CinderScheduler
+  version: v1beta1
+- group: cinder
+  kind: CinderVolume
+  version: v1beta1
+- group: cinder
+  kind: CinderBackup
+  version: v1beta1
+- group: cinder
+  kind: Cinder
+  version: v1beta1
+version: 3-alpha
+plugins:
+  go.sdk.operatorframework.io/v2-alpha: {}

@@ -1,0 +1,24 @@
+# permissions for end users to edit cinderapis.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cinderapi-editor-role
+rules:
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinderapis
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinderapis/status
+  verbs:
+  - get
