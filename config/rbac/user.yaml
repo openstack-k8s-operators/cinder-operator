@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cinder
+  namespace: openstack
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cinder-operator
+  namespace: openstack

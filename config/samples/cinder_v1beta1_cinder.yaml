@@ -1,0 +1,22 @@
+apiVersion: cinder.openstack.org/v1beta1
+kind: Cinder
+metadata:
+  name: cinder
+  namespace: openstack
+spec:
+  databaseHostname: mariadb
+  cinderAPIReplicas: 1
+  cinderSchedulerReplicas: 1
+  cinderBackupReplicas: 1
+  cinderBackupNodeSelectorRoleName: worker
+  cinderSecret: cinder-secret
+  novaSecret: nova-secret
+  cinderAPIContainerImage: docker.io/tripleomaster/centos-binary-cinder-api:current-tripleo
+  cinderSchedulerContainerImage: docker.io/tripleomaster/centos-binary-cinder-scheduler:current-tripleo
+  cinderBackupContainerImage: docker.io/tripleomaster/centos-binary-cinder-backup:current-tripleo
+  cinderVolumes:
+  - name: volume1
+    databaseHostname: mariadb
+    cinderVolumeContainerImage: docker.io/tripleomaster/centos-binary-cinder-volume:current-tripleo
+    cinderVolumeReplicas: 1
+    cinderVolumeNodeSelectorRoleName: worker

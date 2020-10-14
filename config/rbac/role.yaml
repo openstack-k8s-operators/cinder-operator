@@ -1,0 +1,175 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinderapis
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinderapis/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinderbackups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinderbackups/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinders
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinders/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinderschedulers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinderschedulers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cindervolumes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cindervolumes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: null
+  name: manager-role
+  namespace: openstack
+rules:
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - privileged
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use

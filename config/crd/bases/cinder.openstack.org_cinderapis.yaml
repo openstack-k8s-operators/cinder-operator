@@ -1,0 +1,95 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.0
+  creationTimestamp: null
+  name: cinderapis.cinder.openstack.org
+spec:
+  group: cinder.openstack.org
+  names:
+    kind: CinderAPI
+    listKind: CinderAPIList
+    plural: cinderapis
+    singular: cinderapi
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: CinderAPI is the Schema for the cinderapis API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: CinderAPISpec defines the desired state of CinderAPI
+          properties:
+            cinderSecret:
+              description: 'Secret containing: CinderPassword, TransportURL'
+              type: string
+            containerImage:
+              description: Cinder Scheduler Container Image URL
+              type: string
+            databaseHostname:
+              description: Cinder Database Hostname String
+              type: string
+            managingCrName:
+              description: CR name of managing controller object to identify the config
+                maps
+              type: string
+            novaSecret:
+              description: 'Secret containing: NovaPassword'
+              type: string
+            replicas:
+              description: Cinder API Replicas
+              format: int32
+              type: integer
+          required:
+          - replicas
+          type: object
+        status:
+          description: CinderAPIStatus defines the observed state of CinderAPI
+          properties:
+            cinderAPIHash:
+              description: CinderAPIHash deployment hash
+              type: string
+            hashes:
+              description: hashes of Secrets, CMs
+              items:
+                description: Hash - struct to add hashes to status
+                properties:
+                  hash:
+                    description: Hash
+                    type: string
+                  name:
+                    description: Name of hash referencing the parameter
+                    type: string
+                type: object
+              type: array
+          required:
+          - cinderAPIHash
+          type: object
+      type: object
+  version: v1beta1
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

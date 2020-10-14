@@ -1,0 +1,24 @@
+# permissions for end users to edit cinders.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cinder-editor-role
+rules:
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinders
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cinder.openstack.org
+  resources:
+  - cinders/status
+  verbs:
+  - get

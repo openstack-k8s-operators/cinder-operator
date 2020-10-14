@@ -1,0 +1,29 @@
+{
+  "command": "/usr/sbin/httpd -DFOREGROUND",
+  "config_files": [
+    {
+      "source": "/var/lib/config-data/merged/cinder.conf",
+      "dest": "/etc/cinder/cinder.conf",
+      "owner": "root:cinder",
+      "perm": "0640"
+    },
+    {
+      "source": "/var/lib/config-data/merged/logging.conf",
+      "dest": "/etc/cinder/logging.conf",
+      "owner": "cinder",
+      "perm": "0644"
+    },
+    {
+      "source": "/var/lib/config-data/merged/httpd.conf",
+      "dest": "/etc/httpd/conf/httpd.conf",
+      "owner": "root",
+      "perm": "0644"
+    },
+    {
+      "source": "/var/lib/config-data/merged/10-cinder_wsgi.conf",
+      "dest": "/etc/httpd/conf.d/10-cinder_wsgi.conf",
+      "owner": "root",
+      "perm": "0644"
+    }
+  ]
+}
