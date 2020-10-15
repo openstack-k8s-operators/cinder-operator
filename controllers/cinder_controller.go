@@ -215,7 +215,6 @@ func (r *CinderReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 	if op != controllerutil.OperationResultNone {
 		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
-		return ctrl.Result{}, nil
 	}
 
 	// cinder service
@@ -277,7 +276,6 @@ func (r *CinderReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 	if op != controllerutil.OperationResultNone {
 		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
-		return ctrl.Result{}, nil
 	}
 
 	// deploy cinder-backup
@@ -287,7 +285,6 @@ func (r *CinderReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 	if op != controllerutil.OperationResultNone {
 		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
-		return ctrl.Result{}, nil
 	}
 
 	// deploy cinder-volume services
@@ -321,7 +318,6 @@ func (r *CinderReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		if op != controllerutil.OperationResultNone {
 			r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", volume.Name, string(op)))
-			return ctrl.Result{}, nil
 		}
 	}
 
