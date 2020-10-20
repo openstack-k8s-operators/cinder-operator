@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -37,6 +36,7 @@ import (
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	cinder "github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	common "github.com/openstack-k8s-operators/cinder-operator/pkg/common"
+	keystonev1beta1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	util "github.com/openstack-k8s-operators/lib-common/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -98,7 +98,7 @@ func (r *CinderReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	envVars := make(map[string]util.EnvSetter)
 
 	// check for required secrets
-	_, hash, err := common.GetSecret(r.Client, instance.Spec.CinderSecret, instance.Namespace)
+	cinderSecret, hash, err := common.GetSecret(r.Client, instance.Spec.CinderSecret, instance.Namespace)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: time.Second * 10}, err
 	}
@@ -260,13 +260,57 @@ func (r *CinderReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	// update status with endpoint information
-	var apiEndpoint string
-	if !strings.HasPrefix(route.Spec.Host, "http") {
-		apiEndpoint = fmt.Sprintf("http://%s", route.Spec.Host)
-	} else {
-		apiEndpoint = route.Spec.Host
+	// Keystone setup
+	cinderv2KeystoneService := &keystonev1beta1.KeystoneService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance.Name,
+			Namespace: instance.Namespace,
+		},
 	}
-	r.setAPIEndpoint(instance, apiEndpoint)
+
+	_, err = controllerutil.CreateOrUpdate(context.TODO(), r.Client, cinderv2KeystoneService, func() error {
+		cinderv2KeystoneService.Spec.Username = "cinder"
+		cinderv2KeystoneService.Spec.Password = string(cinderSecret.Data["CinderKeystoneAuthPassword"])
+		cinderv2KeystoneService.Spec.ServiceType = "volumev2"
+		cinderv2KeystoneService.Spec.ServiceName = "cinderv2"
+		cinderv2KeystoneService.Spec.ServiceDescription = "OpenStack Block Storage"
+		cinderv2KeystoneService.Spec.Enabled = true
+		cinderv2KeystoneService.Spec.Region = "regionOne"
+		cinderv2KeystoneService.Spec.AdminURL = fmt.Sprintf("http://%s/v2/%%(project_id)s", route.Spec.Host)
+		cinderv2KeystoneService.Spec.PublicURL = fmt.Sprintf("http://%s/v2/%%(project_id)s", route.Spec.Host)
+		cinderv2KeystoneService.Spec.InternalURL = fmt.Sprintf("http://%s.openstack.svc:8776/v2/%%(project_id)s", instance.Name)
+		return nil
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	cinderv3KeystoneService := &keystonev1beta1.KeystoneService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance.Name,
+			Namespace: instance.Namespace,
+		},
+	}
+
+	// don't pass the cinder user again as update is right now not handled in KeystoneService
+	// atm we'll get a cinderv3 user which is not used.
+	_, err = controllerutil.CreateOrUpdate(context.TODO(), r.Client, cinderv3KeystoneService, func() error {
+		cinderv3KeystoneService.Spec.ServiceType = "volumev3"
+		cinderv3KeystoneService.Spec.ServiceName = "cinderv3"
+		cinderv3KeystoneService.Spec.ServiceDescription = "OpenStack Block Storage"
+		cinderv3KeystoneService.Spec.Enabled = true
+		cinderv3KeystoneService.Spec.Region = "regionOne"
+		cinderv3KeystoneService.Spec.AdminURL = fmt.Sprintf("http://%s/v3/%%(project_id)s", route.Spec.Host)
+		cinderv3KeystoneService.Spec.PublicURL = fmt.Sprintf("http://%s/v3/%%(project_id)s", route.Spec.Host)
+		cinderv3KeystoneService.Spec.InternalURL = fmt.Sprintf("http://%s.openstack.svc:8776/v3/%%(project_id)s", instance.Name)
+		return nil
+	})
+
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	r.setAPIEndpoint(instance, cinderv2KeystoneService.Spec.PublicURL)
 
 	// deploy cinder-scheduler
 	// Create or update the cinder-scheduler Deployment object
