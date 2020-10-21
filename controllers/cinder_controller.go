@@ -263,7 +263,7 @@ func (r *CinderReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	// Keystone setup
 	cinderv2KeystoneService := &keystonev1beta1.KeystoneService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name,
+			Name:      "cinderv2",
 			Namespace: instance.Namespace,
 		},
 	}
@@ -287,7 +287,7 @@ func (r *CinderReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	cinderv3KeystoneService := &keystonev1beta1.KeystoneService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name,
+			Name:      "cinderv3",
 			Namespace: instance.Namespace,
 		},
 	}
