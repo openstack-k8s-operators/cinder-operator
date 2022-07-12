@@ -19,48 +19,62 @@ set -ex
 # copies the result to the ephemeral /var/lib/config-data/merged volume.
 #
 # Secrets are obtained from ENV variables.
-export Database=${ApiDatabase:-"cinder"}
-export DatabaseHost=${DatabaseHost:?"Please specify a DatabaseHost variable."}
-export CinderKeystoneAuthPassword=${CinderKeystoneAuthPassword:?"Please specify a CinderKeystoneAuthPassword variable."}
-export NovaKeystoneAuthPassword=${NovaKeystoneAuthPassword:?"Please specify a NovaKeystoneAuthPassword variable."}
-export DatabasePassword=${DatabasePassword:?"Please specify a DatabasePassword variable."}
-export TransportURL=${TransportURL:?"Please specify a TransportURL variable."}
+export DB=${DatabaseName:-"cinder"}
+export DBHOST=${DatabaseHost:?"Please specify a DatabaseHost variable."}
+export DBUSER=${DatabaseUser:-"cinder"}
+export DBPASSWORD=${DatabasePassword:?"Please specify a DatabasePassword variable."}
+export CINDERPASSWORD=${CinderPassword:?"Please specify a CinderPassword variable."}
+# TODO: nova password
+#export NOVAPASSWORD=${NovaPassword:?"Please specify a NovaPassword variable."}
+# TODO: transportURL
+#export TRANSPORTURL=${TransportURL:?"Please specify a TransportURL variable."}
 
-function merge_config_dir {
-  echo merge config dir $1
-  for conf in $(find $1 -type f)
-  do
-    conf_base=$(basename $conf)
+export CUSTOMCONF=${CustomConf:-""}
 
-    # If CFG already exist in ../merged and is not a json file,
-    # or nfs_shares we expect for now it can be merged using crudini.
-    # Else, just copy the full file.
-    if [[ -f /var/lib/config-data/merged/${conf_base} && ${conf_base} != *.json && ${conf_base} != nfs_shares ]]; then
-      echo merging ${conf} into /var/lib/config-data/merged/${conf_base}
-      crudini --merge /var/lib/config-data/merged/${conf_base} < ${conf}
-    else
-      echo copy ${conf} to /var/lib/config-data/merged/
-      cp -f ${conf} /var/lib/config-data/merged/
-    fi
-  done
-}
+SVC_CFG=/etc/cinder/cinder.conf
+SVC_CFG_MERGED=/var/lib/config-data/merged/cinder.conf
+
+# expect that the common.sh is in the same dir as the calling script
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+. ${SCRIPTPATH}/common.sh --source-only
 
 # Copy default service config from container image as base
-cp -a /etc/cinder/cinder.conf /var/lib/config-data/merged/cinder.conf
+cp -a ${SVC_CFG} ${SVC_CFG_MERGED}
 
-# Merge all templates from config-data, config-data-custom and volume-config-data-custom CMs
-for dir in /var/lib/config-data/default /var/lib/config-data/custom /var/lib/config-data/volume-custom
+# Merge all templates from config-data defaults first, then custom
+# NOTE: custom.conf files (for both the umbrella Cinder CR in config-data/defaults 
+#       and each custom.conf for each sub-service in config-data/custom) still need 
+#       to be handled separately below because the "merge_config_dir" function will 
+#       not merge custom.conf into cinder.conf (because the files obviously have 
+#       different names)
+for dir in /var/lib/config-data/default /var/lib/config-data/custom
 do
-  # merge config files if the config mount exists (e.g. volume-config-data-custom only used for cinder-volume)
-  if [[ -d ${dir} ]]; then
     merge_config_dir ${dir}
-  fi
 done
 
+# TODO: a cleaner way to handle this?
+# Merge custom.conf with cinder.conf, since the Kolla config doesn't seem
+# to allow us to customize the cinder command (it calls httpd instead).
+# Can we just put custom.conf in something like /etc/cinder/cinder.conf.d/custom.conf
+# and have it automatically detected, or would we have to somehow change the call
+# to the cinder binary to tell it to use that custom conf dir?
+echo merging /var/lib/config-data/default/custom.conf into ${SVC_CFG_MERGED}
+crudini --merge ${SVC_CFG_MERGED} < /var/lib/config-data/default/custom.conf
+
+# TODO: a cleaner way to handle this?
+# There might be service-specific extra custom conf that needs to be merged 
+# with the main cinder.conf for this particular service
+if [ -n "$CUSTOMCONF" ]; then
+  echo merging /var/lib/config-data/custom/${CUSTOMCONF} into ${SVC_CFG_MERGED}
+  crudini --merge ${SVC_CFG_MERGED} < /var/lib/config-data/custom/${CUSTOMCONF}
+fi
+
 # set secrets
-crudini --set /var/lib/config-data/merged/cinder.conf DEFAULT transport_url $TransportURL
-crudini --set /var/lib/config-data/merged/cinder.conf database connection mysql+pymysql://$Database:$DatabasePassword@$DatabaseHost/$Database
-crudini --set /var/lib/config-data/merged/cinder.conf keystone_authtoken password $CinderKeystoneAuthPassword
-crudini --set /var/lib/config-data/merged/cinder.conf nova password $NovaKeystoneAuthPassword
+# TODO: transportURL
+#crudini --set ${SVC_CFG_MERGED} DEFAULT transport_url $TransportURL
+crudini --set ${SVC_CFG_MERGED} database connection mysql+pymysql://${DBUSER}:${DBPASSWORD}@${DBHOST}/${DB}
+crudini --set ${SVC_CFG_MERGED} keystone_authtoken password $CINDERPASSWORD
+# TODO: nova password
+#crudini --set ${SVC_CFG_MERGED} nova password $NOVAPASSWORD
 # TODO: service token
-#crudini --set /var/lib/config-data/merged/cinder.conf service_user password $CinderKeystoneAuthPassword
+#crudini --set ${SVC_CFG_MERGED} service_user password $CinderPassword

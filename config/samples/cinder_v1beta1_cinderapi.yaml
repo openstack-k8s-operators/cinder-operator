@@ -1,11 +1,6 @@
 apiVersion: cinder.openstack.org/v1beta1
 kind: CinderAPI
 metadata:
-  name: cinder-api
-  namespace: openstack
+  name: cinderapi-sample
 spec:
-  managingCrName: cinder
-  databaseHostname: mariadb
-  replicas: 1
-  cinderSecret: cinder-secret
-  containerImage: docker.io/tripleomaster/centos-binary-cinder-api:current-tripleo
+  # TODO(user): Add fields here
