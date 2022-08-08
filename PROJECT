@@ -1,23 +1,55 @@
 domain: openstack.org
-layout: go.kubebuilder.io/v2
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
 projectName: cinder-operator
 repo: github.com/openstack-k8s-operators/cinder-operator
 resources:
-- group: cinder
-  kind: CinderAPI
-  version: v1beta1
-- group: cinder
-  kind: CinderScheduler
-  version: v1beta1
-- group: cinder
-  kind: CinderVolume
-  version: v1beta1
-- group: cinder
-  kind: CinderBackup
-  version: v1beta1
-- group: cinder
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openstack.org
+  group: cinder
   kind: Cinder
+  path: github.com/openstack-k8s-operators/cinder-operator/api/v1beta1
   version: v1beta1
-version: 3-alpha
-plugins:
-  go.sdk.operatorframework.io/v2-alpha: {}
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openstack.org
+  group: cinder
+  kind: CinderAPI
+  path: github.com/openstack-k8s-operators/cinder-operator/api/v1beta1
+  version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openstack.org
+  group: cinder
+  kind: CinderBackup
+  path: github.com/openstack-k8s-operators/cinder-operator/api/v1beta1
+  version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openstack.org
+  group: cinder
+  kind: CinderScheduler
+  path: github.com/openstack-k8s-operators/cinder-operator/api/v1beta1
+  version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: openstack.org
+  group: cinder
+  kind: CinderVolume
+  path: github.com/openstack-k8s-operators/cinder-operator/api/v1beta1
+  version: v1beta1
+version: "3"

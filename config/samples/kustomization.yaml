@@ -1,8 +1,8 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
+- cinder_v1beta1_cinder.yaml
 - cinder_v1beta1_cinderapi.yaml
+- cinder_v1beta1_cinderbackup.yaml
 - cinder_v1beta1_cinderscheduler.yaml
 - cinder_v1beta1_cindervolume.yaml
-- cinder_v1beta1_cinderbackup.yaml
-- cinder_v1beta1_cinder.yaml
-# +kubebuilder:scaffold:manifestskustomizesamples
+#+kubebuilder:scaffold:manifestskustomizesamples

@@ -1,14 +1,16 @@
 package cindervolume
 
 import (
+	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	corev1 "k8s.io/api/core/v1"
 )
 
-// GetVolumes - common Volumes used by many service pods
-func GetVolumes(name string) []corev1.Volume {
+// GetVolumes -
+func GetVolumes(parentName string, name string) []corev1.Volume {
+	var config0640AccessMode int32 = 0640
 	var dirOrCreate = corev1.HostPathDirectoryOrCreate
 
-	return []corev1.Volume{
+	volumeVolumes := []corev1.Volume{
 		{
 			Name: "etc-iscsi",
 			VolumeSource: corev1.VolumeSource{
@@ -68,34 +70,36 @@ func GetVolumes(name string) []corev1.Volume {
 			},
 		},
 		{
-			Name: "volume-config-data-custom",
+			Name: "config-data-custom",
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
+					DefaultMode: &config0640AccessMode,
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name + "-config-data-custom",
+						Name: name + "-config-data",
 					},
 				},
 			},
 		},
 	}
 
+	return append(cinder.GetVolumes(parentName), volumeVolumes...)
 }
 
-// GetInitVolumeMounts - Nova Control Plane init task VolumeMounts
+// GetInitVolumeMounts - Cinder Volume init task VolumeMounts
 func GetInitVolumeMounts() []corev1.VolumeMount {
-	return []corev1.VolumeMount{
-		{
-			Name:      "volume-config-data-custom",
-			MountPath: "/var/lib/config-data/volume-custom",
-			ReadOnly:  true,
-		},
+
+	customConfVolumeMount := corev1.VolumeMount{
+		Name:      "config-data-custom",
+		MountPath: "/var/lib/config-data/custom",
+		ReadOnly:  true,
 	}
 
+	return append(cinder.GetInitVolumeMounts(), customConfVolumeMount)
 }
 
-// GetVolumeMounts - common VolumeMounts
+// GetVolumeMounts - Cinder Volume VolumeMounts
 func GetVolumeMounts() []corev1.VolumeMount {
-	return []corev1.VolumeMount{
+	volumeVolumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "etc-iscsi",
 			MountPath: "/etc/iscsi",
@@ -128,4 +132,5 @@ func GetVolumeMounts() []corev1.VolumeMount {
 		},
 	}
 
+	return append(cinder.GetVolumeMounts(), volumeVolumeMounts...)
 }

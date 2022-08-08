@@ -1,10 +1,9 @@
-
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
+    controller-gen.kubebuilder.io/version: v0.9.2
   creationTimestamp: null
   name: cinders.cinder.openstack.org
 spec:
@@ -15,109 +14,663 @@ spec:
     plural: cinders
     singular: cinder
   scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      description: Cinder is the Schema for the cinders API
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: CinderSpec defines the desired state of Cinder
-          properties:
-            cinderAPIContainerImage:
-              description: Cinder API Container Image URL
-              type: string
-            cinderAPIReplicas:
-              description: Cinder API Replicas
-              format: int32
-              type: integer
-            cinderBackupContainerImage:
-              description: Cinder Backup Container Image URL
-              type: string
-            cinderBackupNodeSelectorRoleName:
-              description: Cinder Backup node selector
-              type: string
-            cinderBackupReplicas:
-              description: Cinder Backup Replicas
-              format: int32
-              type: integer
-            cinderSchedulerContainerImage:
-              description: Cinder Scheduler Container Image URL
-              type: string
-            cinderSchedulerReplicas:
-              description: Cinder Scheduler Replicas
-              format: int32
-              type: integer
-            cinderSecret:
-              description: 'Secret containing: CinderPassword, TransportURL'
-              type: string
-            cinderVolumes:
-              description: Cells to create
-              items:
-                description: Volume defines cinder volume configuration parameters
-                properties:
-                  cinderVolumeContainerImage:
-                    description: Cinder Volume Container Image URL
-                    type: string
-                  cinderVolumeNodeSelectorRoleName:
-                    description: Cinder Volume node selector
-                    type: string
-                  cinderVolumeReplicas:
-                    description: Cinder Volume Replicas
-                    format: int32
-                    type: integer
-                  name:
-                    description: Name of cinder volume service
-                    type: string
-                required:
-                - cinderVolumeReplicas
-                type: object
-              type: array
-            databaseHostname:
-              description: Cinder Database Hostname String
-              type: string
-            novaSecret:
-              description: 'Secret containing: NovaPassword'
-              type: string
-          required:
-          - cinderAPIReplicas
-          - cinderBackupReplicas
-          - cinderSchedulerReplicas
-          type: object
-        status:
-          description: CinderStatus defines the observed state of Cinder
-          properties:
-            apiEndpoint:
-              description: API endpoint
-              type: string
-            dbSyncHash:
-              description: DbSyncHash db sync hash
-              type: string
-          required:
-          - apiEndpoint
-          - dbSyncHash
-          type: object
-      type: object
-  version: v1beta1
   versions:
   - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Cinder is the Schema for the cinders API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CinderSpec defines the desired state of Cinder
+            properties:
+              cinderAPI:
+                description: CinderAPI - Spec definition for the API service of this
+                  Cinder deployment
+                properties:
+                  containerImage:
+                    description: ContainerImage - Cinder API Container Image URL
+                    type: string
+                  customServiceConfig:
+                    default: '# add your customization here'
+                    description: CustomServiceConfig - customize the service config
+                      using this parameter to change service defaults, or overwrite
+                      rendered information using raw OpenStack config format. The
+                      content gets added to to /etc/<service>/<service>.conf.d directory
+                      as custom.conf file.
+                    type: string
+                  databaseHostname:
+                    description: DatabaseHostname - Cinder Database Hostname
+                    type: string
+                  databaseUser:
+                    default: cinder
+                    description: 'DatabaseUser - optional username used for cinder
+                      DB, defaults to cinder TODO: -> implement needs work in mariadb-operator,
+                      right now only cinder'
+                    type: string
+                  debug:
+                    description: Debug - enable debug for different deploy stages.
+                      If an init container is used, it runs and the actual action
+                      pod gets started with sleep infinity
+                    properties:
+                      bootstrap:
+                        default: false
+                        description: Bootstrap enable debug
+                        type: boolean
+                      dbSync:
+                        default: false
+                        description: DBSync enable debug
+                        type: boolean
+                      service:
+                        default: false
+                        description: Service enable debug
+                        type: boolean
+                    type: object
+                  defaultConfigOverwrite:
+                    additionalProperties:
+                      type: string
+                    description: 'ConfigOverwrite - interface to overwrite default
+                      config files like e.g. logging.conf or policy.json. But can
+                      also be used to add additional files. Those get added to the
+                      service config dir in /etc/<service> . TODO: -> implement'
+                    type: object
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    description: NodeSelector to target subset of worker nodes for
+                      running the API service
+                    type: object
+                  passwordSelectors:
+                    description: PasswordSelectors - Selectors to identify the DB
+                      and AdminUser password and TransportURL from the Secret
+                    properties:
+                      admin:
+                        default: CinderPassword
+                        description: Database - Selector to get the cinder service
+                          password from the Secret
+                        type: string
+                      database:
+                        default: CinderDatabasePassword
+                        description: 'Database - Selector to get the cinder database
+                          user password from the Secret TODO: not used, need change
+                          in mariadb-operator'
+                        type: string
+                      transportUrl:
+                        default: TransportURL
+                        description: Database - Selector to get the cinder service
+                          password from the Secret
+                        type: string
+                    type: object
+                  replicas:
+                    default: 1
+                    description: Replicas - Cinder API Replicas
+                    format: int32
+                    type: integer
+                  resources:
+                    description: Resources - Compute Resources required by this service
+                      (Limits/Requests). https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    properties:
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Limits describes the maximum amount of compute
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Requests describes the minimum amount of compute
+                          resources required. If Requests is omitted for a container,
+                          it defaults to Limits if that is explicitly specified, otherwise
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                    type: object
+                  secret:
+                    description: Secret containing OpenStack password information
+                      for CinderDatabasePassword, AdminPassword
+                    type: string
+                  serviceUser:
+                    default: cinder
+                    description: ServiceUser - optional username used for this service
+                      to register in cinder
+                    type: string
+                type: object
+              cinderBackup:
+                description: CinderBackup - Spec definition for the Backup service
+                  of this Cinder deployment
+                properties:
+                  containerImage:
+                    description: ContainerImage - Cinder Backup Container Image URL
+                    type: string
+                  customServiceConfig:
+                    default: '# add your customization here'
+                    description: CustomServiceConfig - customize the service config
+                      using this parameter to change service defaults, or overwrite
+                      rendered information using raw OpenStack config format. The
+                      content gets added to to /etc/<service>/<service>.conf.d directory
+                      as custom.conf file.
+                    type: string
+                  databaseHostname:
+                    description: DatabaseHostname - Cinder Database Hostname
+                    type: string
+                  databaseUser:
+                    default: cinder
+                    description: 'DatabaseUser - optional username used for cinder
+                      DB, defaults to cinder TODO: -> implement needs work in mariadb-operator,
+                      right now only cinder'
+                    type: string
+                  debug:
+                    description: Debug - enable debug for different deploy stages.
+                      If an init container is used, it runs and the actual action
+                      pod gets started with sleep infinity
+                    properties:
+                      bootstrap:
+                        default: false
+                        description: Bootstrap enable debug
+                        type: boolean
+                      dbSync:
+                        default: false
+                        description: DBSync enable debug
+                        type: boolean
+                      service:
+                        default: false
+                        description: Service enable debug
+                        type: boolean
+                    type: object
+                  defaultConfigOverwrite:
+                    additionalProperties:
+                      type: string
+                    description: 'ConfigOverwrite - interface to overwrite default
+                      config files like e.g. logging.conf or policy.json. But can
+                      also be used to add additional files. Those get added to the
+                      service config dir in /etc/<service> . TODO: -> implement'
+                    type: object
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    description: NodeSelector to target subset of worker nodes for
+                      running the Backup service
+                    type: object
+                  passwordSelectors:
+                    description: PasswordSelectors - Selectors to identify the DB
+                      and TransportURL from the Secret
+                    properties:
+                      admin:
+                        default: CinderPassword
+                        description: Database - Selector to get the cinder service
+                          password from the Secret
+                        type: string
+                      database:
+                        default: CinderDatabasePassword
+                        description: 'Database - Selector to get the cinder database
+                          user password from the Secret TODO: not used, need change
+                          in mariadb-operator'
+                        type: string
+                      transportUrl:
+                        default: TransportURL
+                        description: Database - Selector to get the cinder service
+                          password from the Secret
+                        type: string
+                    type: object
+                  replicas:
+                    description: Replicas - Cinder Backup Replicas
+                    format: int32
+                    type: integer
+                  resources:
+                    description: Resources - Compute Resources required by this service
+                      (Limits/Requests). https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    properties:
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Limits describes the maximum amount of compute
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Requests describes the minimum amount of compute
+                          resources required. If Requests is omitted for a container,
+                          it defaults to Limits if that is explicitly specified, otherwise
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                    type: object
+                  secret:
+                    description: Secret containing OpenStack password information
+                      for CinderDatabasePassword
+                    type: string
+                  serviceUser:
+                    default: cinder
+                    description: ServiceUser - optional username used for this service
+                      to register in cinder
+                    type: string
+                type: object
+              cinderScheduler:
+                description: CinderScheduler - Spec definition for the Scheduler service
+                  of this Cinder deployment
+                properties:
+                  containerImage:
+                    description: ContainerImage - Cinder Scheduler Container Image
+                      URL
+                    type: string
+                  customServiceConfig:
+                    default: '# add your customization here'
+                    description: CustomServiceConfig - customize the service config
+                      using this parameter to change service defaults, or overwrite
+                      rendered information using raw OpenStack config format. The
+                      content gets added to to /etc/<service>/<service>.conf.d directory
+                      as custom.conf file.
+                    type: string
+                  databaseHostname:
+                    description: DatabaseHostname - Cinder Database Hostname
+                    type: string
+                  databaseUser:
+                    default: cinder
+                    description: 'DatabaseUser - optional username used for cinder
+                      DB, defaults to cinder TODO: -> implement needs work in mariadb-operator,
+                      right now only cinder'
+                    type: string
+                  debug:
+                    description: Debug - enable debug for different deploy stages.
+                      If an init container is used, it runs and the actual action
+                      pod gets started with sleep infinity
+                    properties:
+                      bootstrap:
+                        default: false
+                        description: Bootstrap enable debug
+                        type: boolean
+                      dbSync:
+                        default: false
+                        description: DBSync enable debug
+                        type: boolean
+                      service:
+                        default: false
+                        description: Service enable debug
+                        type: boolean
+                    type: object
+                  defaultConfigOverwrite:
+                    additionalProperties:
+                      type: string
+                    description: 'ConfigOverwrite - interface to overwrite default
+                      config files like e.g. logging.conf or policy.json. But can
+                      also be used to add additional files. Those get added to the
+                      service config dir in /etc/<service> . TODO: -> implement'
+                    type: object
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    description: NodeSelector to target subset of worker nodes for
+                      running the Scheduler service
+                    type: object
+                  passwordSelectors:
+                    description: PasswordSelectors - Selectors to identify the DB
+                      and TransportURL from the Secret
+                    properties:
+                      admin:
+                        default: CinderPassword
+                        description: Database - Selector to get the cinder service
+                          password from the Secret
+                        type: string
+                      database:
+                        default: CinderDatabasePassword
+                        description: 'Database - Selector to get the cinder database
+                          user password from the Secret TODO: not used, need change
+                          in mariadb-operator'
+                        type: string
+                      transportUrl:
+                        default: TransportURL
+                        description: Database - Selector to get the cinder service
+                          password from the Secret
+                        type: string
+                    type: object
+                  replicas:
+                    default: 1
+                    description: Replicas - Cinder Scheduler Replicas
+                    format: int32
+                    type: integer
+                  resources:
+                    description: Resources - Compute Resources required by this service
+                      (Limits/Requests). https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    properties:
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Limits describes the maximum amount of compute
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Requests describes the minimum amount of compute
+                          resources required. If Requests is omitted for a container,
+                          it defaults to Limits if that is explicitly specified, otherwise
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                    type: object
+                  secret:
+                    description: Secret containing OpenStack password information
+                      for CinderDatabasePassword
+                    type: string
+                  serviceUser:
+                    default: cinder
+                    description: ServiceUser - optional username used for this service
+                      to register in cinder
+                    type: string
+                type: object
+              cinderVolumes:
+                additionalProperties:
+                  description: CinderVolumeSpec defines the desired state of CinderVolume
+                  properties:
+                    containerImage:
+                      description: ContainerImage - Cinder Volume Container Image
+                        URL
+                      type: string
+                    customServiceConfig:
+                      default: '# add your customization here'
+                      description: CustomServiceConfig - customize the service config
+                        using this parameter to change service defaults, or overwrite
+                        rendered information using raw OpenStack config format. The
+                        content gets added to to /etc/<service>/<service>.conf.d directory
+                        as custom.conf file.
+                      type: string
+                    databaseHostname:
+                      description: DatabaseHostname - Cinder Database Hostname
+                      type: string
+                    databaseUser:
+                      default: cinder
+                      description: 'DatabaseUser - optional username used for cinder
+                        DB, defaults to cinder TODO: -> implement needs work in mariadb-operator,
+                        right now only cinder'
+                      type: string
+                    debug:
+                      description: Debug - enable debug for different deploy stages.
+                        If an init container is used, it runs and the actual action
+                        pod gets started with sleep infinity
+                      properties:
+                        bootstrap:
+                          default: false
+                          description: Bootstrap enable debug
+                          type: boolean
+                        dbSync:
+                          default: false
+                          description: DBSync enable debug
+                          type: boolean
+                        service:
+                          default: false
+                          description: Service enable debug
+                          type: boolean
+                      type: object
+                    defaultConfigOverwrite:
+                      additionalProperties:
+                        type: string
+                      description: 'ConfigOverwrite - interface to overwrite default
+                        config files like e.g. logging.conf or policy.json. But can
+                        also be used to add additional files. Those get added to the
+                        service config dir in /etc/<service> . TODO: -> implement'
+                      type: object
+                    nodeSelector:
+                      additionalProperties:
+                        type: string
+                      description: NodeSelector to target subset of worker nodes for
+                        running the Volume service
+                      type: object
+                    passwordSelectors:
+                      description: PasswordSelectors - Selectors to identify the DB
+                        and TransportURL from the Secret
+                      properties:
+                        admin:
+                          default: CinderPassword
+                          description: Database - Selector to get the cinder service
+                            password from the Secret
+                          type: string
+                        database:
+                          default: CinderDatabasePassword
+                          description: 'Database - Selector to get the cinder database
+                            user password from the Secret TODO: not used, need change
+                            in mariadb-operator'
+                          type: string
+                        transportUrl:
+                          default: TransportURL
+                          description: Database - Selector to get the cinder service
+                            password from the Secret
+                          type: string
+                      type: object
+                    replicas:
+                      default: 1
+                      description: Replicas - Cinder Volume Replicas
+                      format: int32
+                      type: integer
+                    resources:
+                      description: Resources - Compute Resources required by this
+                        service (Limits/Requests). https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                      properties:
+                        limits:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: 'Limits describes the maximum amount of compute
+                            resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          type: object
+                        requests:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: 'Requests describes the minimum amount of compute
+                            resources required. If Requests is omitted for a container,
+                            it defaults to Limits if that is explicitly specified,
+                            otherwise to an implementation-defined value. More info:
+                            https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          type: object
+                      type: object
+                    secret:
+                      description: Secret containing OpenStack password information
+                        for CinderDatabasePassword
+                      type: string
+                    serviceUser:
+                      default: cinder
+                      description: ServiceUser - optional username used for this service
+                        to register in cinder
+                      type: string
+                  type: object
+                description: CinderVolumes - Map of chosen names to spec definitions
+                  for the Volume(s) service(s) of this Cinder deployment
+                type: object
+              customServiceConfig:
+                default: '# add your customization here'
+                description: CustomServiceConfig - customize the service config for
+                  all Cinder services using this parameter to change service defaults,
+                  or overwrite rendered information using raw OpenStack config format.
+                  The content gets added to to /etc/<service>/<service>.conf.d directory
+                  as custom.conf file.
+                type: string
+              databaseInstance:
+                description: MariaDB instance name Right now required by the maridb-operator
+                  to get the credentials from the instance to create the DB Might
+                  not be required in future
+                type: string
+              databaseUser:
+                default: cinder
+                description: 'DatabaseUser - optional username used for cinder DB,
+                  defaults to cinder TODO: -> implement needs work in mariadb-operator,
+                  right now only cinder'
+                type: string
+              debug:
+                description: Debug - enable debug for different deploy stages. If
+                  an init container is used, it runs and the actual action pod gets
+                  started with sleep infinity
+                properties:
+                  bootstrap:
+                    default: false
+                    description: Bootstrap enable debug
+                    type: boolean
+                  dbSync:
+                    default: false
+                    description: DBSync enable debug
+                    type: boolean
+                  service:
+                    default: false
+                    description: Service enable debug
+                    type: boolean
+                type: object
+              defaultConfigOverwrite:
+                additionalProperties:
+                  type: string
+                description: 'ConfigOverwrite - interface to overwrite default config
+                  files like e.g. logging.conf or policy.json. But can also be used
+                  to add additional files. Those get added to the service config dir
+                  in /etc/<service> . TODO: -> implement'
+                type: object
+              passwordSelectors:
+                description: PasswordSelectors - Selectors to identify the DB and
+                  AdminUser password and TransportURL from the Secret
+                properties:
+                  admin:
+                    default: CinderPassword
+                    description: Database - Selector to get the cinder service password
+                      from the Secret
+                    type: string
+                  database:
+                    default: CinderDatabasePassword
+                    description: 'Database - Selector to get the cinder database user
+                      password from the Secret TODO: not used, need change in mariadb-operator'
+                    type: string
+                  transportUrl:
+                    default: TransportURL
+                    description: Database - Selector to get the cinder service password
+                      from the Secret
+                    type: string
+                type: object
+              preserveJobs:
+                default: false
+                description: PreserveJobs - do not delete jobs after they finished
+                  e.g. to check logs
+                type: boolean
+              secret:
+                description: Secret containing OpenStack password information for
+                  CinderDatabasePassword, AdminPassword
+                type: string
+              serviceUser:
+                default: cinder
+                description: ServiceUser - optional username used for this service
+                  to register in cinder
+                type: string
+            required:
+            - cinderAPI
+            - cinderScheduler
+            type: object
+          status:
+            description: CinderStatus defines the observed state of Cinder
+            properties:
+              apiEndpoints:
+                additionalProperties:
+                  additionalProperties:
+                    type: string
+                  type: object
+                description: API endpoints
+                type: object
+              cinderAPIReadyCount:
+                description: ReadyCount of Cinder API instance
+                format: int32
+                type: integer
+              cinderBackupReadyCount:
+                description: ReadyCount of Cinder Backup instance
+                format: int32
+                type: integer
+              cinderSchedulerReadyCount:
+                description: ReadyCount of Cinder Scheduler instance
+                format: int32
+                type: integer
+              cinderVolumesReadyCounts:
+                additionalProperties:
+                  format: int32
+                  type: integer
+                description: ReadyCounts of Cinder Volume instances
+                type: object
+              conditions:
+                description: Conditions
+                items:
+                  description: Condition - A particular overall condition of a certain
+                    resource
+                  properties:
+                    lastHearbeatTime:
+                      format: date-time
+                      type: string
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      description: Reason - Why a particular condition is true, false
+                        or unknown
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      description: Type - A summarizing name for a given condition
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              databaseHostname:
+                description: Cinder Database Hostname
+                type: string
+              hash:
+                additionalProperties:
+                  type: string
+                description: Map of hashes to track e.g. job status
+                type: object
+              serviceIDs:
+                additionalProperties:
+                  type: string
+                description: ServiceIDs
+                type: object
+            type: object
+        type: object
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
+    subresources:
+      status: {}
