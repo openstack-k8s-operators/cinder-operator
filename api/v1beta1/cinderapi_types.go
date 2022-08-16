@@ -93,7 +93,7 @@ type CinderAPIStatus struct {
 	APIEndpoints map[string]map[string]string `json:"apiEndpoints,omitempty"`
 
 	// Conditions
-	Conditions condition.List `json:"conditions,omitempty" optional:"true"`
+	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
 
 	// ReadyCount of Cinder API instances
 	ReadyCount int32 `json:"readyCount,omitempty"`

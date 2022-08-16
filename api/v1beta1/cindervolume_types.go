@@ -90,7 +90,7 @@ type CinderVolumeStatus struct {
 	Hash map[string]string `json:"hash,omitempty"`
 
 	// Conditions
-	Conditions condition.List `json:"conditions,omitempty" optional:"true"`
+	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
 
 	// ReadyCount of Cinder Volume instances
 	ReadyCount int32 `json:"readyCount,omitempty"`

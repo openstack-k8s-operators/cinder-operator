@@ -107,7 +107,20 @@ func (r *CinderVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// initialize status
 	//
 	if instance.Status.Conditions == nil {
-		instance.Status.Conditions = condition.List{}
+		instance.Status.Conditions = condition.Conditions{}
+		// initialize conditions used later as Status=Unknown
+		cl := condition.CreateList(
+			condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
+			condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
+			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
+		)
+
+		instance.Status.Conditions.Init(&cl)
+
+		// Register overall status immediately to have an early feedback e.g. in the cli
+		if err := r.Status().Update(ctx, instance); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
@@ -126,6 +139,11 @@ func (r *CinderVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Always patch the instance status when exiting this function so we can persist any changes.
 	defer func() {
+		// update the overall status condition if service is ready
+		if instance.IsReady() {
+			instance.Status.Conditions.MarkTrue(condition.ReadyCondition, condition.ReadyMessage)
+		}
+
 		if err := helper.SetAfter(instance); err != nil {
 			util.LogErrorForObject(helper, err, "Set after and calc patch/diff", instance)
 		}
@@ -241,28 +259,26 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	ospSecret, hash, err := secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.InputReadyCondition,
+				condition.RequestedReason,
+				condition.SeverityInfo,
+				condition.InputReadyWaitingMessage))
 			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
 		}
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.InputReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.InputReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
 	configMapVars[ospSecret.Name] = env.SetValue(hash)
 	// run check OpenStack secret - end
 
 	//
-	// Create ConfigMaps required as input for the Service and calculate an overall hash of hashes
-	//
-
-	//
-	// create custom Configmap for this cinder volume service
-	//
-	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	// Create ConfigMaps - end
-
-	//
-	// check for required Cinder config maps that should have been created by owner Cinder CR
+	// check for required Cinder config maps that should have been created by parent Cinder CR
 	//
 
 	parentCinderName := cinder.GetOwningCinderName(instance)
@@ -275,11 +291,42 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	_, err = configmap.GetConfigMaps(ctx, helper, instance, configMaps, instance.Namespace, &configMapVars)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("Could not find all Cinder config maps for %s", parentCinderName)
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.InputReadyCondition,
+				condition.RequestedReason,
+				condition.SeverityInfo,
+				condition.InputReadyWaitingMessage))
+			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("Could not find all config maps for parent Cinder CR %s", parentCinderName)
 		}
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.InputReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.InputReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
-	// run check CinderVolume owner Cinder CR config maps - end
+	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
+	// run check parent Cinder CR config maps - end
+
+	//
+	// Create ConfigMaps required as input for the Service and calculate an overall hash of hashes
+	//
+
+	//
+	// create custom Configmap for this cinder volume service
+	//
+	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ServiceConfigReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.ServiceConfigReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+	// Create ConfigMaps - end
 
 	//
 	// create hash over all the different input resources to identify if any those changed
@@ -287,8 +334,15 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 	inputHash, err := r.createHashOfInputHashes(ctx, instance, configMapVars)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ServiceConfigReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.ServiceConfigReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
+	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 	// Create ConfigMaps and Secrets - end
 
 	//
@@ -335,11 +389,25 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 
 	ctrlResult, err = ss.CreateOrPatch(ctx, helper)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DeploymentReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DeploymentReadyErrorMessage,
+			err.Error()))
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DeploymentReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DeploymentReadyRunningMessage))
 		return ctrlResult, nil
 	}
 	instance.Status.ReadyCount = ss.GetStatefulSet().Status.ReadyReplicas
+	if instance.Status.ReadyCount > 0 {
+		instance.Status.Conditions.MarkTrue(condition.DeploymentReadyCondition, condition.DeploymentReadyMessage)
+	}
 	// create StatefulSet - end
 
 	r.Log.Info("Reconciled Service successfully")

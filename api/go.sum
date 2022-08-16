@@ -98,6 +98,14 @@ github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1y
 github.com/onsi/gomega v1.19.0 h1:4ieX6qQjPP/BfC3mpsAtIGGlxTWPeA3Inl/7DtXw1tw=
 github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220801090425-5f6ce3845f7d h1:mSPGAPjJ2Zmysf9ou6EO8MEN1mL/MsdCm6mY2ilZPuM=
 github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220801090425-5f6ce3845f7d/go.mod h1:KWqK7l2ej+rIYngoNUrxE2YjKGlRAAgJXXM0uU2R6XY=
+github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220816094529-135dc67c2cdf h1:jI+WnLrxELk3uJA6jYtg2xJs1S2/jLoUgCIulWnRb5I=
+github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220816094529-135dc67c2cdf/go.mod h1:KWqK7l2ej+rIYngoNUrxE2YjKGlRAAgJXXM0uU2R6XY=
+github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220817102124-0bfc90f4674e h1:lyabbPVaxF3DNaEHiGVNa1UBI9Pc5/iv4192AVV0us4=
+github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220817102124-0bfc90f4674e/go.mod h1:KWqK7l2ej+rIYngoNUrxE2YjKGlRAAgJXXM0uU2R6XY=
+github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220818165433-9fcbeecefd3a h1:YEJs9O9b/UO59HDAZJf850+1wDUWKOOl6kR34vBRL1I=
+github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220818165433-9fcbeecefd3a/go.mod h1:KWqK7l2ej+rIYngoNUrxE2YjKGlRAAgJXXM0uU2R6XY=
+github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220819100430-0319abfd42d9 h1:3g6+RKXFGE0qB5XVhTjhn0NlaAERY/vBX7gMsHxZRJA=
+github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220819100430-0319abfd42d9/go.mod h1:KWqK7l2ej+rIYngoNUrxE2YjKGlRAAgJXXM0uU2R6XY=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
