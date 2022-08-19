@@ -128,7 +128,23 @@ func (r *CinderAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// initialize status
 	//
 	if instance.Status.Conditions == nil {
-		instance.Status.Conditions = condition.List{}
+		instance.Status.Conditions = condition.Conditions{}
+		// initialize conditions used later as Status=Unknown
+		cl := condition.CreateList(
+			condition.UnknownCondition(condition.ExposeServiceReadyCondition, condition.InitReason, condition.ExposeServiceReadyInitMessage),
+			condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
+			condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
+			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
+			// right now we have no dedicated KeystoneServiceReadyInitMessage
+			condition.UnknownCondition(condition.KeystoneServiceReadyCondition, condition.InitReason, ""),
+		)
+
+		instance.Status.Conditions.Init(&cl)
+
+		// Register overall status immediately to have an early feedback e.g. in the cli
+		if err := r.Status().Update(ctx, instance); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
@@ -153,6 +169,11 @@ func (r *CinderAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// Always patch the instance status when exiting this function so we can persist any changes.
 	defer func() {
+		// update the overall status condition if service is ready
+		if instance.IsReady() {
+			instance.Status.Conditions.MarkTrue(condition.ReadyCondition, condition.ReadyMessage)
+		}
+
 		if err := helper.SetAfter(instance); err != nil {
 			util.LogErrorForObject(helper, err, "Set after and calc patch/diff", instance)
 		}
@@ -275,19 +296,19 @@ func (r *CinderAPIReconciler) reconcileInit(
 	//
 
 	// V2
-	adminEndpointData := endpoint.EndpointData{
+	adminEndpointData := endpoint.Data{
 		Port: cinder.CinderAdminPort,
 		Path: "/v2/%(project_id)s",
 	}
-	publicEndpointData := endpoint.EndpointData{
+	publicEndpointData := endpoint.Data{
 		Port: cinder.CinderPublicPort,
 		Path: "/v2/%(project_id)s",
 	}
-	internalEndpointData := endpoint.EndpointData{
+	internalEndpointData := endpoint.Data{
 		Port: cinder.CinderInternalPort,
 		Path: "/v2/%(project_id)s",
 	}
-	data := map[endpoint.Endpoint]endpoint.EndpointData{
+	data := map[endpoint.Endpoint]endpoint.Data{
 		endpoint.EndpointAdmin:    adminEndpointData,
 		endpoint.EndpointPublic:   publicEndpointData,
 		endpoint.EndpointInternal: internalEndpointData,
@@ -301,8 +322,19 @@ func (r *CinderAPIReconciler) reconcileInit(
 		data,
 	)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ExposeServiceReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.ExposeServiceReadyErrorMessage,
+			err.Error()))
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ExposeServiceReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.ExposeServiceReadyRunningMessage))
 		return ctrlResult, nil
 	}
 
@@ -317,19 +349,19 @@ func (r *CinderAPIReconciler) reconcileInit(
 	// V2 - end
 
 	// V3
-	adminEndpointData = endpoint.EndpointData{
+	adminEndpointData = endpoint.Data{
 		Port: cinder.CinderAdminPort,
 		Path: "/v3/%(project_id)s",
 	}
-	publicEndpointData = endpoint.EndpointData{
+	publicEndpointData = endpoint.Data{
 		Port: cinder.CinderPublicPort,
 		Path: "/v3/%(project_id)s",
 	}
-	internalEndpointData = endpoint.EndpointData{
+	internalEndpointData = endpoint.Data{
 		Port: cinder.CinderInternalPort,
 		Path: "/v3/%(project_id)s",
 	}
-	data = map[endpoint.Endpoint]endpoint.EndpointData{
+	data = map[endpoint.Endpoint]endpoint.Data{
 		endpoint.EndpointAdmin:    adminEndpointData,
 		endpoint.EndpointPublic:   publicEndpointData,
 		endpoint.EndpointInternal: internalEndpointData,
@@ -343,8 +375,19 @@ func (r *CinderAPIReconciler) reconcileInit(
 		data,
 	)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ExposeServiceReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.ExposeServiceReadyErrorMessage,
+			err.Error()))
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ExposeServiceReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.ExposeServiceReadyRunningMessage))
 		return ctrlResult, nil
 	}
 
@@ -355,20 +398,14 @@ func (r *CinderAPIReconciler) reconcileInit(
 	instance.Status.APIEndpoints[cinder.ServiceNameV3] = apiEndpointsV3
 	// V3 - end
 
+	instance.Status.Conditions.MarkTrue(condition.ExposeServiceReadyCondition, condition.ExposeServiceReadyMessage)
+
 	// expose service - end
 
 	//
 	// create users and endpoints - https://docs.openstack.org/Cinder/latest/install/install-rdo.html#configure-user-and-endpoints
 	// TODO: rework this
 	//
-	_, _, err = secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
-	if err != nil {
-		if k8s_errors.IsNotFound(err) {
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
-		}
-		return ctrl.Result{}, err
-	}
-
 	if instance.Status.ServiceIDs == nil {
 		instance.Status.ServiceIDs = map[string]string{}
 	}
@@ -389,7 +426,16 @@ func (r *CinderAPIReconciler) reconcileInit(
 		ctrlResult, err = ksSvcObj.CreateOrPatch(ctx, helper)
 		if err != nil {
 			return ctrlResult, err
-		} else if (ctrlResult != ctrl.Result{}) {
+		}
+
+		// mirror the Status, Reason, Severity and Message of the latest keystoneservice condition
+		// into a local condition with the type condition.KeystoneServiceReadyCondition
+		c := ksSvcObj.GetConditions().Mirror(condition.KeystoneServiceReadyCondition)
+		if c != nil {
+			instance.Status.Conditions.Set(c)
+		}
+
+		if (ctrlResult != ctrl.Result{}) {
 			return ctrlResult, nil
 		}
 
@@ -419,28 +465,26 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	ospSecret, hash, err := secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.InputReadyCondition,
+				condition.RequestedReason,
+				condition.SeverityInfo,
+				condition.InputReadyWaitingMessage))
 			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
 		}
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.InputReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.InputReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
 	configMapVars[ospSecret.Name] = env.SetValue(hash)
 	// run check OpenStack secret - end
 
 	//
-	// Create ConfigMaps required as input for the Service and calculate an overall hash of hashes
-	//
-
-	//
-	// create custom Configmap for this cinder volume service
-	//
-	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	// Create ConfigMaps - end
-
-	//
-	// check for required Cinder config maps that should have been created by ManagingCr
+	// check for required Cinder config maps that should have been created by parent Cinder CR
 	//
 
 	parentCinderName := cinder.GetOwningCinderName(instance)
@@ -453,12 +497,42 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	_, err = configmap.GetConfigMaps(ctx, helper, instance, configMaps, instance.Namespace, &configMapVars)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.InputReadyCondition,
+				condition.RequestedReason,
+				condition.SeverityInfo,
+				condition.InputReadyWaitingMessage))
 			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("Could not find all config maps for parent Cinder CR %s", parentCinderName)
 		}
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.InputReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.InputReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
+	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
+	// run check parent Cinder CR config maps - end
 
-	// run check Cinder ManagingCr config maps - end
+	//
+	// Create ConfigMaps required as input for the Service and calculate an overall hash of hashes
+	//
+
+	//
+	// create custom Configmap for this cinder volume service
+	//
+	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ServiceConfigReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.ServiceConfigReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+	// Create ConfigMaps - end
 
 	//
 	// create hash over all the different input resources to identify if any those changed
@@ -466,8 +540,15 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	//
 	inputHash, err := r.createHashOfInputHashes(ctx, instance, configMapVars)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ServiceConfigReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.ServiceConfigReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
+	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 	// Create ConfigMaps and Secrets - end
 
 	//
@@ -514,11 +595,25 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 
 	ctrlResult, err = depl.CreateOrPatch(ctx, helper)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DeploymentReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DeploymentReadyErrorMessage,
+			err.Error()))
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DeploymentReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DeploymentReadyRunningMessage))
 		return ctrlResult, nil
 	}
 	instance.Status.ReadyCount = depl.GetDeployment().Status.ReadyReplicas
+	if instance.Status.ReadyCount > 0 {
+		instance.Status.Conditions.MarkTrue(condition.DeploymentReadyCondition, condition.DeploymentReadyMessage)
+	}
 	// create Deployment - end
 
 	r.Log.Info("Reconciled Service successfully")

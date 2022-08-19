@@ -115,7 +115,7 @@ type CinderStatus struct {
 	Hash map[string]string `json:"hash,omitempty"`
 
 	// Conditions
-	Conditions condition.List `json:"conditions,omitempty" optional:"true"`
+	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
 
 	// Cinder Database Hostname
 	DatabaseHostname string `json:"databaseHostname,omitempty"`

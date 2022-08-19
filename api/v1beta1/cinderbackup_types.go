@@ -89,7 +89,7 @@ type CinderBackupStatus struct {
 	Hash map[string]string `json:"hash,omitempty"`
 
 	// Conditions
-	Conditions condition.List `json:"conditions,omitempty" optional:"true"`
+	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
 
 	// ReadyCount of Cinder Backup instances
 	ReadyCount int32 `json:"readyCount,omitempty"`

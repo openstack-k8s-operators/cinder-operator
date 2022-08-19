@@ -123,7 +123,26 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// initialize status
 	//
 	if instance.Status.Conditions == nil {
-		instance.Status.Conditions = condition.List{}
+		instance.Status.Conditions = condition.Conditions{}
+		// initialize conditions used later as Status=Unknown
+		cl := condition.CreateList(
+			condition.UnknownCondition(condition.DBReadyCondition, condition.InitReason, condition.DBReadyInitMessage),
+			condition.UnknownCondition(condition.DBSyncReadyCondition, condition.InitReason, condition.DBSyncReadyInitMessage),
+			condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
+			condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
+			condition.UnknownCondition(cinderv1beta1.CinderAPIReadyCondition, condition.InitReason, cinderv1beta1.CinderAPIReadyInitMessage),
+			condition.UnknownCondition(cinderv1beta1.CinderSchedulerReadyCondition, condition.InitReason, cinderv1beta1.CinderSchedulerReadyInitMessage),
+			condition.UnknownCondition(cinderv1beta1.CinderBackupReadyCondition, condition.InitReason, cinderv1beta1.CinderBackupReadyInitMessage),
+			condition.UnknownCondition(cinderv1beta1.CinderVolumeReadyCondition, condition.InitReason, cinderv1beta1.CinderVolumeReadyInitMessage),
+			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
+		)
+
+		instance.Status.Conditions.Init(&cl)
+
+		// Register overall status immediately to have an early feedback e.g. in the cli
+		if err := r.Status().Update(ctx, instance); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
@@ -148,6 +167,11 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// Always patch the instance status when exiting this function so we can persist any changes.
 	defer func() {
+		// update the overall status condition if service is ready
+		if instance.IsReady() {
+			instance.Status.Conditions.MarkTrue(condition.ReadyCondition, condition.ReadyMessage)
+		}
+
 		if err := helper.SetAfter(instance); err != nil {
 			util.LogErrorForObject(helper, err, "Set after and calc patch/diff", instance)
 		}
@@ -221,31 +245,49 @@ func (r *CinderReconciler) reconcileInit(
 		},
 	)
 	// create or patch the DB
-	cond, ctrlResult, err := db.CreateOrPatchDB(
+	ctrlResult, err := db.CreateOrPatchDB(
 		ctx,
 		helper,
 	)
-	instance.Status.Conditions.UpdateCurrentCondition(cond)
-
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DBReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
 	if (ctrlResult != ctrl.Result{}) {
-		r.Log.Info(cond.Message)
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DBReadyRunningMessage))
 		return ctrlResult, nil
 	}
 	// wait for the DB to be setup
-	cond, ctrlResult, err = db.WaitForDBCreated(ctx, helper)
-	instance.Status.Conditions.UpdateCurrentCondition(cond)
+	ctrlResult, err = db.WaitForDBCreated(ctx, helper)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DBReadyErrorMessage,
+			err.Error()))
 		return ctrlResult, err
 	}
 	if (ctrlResult != ctrl.Result{}) {
-		r.Log.Info(cond.Message)
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DBReadyRunningMessage))
 		return ctrlResult, nil
 	}
 	// update Status.DatabaseHostname, used to config the service
 	instance.Status.DatabaseHostname = db.GetDatabaseHostname()
+	instance.Status.Conditions.MarkTrue(condition.DBReadyCondition, condition.DBReadyMessage)
 	// create service DB - end
 
 	//
@@ -265,9 +307,20 @@ func (r *CinderReconciler) reconcileInit(
 		helper,
 	)
 	if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBSyncReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DBSyncReadyRunningMessage))
 		return ctrlResult, nil
 	}
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DBSyncReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DBSyncReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
 	if dbSyncjob.HasChanged() {
@@ -277,6 +330,7 @@ func (r *CinderReconciler) reconcileInit(
 		}
 		r.Log.Info(fmt.Sprintf("Job %s hash added - %s", jobDef.Name, instance.Status.Hash[cinderv1beta1.DbSyncHash]))
 	}
+	instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage)
 
 	// run Cinder db sync - end
 
@@ -303,11 +357,24 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	ospSecret, hash, err := secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.InputReadyCondition,
+				condition.RequestedReason,
+				condition.SeverityInfo,
+				condition.InputReadyWaitingMessage))
 			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
 		}
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.InputReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.InputReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
 	configMapVars[ospSecret.Name] = env.SetValue(hash)
+
+	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 	// run check OpenStack secret - end
 
 	//
@@ -322,6 +389,12 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	//
 	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ServiceConfigReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.ServiceConfigReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
 
@@ -331,9 +404,17 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	//
 	_, err = r.createHashOfInputHashes(ctx, instance, configMapVars)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ServiceConfigReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.ServiceConfigReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
 	// Create ConfigMaps and Secrets - end
+
+	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
 	//
 	// TODO check when/if Init, Update, or Upgrade should/could be skipped
@@ -371,11 +452,15 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// normal reconcile tasks
 	//
 
-	// TODO: create all sub-CRs, etc
-
 	// deploy cinder-api
 	cinderAPI, op, err := r.apiDeploymentCreateOrUpdate(instance)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			cinderv1beta1.CinderAPIReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			cinderv1beta1.CinderAPIReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
 	if op != controllerutil.OperationResultNone {
@@ -387,10 +472,22 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	instance.Status.ServiceIDs = cinderAPI.Status.ServiceIDs
 	instance.Status.CinderAPIReadyCount = cinderAPI.Status.ReadyCount
 
+	// Mirror CinderAPI's condition status
+	c := cinderAPI.Status.Conditions.Mirror(cinderv1beta1.CinderAPIReadyCondition)
+	if c != nil {
+		instance.Status.Conditions.Set(c)
+	}
+
 	// TODO: These will not work without rabbit yet
 	// deploy cinder-scheduler
 	cinderScheduler, op, err := r.schedulerDeploymentCreateOrUpdate(instance)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			cinderv1beta1.CinderSchedulerReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			cinderv1beta1.CinderSchedulerReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
 	if op != controllerutil.OperationResultNone {
@@ -400,9 +497,21 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// Mirror CinderScheduler status' ReadyCount to this parent CR
 	instance.Status.CinderSchedulerReadyCount = cinderScheduler.Status.ReadyCount
 
+	// Mirror CinderScheduler's condition status
+	c = cinderScheduler.Status.Conditions.Mirror(cinderv1beta1.CinderSchedulerReadyCondition)
+	if c != nil {
+		instance.Status.Conditions.Set(c)
+	}
+
 	// deploy cinder-backup
 	cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(instance)
 	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			cinderv1beta1.CinderBackupReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			cinderv1beta1.CinderBackupReadyErrorMessage,
+			err.Error()))
 		return ctrl.Result{}, err
 	}
 	if op != controllerutil.OperationResultNone {
@@ -412,11 +521,24 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// Mirror CinderBackup status' ReadyCount to this parent CR
 	instance.Status.CinderBackupReadyCount = cinderBackup.Status.ReadyCount
 
+	// Mirror CinderBackup's condition status
+	c = cinderBackup.Status.Conditions.Mirror(cinderv1beta1.CinderBackupReadyCondition)
+	if c != nil {
+		instance.Status.Conditions.Set(c)
+	}
+
 	// TODO: This requires some sort of backend and rabbit, and will not work without them
 	// deploy cinder-volumes
+	var volumeCondition *condition.Condition
 	for name, volume := range instance.Spec.CinderVolumes {
 		cinderVolume, op, err := r.volumeDeploymentCreateOrUpdate(instance, name, volume)
 		if err != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				cinderv1beta1.CinderVolumeReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				cinderv1beta1.CinderVolumeReadyErrorMessage,
+				err.Error()))
 			return ctrl.Result{}, err
 		}
 		if op != controllerutil.OperationResultNone {
@@ -430,6 +552,24 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			instance.Status.CinderVolumesReadyCounts = map[string]int32{}
 		}
 		instance.Status.CinderVolumesReadyCounts[name] = cinderVolume.Status.ReadyCount
+
+		// If this cinderVolume is not IsReady, mirror the condition to get the latest step it is in.
+		// Could also check the overall ReadyCondition of the cinderVolume.
+		if !cinderVolume.IsReady() {
+			c = cinderVolume.Status.Conditions.Mirror(cinderv1beta1.CinderVolumeReadyCondition)
+			// Get the condition with higher priority for volumeCondition.
+			volumeCondition = condition.GetHigherPrioCondition(c, volumeCondition).DeepCopy()
+		}
+	}
+
+	if volumeCondition != nil {
+		// If there was a Status=False condition, set that as the CinderVolumeReadyCondition
+		instance.Status.Conditions.Set(volumeCondition)
+	} else {
+		// The CinderVolumes are ready.
+		// Using "condition.DeploymentReadyMessage" here because that is what gets mirrored
+		// as the message for the other Cinder children when they are successfully-deployed
+		instance.Status.Conditions.MarkTrue(cinderv1beta1.CinderVolumeReadyCondition, condition.DeploymentReadyMessage)
 	}
 
 	r.Log.Info("Reconciled Service successfully")

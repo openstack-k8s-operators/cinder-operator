@@ -173,7 +173,7 @@ func (in *CinderAPIStatus) DeepCopyInto(out *CinderAPIStatus) {
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(condition.List, len(*in))
+		*out = make(condition.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -300,7 +300,7 @@ func (in *CinderBackupStatus) DeepCopyInto(out *CinderBackupStatus) {
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(condition.List, len(*in))
+		*out = make(condition.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -467,7 +467,7 @@ func (in *CinderSchedulerStatus) DeepCopyInto(out *CinderSchedulerStatus) {
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(condition.List, len(*in))
+		*out = make(condition.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -530,7 +530,7 @@ func (in *CinderStatus) DeepCopyInto(out *CinderStatus) {
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(condition.List, len(*in))
+		*out = make(condition.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -681,7 +681,7 @@ func (in *CinderVolumeStatus) DeepCopyInto(out *CinderVolumeStatus) {
 	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(condition.List, len(*in))
+		*out = make(condition.Conditions, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
