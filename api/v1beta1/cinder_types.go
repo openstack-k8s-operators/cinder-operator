@@ -107,6 +107,10 @@ type CinderSpec struct {
 	// +kubebuilder:validation:Optional
 	// CinderVolumes - Map of chosen names to spec definitions for the Volume(s) service(s) of this Cinder deployment
 	CinderVolumes map[string]CinderVolumeSpec `json:"cinderVolumes"`
+
+	// +kubebuilder:validation:Optional
+	// CephBackend - The ceph Backend structure with all the parameters
+	CephBackend CinderCephBackend `json:"cephBackend,omitempty"`
 }
 
 // CinderStatus defines the observed state of Cinder

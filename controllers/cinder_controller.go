@@ -637,6 +637,25 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 	templateParameters["ServiceUser"] = instance.Spec.ServiceUser
 	templateParameters["KeystonePublicURL"] = authURL
 
+	// Select CephBackend
+	cephClient := cinder.GetCephBackend(instance)
+
+	/** If CephBackend info are passed, populate the required templateParameters
+	to make sure Cinder is able to interact with an external Ceph cluster
+	using the Client Key provisioned on Ceph
+	**/
+	if cephClient {
+		templateParameters["CephClusterFSID"] = instance.Spec.CephBackend.CephClusterFSID
+		templateParameters["CephClusterMonHosts"] = instance.Spec.CephBackend.CephClusterMonHosts
+		templateParameters["CephClientKey"] = instance.Spec.CephBackend.CephClientKey
+		// The pool we write in cinder.conf
+		templateParameters["CephPool"] = cinder.GetCephCinderPool(instance)
+		// The ceph user used by the cinder service and defined in the client key
+		templateParameters["CephUser"] = cinder.GetCephRbdUser(instance)
+		// The OSD caps required in the client keyring
+		templateParameters["CephOsdCaps"] = cinder.GetCephOsdCaps(instance)
+	}
+
 	cms := []util.Template{
 		// ScriptsConfigMap
 		{

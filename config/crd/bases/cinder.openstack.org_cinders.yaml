@@ -35,6 +35,42 @@ spec:
           spec:
             description: CinderSpec defines the desired state of Cinder
             properties:
+              cephBackend:
+                description: CephBackend - The ceph Backend structure with all the
+                  parameters
+                properties:
+                  cephClientKey:
+                    description: CephClientKey set the Ceph cluster key used by Cinder
+                    type: string
+                  cephFsid:
+                    description: CephClusterFSID defines the fsid
+                    type: string
+                  cephMons:
+                    description: CephClusterMons defines the commma separated mon
+                      list
+                    type: string
+                  cephPools:
+                    additionalProperties:
+                      description: CephPoolSpec defines the Ceph pool Spec parameters
+                      properties:
+                        name:
+                          description: CephPoolName defines the name of the pool
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    description: CephPools - Map of chosen names to spec definitions
+                      for the Ceph cluster pools used by Cinder
+                    type: object
+                  cephUser:
+                    default: CephUser
+                    description: CephUser set the Ceph cluster pool used by Cinder
+                    type: string
+                required:
+                - cephClientKey
+                - cephFsid
+                - cephMons
+                type: object
               cinderAPI:
                 description: CinderAPI - Spec definition for the API service of this
                   Cinder deployment
