@@ -42,6 +42,72 @@ UnDeploy the controller to the cluster:
 make undeploy
 ```
 
+### Configure Cinder with Ceph backend
+
+The Cinder spec API can be used to configure and customize the Ceph backend. In
+particular, the `customServiceConfig` parameter should be used, for each
+defined volume, to override the `enabled_backends` parameter, which must exist
+in `cinder.conf` to make the `cinderVolume` pod run. The global `cephBackend`
+parameter is used to specify the Ceph client-related "key/value" pairs required
+to connect the service with an external Ceph cluster. Multiple external Ceph
+clusters are not supported at the moment. The following represents an example
+of the Cinder object that can be used to trigger the Cinder service deployment,
+and enable the Cinder backend that points to an external Ceph cluster.
+
+```
+apiVersion: cinder.openstack.org/v1beta1
+kind: Cinder
+metadata:
+  name: cinder
+  namespace: openstack
+spec:
+  serviceUser: cinder
+  databaseInstance: openstack
+  databaseUser: cinder
+  cinderAPI:
+    replicas: 1
+    containerImage: quay.io/tripleowallabycentos9/openstack-cinder-api:current-tripleo
+  cinderScheduler:
+    replicas: 1
+    containerImage: quay.io/tripleowallabycentos9/openstack-cinder-scheduler:current-tripleo
+  cinderBackup:
+    replicas: 1
+    containerImage: quay.io/tripleowallabycentos9/openstack-cinder-backup:current-tripleo
+  secret: cinder-secret
+  cinderVolumes:
+    volume1:
+      containerImage: quay.io/tripleowallabycentos9/openstack-cinder-volume:current-tripleo
+      replicas: 1
+      customServiceConfig: |
+        [DEFAULT]
+        enabled_backends=ceph
+  cephBackend:
+    cephFsid: <CephClusterFSID>
+    cephMons: <CephMons>
+    cephClientKey: <cephClientKey>
+    cephUser: openstack
+    cephPools:
+      cinder:
+        name: volumes
+      nova:
+        name: vms
+      glance:
+        name: images
+      cinder_backup:
+        name: backup
+      extra_pool1:
+        name: ceph_ssd_tier
+      extra_pool2:
+        name: ceph_nvme_tier
+      extra_pool3:
+        name: ceph_hdd_tier
+```
+
+When the service is up and running, it's possible to interact with the cinder
+API and create the Ceph `cinder type` backend which is associated with the Ceph
+tier specified in the config file.
+
+
 ## Contributing
 // TODO(user): Add detailed information on how you would like others to contribute to this project
 
