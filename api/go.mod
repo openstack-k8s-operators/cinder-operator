@@ -16,7 +16,8 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
+	github.com/openstack-k8s-operators/lib-common/modules/storage v0.0.0-20220909175216-e774739df18a // indirect
+	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
 	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

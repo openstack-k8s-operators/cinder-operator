@@ -48,31 +48,3 @@ type CinderDebug struct {
 	// Service enable debug
 	Service bool `json:"service,omitempty"`
 }
-
-// CinderCephBackend defines the Ceph client parameters
-type CinderCephBackend struct {
-	// +kubebuilder:validation:Required
-	// CephClusterFSID defines the fsid
-	CephClusterFSID string `json:"cephFsid"`
-	// +kubebuilder:validation:Required
-	// CephClusterMons defines the commma separated mon list
-	CephClusterMonHosts string `json:"cephMons"`
-	// +kubebuilder:validation:Required
-	// CephClientKey set the Ceph cluster key used by Cinder
-	CephClientKey string `json:"cephClientKey"`
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="CephUser"
-	// CephUser set the Ceph cluster pool used by Cinder
-	CephUser string `json:"cephUser,omitempty"`
-	// +kubebuilder:validation:Optional
-	// CephPools - Map of chosen names to spec definitions for the Ceph cluster
-	// pools used by Cinder
-	CephPools map[string]CephPoolSpec `json:"cephPools,omitempty"`
-}
-
-// CephPoolSpec defines the Ceph pool Spec parameters
-type CephPoolSpec struct {
-	// +kubebuilder:validation:Required
-	// CephPoolName defines the name of the pool
-	CephPoolName string `json:"name"`
-}
