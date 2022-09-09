@@ -62,12 +62,7 @@ func Deployment(
 				"/bin/true",
 			},
 		}
-
-		readinessProbe.Exec = &corev1.ExecAction{
-			Command: []string{
-				"/bin/true",
-			},
-		}
+		readinessProbe.Exec = livenessProbe.Exec
 	} else {
 		args = append(args, ServiceCommand)
 		//
@@ -77,10 +72,7 @@ func Deployment(
 			Path: "/healthcheck",
 			Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(cinder.CinderPublicPort)},
 		}
-		readinessProbe.HTTPGet = &corev1.HTTPGetAction{
-			Path: "/healthcheck",
-			Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(cinder.CinderPublicPort)},
-		}
+		readinessProbe.HTTPGet = livenessProbe.HTTPGet
 	}
 
 	envVars := map[string]env.Setter{}
