@@ -69,12 +69,6 @@ func StatefulSet(
 				"/bin/true",
 			},
 		}
-
-		readinessProbe.Exec = &corev1.ExecAction{
-			Command: []string{
-				"/bin/true",
-			},
-		}
 	} else {
 		args = append(args, ServiceCommand)
 		livenessProbe.Exec = &corev1.ExecAction{
@@ -83,21 +77,9 @@ func StatefulSet(
 				"cinder-backup",
 			},
 		}
-
-		readinessProbe.Exec = &corev1.ExecAction{
-			Command: []string{
-				"/usr/local/bin/container-scripts/healthcheck.sh",
-				"cinder-backup",
-			},
-		}
-
-		startupProbe.Exec = &corev1.ExecAction{
-			Command: []string{
-				"/usr/local/bin/container-scripts/healthcheck.sh",
-				"cinder-backup",
-			},
-		}
 	}
+	readinessProbe.Exec = livenessProbe.Exec
+	startupProbe.Exec = livenessProbe.Exec
 
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_FILE"] = env.SetValue(KollaConfig)
