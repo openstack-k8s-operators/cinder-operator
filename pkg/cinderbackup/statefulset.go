@@ -86,6 +86,14 @@ func StatefulSet(
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
 
+	// Tune glibc for reduced memory usage and fragmentation using single malloc arena for all
+	// threads and disabling dynamic thresholds to reduce memory usage when using native threads
+	// directly or via eventlet.tpool
+	// https://www.gnu.org/software/libc/manual/html_node/Memory-Allocation-Tunables.html
+	envVars["MALLOC_ARENA_MAX"] = env.SetValue("1")
+	envVars["MALLOC_MMAP_THRESHOLD_"] = env.SetValue("131072")
+	envVars["MALLOC_TRIM_THRESHOLD_"] = env.SetValue("262144")
+
 	statefulset := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
