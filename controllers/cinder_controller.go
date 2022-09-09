@@ -210,14 +210,14 @@ func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *CinderReconciler) reconcileDelete(ctx context.Context, instance *cinderv1beta1.Cinder, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info("Reconciling Service delete")
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
 	// TODO: We might need to control how the sub-services (API, Backup, Scheduler and Volumes) are
 	// deleted (when their parent Cinder CR is deleted) once we further develop their functionality
 
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-	r.Log.Info("Reconciled Service delete successfully")
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
 	if err := r.Update(ctx, instance); err != nil && !k8s_errors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	}
@@ -231,7 +231,7 @@ func (r *CinderReconciler) reconcileInit(
 	helper *helper.Helper,
 	serviceLabels map[string]string,
 ) (ctrl.Result, error) {
-	r.Log.Info("Reconciling Service init")
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
 
 	//
 	// create service DB instance
@@ -328,18 +328,18 @@ func (r *CinderReconciler) reconcileInit(
 		if err := r.Client.Status().Update(ctx, instance); err != nil {
 			return ctrl.Result{}, err
 		}
-		r.Log.Info(fmt.Sprintf("Job %s hash added - %s", jobDef.Name, instance.Status.Hash[cinderv1beta1.DbSyncHash]))
+		r.Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, jobDef.Name, instance.Status.Hash[cinderv1beta1.DbSyncHash]))
 	}
 	instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage)
 
 	// run Cinder db sync - end
 
-	r.Log.Info("Reconciled Service init successfully")
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinderv1beta1.Cinder, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info("Reconciling Service")
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s'", instance.Name))
 
 	// If the service object doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(instance, helper.GetFinalizer())
@@ -572,27 +572,27 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		instance.Status.Conditions.MarkTrue(cinderv1beta1.CinderVolumeReadyCondition, condition.DeploymentReadyMessage)
 	}
 
-	r.Log.Info("Reconciled Service successfully")
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info("Reconciling Service update")
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
 
 	// TODO: should have minor update tasks if required
 	// - delete dbsync hash from status to rerun it?
 
-	r.Log.Info("Reconciled Service update successfully")
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.Cinder, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info("Reconciling Service upgrade")
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
 
 	// TODO: should have major version upgrade tasks
 	// -delete dbsync hash from status to rerun it?
 
-	r.Log.Info("Reconciled Service upgrade successfully")
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
@@ -705,7 +705,7 @@ func (r *CinderReconciler) createHashOfInputHashes(
 		if err := r.Client.Status().Update(ctx, instance); err != nil {
 			return hash, err
 		}
-		r.Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
+		r.Log.Info(fmt.Sprintf("Service '%s' - Input maps hash %s - %s", instance.Name, common.InputHashName, hash))
 	}
 	return hash, nil
 }

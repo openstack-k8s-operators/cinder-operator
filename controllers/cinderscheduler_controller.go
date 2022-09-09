@@ -215,11 +215,11 @@ func (r *CinderSchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *CinderSchedulerReconciler) reconcileDelete(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info("Reconciling Service delete")
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-	r.Log.Info("Reconciled Service delete successfully")
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
 	if err := r.Update(ctx, instance); err != nil && !k8s_errors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	}
@@ -233,14 +233,14 @@ func (r *CinderSchedulerReconciler) reconcileInit(
 	helper *helper.Helper,
 	serviceLabels map[string]string,
 ) (ctrl.Result, error) {
-	r.Log.Info("Reconciling Service init")
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
 
-	r.Log.Info("Reconciled Service init successfully")
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info("Reconciling Service")
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s'", instance.Name))
 
 	// If the service object doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(instance, helper.GetFinalizer())
@@ -409,27 +409,27 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	}
 	// create StatefulSet - end
 
-	r.Log.Info("Reconciled Service successfully")
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderSchedulerReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info("Reconciling Service update")
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
 
 	// TODO: should have minor update tasks if required
 	// - delete dbsync hash from status to rerun it?
 
-	r.Log.Info("Reconciled Service update successfully")
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderSchedulerReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info("Reconciling Service upgrade")
+	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
 
 	// TODO: should have major version upgrade tasks
 	// -delete dbsync hash from status to rerun it?
 
-	r.Log.Info("Reconciled Service upgrade successfully")
+	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
@@ -500,7 +500,7 @@ func (r *CinderSchedulerReconciler) createHashOfInputHashes(
 		if err := r.Client.Status().Update(ctx, instance); err != nil {
 			return hash, err
 		}
-		r.Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
+		r.Log.Info(fmt.Sprintf("Service '%s' - Input maps hash %s - %s", instance.Name, common.InputHashName, hash))
 	}
 	return hash, nil
 }
