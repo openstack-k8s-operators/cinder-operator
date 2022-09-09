@@ -253,20 +253,19 @@ func (r *CinderAPIReconciler) reconcileDelete(ctx context.Context, instance *cin
 	// It's possible to get here before the endpoints have been set in the status, so check for this
 	if instance.Status.APIEndpoints != nil {
 		for _, ksSvc := range keystoneServices {
-			ksSvcSpec := keystonev1.KeystoneServiceSpec{
-				ServiceType:        ksSvc["type"],
-				ServiceName:        ksSvc["name"],
-				ServiceDescription: ksSvc["desc"],
-				Enabled:            true,
-				APIEndpoints:       instance.Status.APIEndpoints[ksSvc["name"]],
-				ServiceUser:        instance.Spec.ServiceUser,
-				Secret:             instance.Spec.Secret,
-				PasswordSelector:   instance.Spec.PasswordSelectors.Service,
+
+			ks, err := keystone.GetKeystoneServiceWithName(ctx, helper, ksSvc["name"], instance.Namespace)
+
+			if err != nil {
+				if k8s_errors.IsNotFound(err) {
+					return ctrl.Result{}, nil
+				}
+				return ctrl.Result{}, err
 			}
 
-			ksSvcObj := keystone.NewKeystoneService(ksSvcSpec, instance.Namespace, map[string]string{}, 10)
+			ksSvcObj := keystone.NewKeystoneService(ks.Spec, instance.Namespace, map[string]string{}, 10)
+			err = ksSvcObj.Delete(ctx, helper)
 
-			err := ksSvcObj.Delete(ctx, helper)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
