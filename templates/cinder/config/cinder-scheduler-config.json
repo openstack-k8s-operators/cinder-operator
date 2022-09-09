@@ -6,12 +6,6 @@
       "dest": "/etc/cinder/cinder.conf",
       "owner": "root:cinder",
       "perm": "0640"
-    },
-    {
-      "source": "/var/lib/config-data/merged/logging.conf",
-      "dest": "/etc/cinder/logging.conf",
-      "owner": "cinder",
-      "perm": "0644"
     }
   ]
 }

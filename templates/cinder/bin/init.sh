@@ -15,8 +15,8 @@
 # under the License.
 set -ex
 
-# This script generates the nova.conf/logging.conf file and
-# copies the result to the ephemeral /var/lib/config-data/merged volume.
+# This script generates the nova.conf file and copies the result to the
+# ephemeral /var/lib/config-data/merged volume.
 #
 # Secrets are obtained from ENV variables.
 export DB=${DatabaseName:-"cinder"}
@@ -42,10 +42,10 @@ SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 cp -a ${SVC_CFG} ${SVC_CFG_MERGED}
 
 # Merge all templates from config-data defaults first, then custom
-# NOTE: custom.conf files (for both the umbrella Cinder CR in config-data/defaults 
-#       and each custom.conf for each sub-service in config-data/custom) still need 
-#       to be handled separately below because the "merge_config_dir" function will 
-#       not merge custom.conf into cinder.conf (because the files obviously have 
+# NOTE: custom.conf files (for both the umbrella Cinder CR in config-data/defaults
+#       and each custom.conf for each sub-service in config-data/custom) still need
+#       to be handled separately below because the "merge_config_dir" function will
+#       not merge custom.conf into cinder.conf (because the files obviously have
 #       different names)
 for dir in /var/lib/config-data/default /var/lib/config-data/custom
 do
@@ -62,7 +62,7 @@ echo merging /var/lib/config-data/default/custom.conf into ${SVC_CFG_MERGED}
 crudini --merge ${SVC_CFG_MERGED} < /var/lib/config-data/default/custom.conf
 
 # TODO: a cleaner way to handle this?
-# There might be service-specific extra custom conf that needs to be merged 
+# There might be service-specific extra custom conf that needs to be merged
 # with the main cinder.conf for this particular service
 if [ -n "$CUSTOMCONF" ]; then
   echo merging /var/lib/config-data/custom/${CUSTOMCONF} into ${SVC_CFG_MERGED}

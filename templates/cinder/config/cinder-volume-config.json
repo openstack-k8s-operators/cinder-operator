@@ -8,12 +8,6 @@
       "perm": "0640"
     },
     {
-      "source": "/var/lib/config-data/merged/logging.conf",
-      "dest": "/etc/cinder/logging.conf",
-      "owner": "root:cinder",
-      "perm": "0644"
-    },
-    {
       "source": "/var/lib/config-data/merged/nfs_shares",
       "dest": "/etc/cinder/nfs_shares",
       "owner": "root:cinder",
