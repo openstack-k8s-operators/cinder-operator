@@ -256,18 +256,20 @@ func (r *CinderAPIReconciler) reconcileDelete(ctx context.Context, instance *cin
 
 			ks, err := keystone.GetKeystoneServiceWithName(ctx, helper, ksSvc["name"], instance.Namespace)
 
-			if err != nil {
-				if k8s_errors.IsNotFound(err) {
-					return ctrl.Result{}, nil
-				}
+			if err != nil && !k8s_errors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
 
-			ksSvcObj := keystone.NewKeystoneService(ks.Spec, instance.Namespace, map[string]string{}, 10)
-			err = ksSvcObj.Delete(ctx, helper)
+			// Could get here if there was an error and it was "not found", so need to check again
+			// (we do it this way because we want to make sure the "RemoveFinalizer" call is
+			// executed even if the KeystoneService no longer exists)
+			if !k8s_errors.IsNotFound(err) {
+				ksSvcObj := keystone.NewKeystoneService(ks.Spec, instance.Namespace, map[string]string{}, 10)
+				err = ksSvcObj.Delete(ctx, helper)
 
-			if err != nil {
-				return ctrl.Result{}, err
+				if err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 		}
 	}
