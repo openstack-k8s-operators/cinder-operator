@@ -21,7 +21,7 @@
     },
     {
       "source": "/var/lib/config-data/merged/ceph.client.openstack.keyring",
-      "dest": "/etc/ceph/ceph.client.{{ .CephUser }}.keyring",
+      "dest": "/etc/ceph/ceph.client.{{ .User }}.keyring",
       "owner": "root:cinder",
       "perm": "0600"
     }
