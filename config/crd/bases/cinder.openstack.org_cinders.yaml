@@ -40,31 +40,30 @@ spec:
                   parameters
                 properties:
                   cephClientKey:
-                    description: CephClientKey set the Ceph cluster key used by Cinder
+                    description: ClientKey set the Ceph cluster key
                     type: string
                   cephFsid:
-                    description: CephClusterFSID defines the fsid
+                    description: ClusterFSID defines the fsid
                     type: string
                   cephMons:
-                    description: CephClusterMons defines the commma separated mon
-                      list
+                    description: ClusterMons defines the commma separated mon list
                     type: string
                   cephPools:
                     additionalProperties:
-                      description: CephPoolSpec defines the Ceph pool Spec parameters
+                      description: PoolSpec defines the Ceph pool Spec parameters
                       properties:
                         name:
-                          description: CephPoolName defines the name of the pool
+                          description: PoolName defines the name of the pool
                           type: string
                       required:
                       - name
                       type: object
-                    description: CephPools - Map of chosen names to spec definitions
-                      for the Ceph cluster pools used by Cinder
+                    description: Pools - Map of chosen names to spec definitions for
+                      the Ceph cluster pools
                     type: object
                   cephUser:
                     default: CephUser
-                    description: CephUser set the Ceph cluster pool used by Cinder
+                    description: User set the Ceph cluster pool
                     type: string
                 required:
                 - cephClientKey
