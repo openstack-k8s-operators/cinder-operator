@@ -48,12 +48,6 @@ func StatefulSet(
 		PeriodSeconds:       3,
 		InitialDelaySeconds: 3,
 	}
-	readinessProbe := &corev1.Probe{
-		// TODO might need tuning
-		TimeoutSeconds:      5,
-		PeriodSeconds:       5,
-		InitialDelaySeconds: 5,
-	}
 
 	startupProbe := &corev1.Probe{
 		TimeoutSeconds:      5,
@@ -79,7 +73,6 @@ func StatefulSet(
 			},
 		}
 	}
-	readinessProbe.Exec = livenessProbe.Exec
 	startupProbe.Exec = livenessProbe.Exec
 
 	envVars := map[string]env.Setter{}
@@ -126,7 +119,6 @@ func StatefulSet(
 							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts:   GetVolumeMounts(),
 							Resources:      instance.Spec.Resources,
-							ReadinessProbe: readinessProbe,
 							LivenessProbe:  livenessProbe,
 							StartupProbe:   startupProbe,
 						},
