@@ -39,8 +39,7 @@ import (
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	cinderapi "github.com/openstack-k8s-operators/cinder-operator/pkg/cinderapi"
-	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
-	keystone "github.com/openstack-k8s-operators/keystone-operator/pkg/external"
+	keystone "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/configmap"
@@ -236,7 +235,7 @@ func (r *CinderAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.CinderAPI{}).
-		Owns(&keystonev1.KeystoneService{}).
+		Owns(&keystone.KeystoneService{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Secret{}).
 		Owns(&routev1.Route{}).
@@ -412,7 +411,7 @@ func (r *CinderAPIReconciler) reconcileInit(
 	}
 
 	for _, ksSvc := range keystoneServices {
-		ksSvcSpec := keystonev1.KeystoneServiceSpec{
+		ksSvcSpec := keystone.KeystoneServiceSpec{
 			ServiceType:        ksSvc["type"],
 			ServiceName:        ksSvc["name"],
 			ServiceDescription: ksSvc["desc"],
