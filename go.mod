@@ -7,11 +7,10 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.20.2
 	github.com/openshift/api v3.9.0+incompatible
-	github.com/openstack-k8s-operators/cinder-operator/api v0.0.0-00010101000000-000000000000
-	github.com/openstack-k8s-operators/keystone-operator v0.0.0-20220829073635-b81faa25b71d
-	github.com/openstack-k8s-operators/keystone-operator/api v0.0.0-20220816115324-87332bf11502
+	github.com/openstack-k8s-operators/cinder-operator/api v0.0.0-20220912195319-4775f09b51db
+	github.com/openstack-k8s-operators/keystone-operator/api v0.0.0-20220913135835-6903bd5bc4e1
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220819100430-0319abfd42d9
-	github.com/openstack-k8s-operators/lib-common/modules/database v0.0.0-20220816094529-135dc67c2cdf
+	github.com/openstack-k8s-operators/lib-common/modules/database v0.0.0-20220909175216-e774739df18a
 	github.com/openstack-k8s-operators/lib-common/modules/storage v0.0.0-20220909175216-e774739df18a
 	github.com/openstack-k8s-operators/mariadb-operator/api v0.0.0-20220805235246-83412d370fdb
 	k8s.io/api v0.24.3
@@ -56,7 +55,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
-	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.0.0-20220816094529-135dc67c2cdf // indirect
+	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.0.0-20220909175216-e774739df18a // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.13.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
@@ -95,4 +94,3 @@ replace github.com/openstack-k8s-operators/cinder-operator/api => ./api
 // Without this, the following error occurs:
 // ../go/pkg/mod/k8s.io/apimachinery@v0.24.3/pkg/util/managedfields/gvkparser.go:62:39: cannot use smdschema.Schema{…} (value of type "sigs.k8s.io/structured-merge-diff/v4/schema".Schema) as type *"sigs.k8s.io/structured-merge-diff/v4/schema".Schema in struct literal
 replace sigs.k8s.io/structured-merge-diff/v4 v4.2.2 => sigs.k8s.io/structured-merge-diff/v4 v4.2.1
-

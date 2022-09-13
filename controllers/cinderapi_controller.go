@@ -40,7 +40,6 @@ import (
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	cinderapi "github.com/openstack-k8s-operators/cinder-operator/pkg/cinderapi"
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
-	keystone "github.com/openstack-k8s-operators/keystone-operator/pkg/external"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/configmap"
@@ -254,7 +253,7 @@ func (r *CinderAPIReconciler) reconcileDelete(ctx context.Context, instance *cin
 	if instance.Status.APIEndpoints != nil {
 		for _, ksSvc := range keystoneServices {
 
-			ks, err := keystone.GetKeystoneServiceWithName(ctx, helper, ksSvc["name"], instance.Namespace)
+			ks, err := keystonev1.GetKeystoneServiceWithName(ctx, helper, ksSvc["name"], instance.Namespace)
 
 			if err != nil && !k8s_errors.IsNotFound(err) {
 				return ctrl.Result{}, err
@@ -264,7 +263,7 @@ func (r *CinderAPIReconciler) reconcileDelete(ctx context.Context, instance *cin
 			// (we do it this way because we want to make sure the "RemoveFinalizer" call is
 			// executed even if the KeystoneService no longer exists)
 			if !k8s_errors.IsNotFound(err) {
-				ksSvcObj := keystone.NewKeystoneService(ks.Spec, instance.Namespace, map[string]string{}, 10)
+				ksSvcObj := keystonev1.NewKeystoneService(ks.Spec, instance.Namespace, map[string]string{}, 10)
 				err = ksSvcObj.Delete(ctx, helper)
 
 				if err != nil {
@@ -423,7 +422,7 @@ func (r *CinderAPIReconciler) reconcileInit(
 			PasswordSelector:   instance.Spec.PasswordSelectors.Service,
 		}
 
-		ksSvcObj := keystone.NewKeystoneService(ksSvcSpec, instance.Namespace, serviceLabels, 10)
+		ksSvcObj := keystonev1.NewKeystoneService(ksSvcSpec, instance.Namespace, serviceLabels, 10)
 		ctrlResult, err = ksSvcObj.CreateOrPatch(ctx, helper)
 		if err != nil {
 			return ctrlResult, err
