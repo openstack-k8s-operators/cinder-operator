@@ -38,6 +38,7 @@ func StatefulSet(
 	configHash string,
 	labels map[string]string,
 ) *appsv1.StatefulSet {
+	trueVar := true
 	runAsUser := int64(0)
 
 	// TODO until we determine how to properly query for these
@@ -111,7 +112,8 @@ func StatefulSet(
 							Args:  args,
 							Image: instance.Spec.ContainerImage,
 							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &runAsUser,
+								RunAsUser:  &runAsUser,
+								Privileged: &trueVar,
 							},
 							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts:   GetVolumeMounts(),
