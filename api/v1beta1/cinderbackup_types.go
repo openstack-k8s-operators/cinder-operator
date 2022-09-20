@@ -62,7 +62,7 @@ type CinderBackupSpec struct {
 	// +kubebuilder:validation:Optional
 	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
 	// actual action pod gets started with sleep infinity
-	Debug CinderDebug `json:"debug,omitempty"`
+	Debug CinderServiceDebug `json:"debug,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="# add your customization here"

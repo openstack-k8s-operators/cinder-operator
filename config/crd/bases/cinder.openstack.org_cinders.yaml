@@ -99,17 +99,9 @@ spec:
                       If an init container is used, it runs and the actual action
                       pod gets started with sleep infinity
                     properties:
-                      bootstrap:
-                        default: false
-                        description: Bootstrap enable debug
-                        type: boolean
-                      dbSync:
-                        default: false
-                        description: DBSync enable debug
-                        type: boolean
                       service:
                         default: false
-                        description: Service enable debug
+                        description: service enable debug
                         type: boolean
                     type: object
                   defaultConfigOverwrite:
@@ -218,17 +210,9 @@ spec:
                       If an init container is used, it runs and the actual action
                       pod gets started with sleep infinity
                     properties:
-                      bootstrap:
-                        default: false
-                        description: Bootstrap enable debug
-                        type: boolean
-                      dbSync:
-                        default: false
-                        description: DBSync enable debug
-                        type: boolean
                       service:
                         default: false
-                        description: Service enable debug
+                        description: service enable debug
                         type: boolean
                     type: object
                   defaultConfigOverwrite:
@@ -337,17 +321,9 @@ spec:
                       If an init container is used, it runs and the actual action
                       pod gets started with sleep infinity
                     properties:
-                      bootstrap:
-                        default: false
-                        description: Bootstrap enable debug
-                        type: boolean
-                      dbSync:
-                        default: false
-                        description: DBSync enable debug
-                        type: boolean
                       service:
                         default: false
-                        description: Service enable debug
+                        description: service enable debug
                         type: boolean
                     type: object
                   defaultConfigOverwrite:
@@ -457,17 +433,9 @@ spec:
                         If an init container is used, it runs and the actual action
                         pod gets started with sleep infinity
                       properties:
-                        bootstrap:
-                          default: false
-                          description: Bootstrap enable debug
-                          type: boolean
-                        dbSync:
-                          default: false
-                          description: DBSync enable debug
-                          type: boolean
                         service:
                           default: false
-                          description: Service enable debug
+                          description: service enable debug
                           type: boolean
                       type: object
                     defaultConfigOverwrite:
@@ -575,17 +543,9 @@ spec:
                   an init container is used, it runs and the actual action pod gets
                   started with sleep infinity
                 properties:
-                  bootstrap:
-                    default: false
-                    description: Bootstrap enable debug
-                    type: boolean
                   dbSync:
                     default: false
-                    description: DBSync enable debug
-                    type: boolean
-                  service:
-                    default: false
-                    description: Service enable debug
+                    description: dbSync enable debug
                     type: boolean
                 type: object
               defaultConfigOverwrite:

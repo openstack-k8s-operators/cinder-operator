@@ -37,14 +37,15 @@ type PasswordSelector struct {
 type CinderDebug struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	// DBSync enable debug
+	// dbSync enable debug
 	DBSync bool `json:"dbSync,omitempty"`
+}
+
+// CinderServiceDebug indicates whether certain stages of Cinder service
+// deployment should pause in debug mode
+type CinderServiceDebug struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	// Bootstrap enable debug
-	Bootstrap bool `json:"bootstrap,omitempty"`
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	// Service enable debug
+	// service enable debug
 	Service bool `json:"service,omitempty"`
 }
