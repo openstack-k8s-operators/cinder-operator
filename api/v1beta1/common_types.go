@@ -33,8 +33,13 @@ type PasswordSelector struct {
 	TransportURL string `json:"transportUrl,omitempty"`
 }
 
-// CinderDebug indicates whether certain stages of Cinder deployment should pause in debug mode
+// CinderDebug indicates whether certain stages of Cinder deployment should
+// pause in debug mode
 type CinderDebug struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// dbInitContainer enable debug (waits until /tmp/stop-init-container disappears)
+	DBInitContainer bool `json:"dbInitContainer,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// dbSync enable debug
@@ -44,6 +49,10 @@ type CinderDebug struct {
 // CinderServiceDebug indicates whether certain stages of Cinder service
 // deployment should pause in debug mode
 type CinderServiceDebug struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// initContainer enable debug (waits until /tmp/stop-init-container disappears)
+	InitContainer bool `json:"initContainer,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// service enable debug

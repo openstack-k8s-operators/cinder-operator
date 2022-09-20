@@ -75,6 +75,7 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string) *batchv
 		DBPasswordSelector:   instance.Spec.PasswordSelectors.Database,
 		UserPasswordSelector: instance.Spec.PasswordSelectors.Service,
 		VolumeMounts:         GetInitVolumeMounts(),
+		Debug:                instance.Spec.Debug.DBInitContainer,
 	}
 	job.Spec.Template.Spec.InitContainers = InitContainer(initContainerDetails)
 

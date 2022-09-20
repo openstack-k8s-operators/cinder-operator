@@ -60,6 +60,11 @@ spec:
                   an init container is used, it runs and the actual action pod gets
                   started with sleep infinity
                 properties:
+                  initContainer:
+                    default: false
+                    description: initContainer enable debug (waits until /tmp/stop-init-container
+                      disappears)
+                    type: boolean
                   service:
                     default: false
                     description: service enable debug
