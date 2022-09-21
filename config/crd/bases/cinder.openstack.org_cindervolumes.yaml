@@ -111,6 +111,7 @@ spec:
                 default: 1
                 description: Replicas - Cinder Volume Replicas
                 format: int32
+                maximum: 1
                 type: integer
               resources:
                 description: Resources - Compute Resources required by this service
