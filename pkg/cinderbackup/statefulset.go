@@ -28,11 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const (
-	// ServiceCommand -
-	ServiceCommand = "/usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start"
-)
-
 // StatefulSet func
 func StatefulSet(
 	instance *cinderv1beta1.CinderBackup,
@@ -40,11 +35,6 @@ func StatefulSet(
 	labels map[string]string,
 ) *appsv1.StatefulSet {
 	trueVar := true
-	rootUser := int64(0)
-	// Cinder's uid and gid magic numbers come from the 'cinder-user' in
-	// https://github.com/openstack/kolla/blob/master/kolla/common/users.py
-	cinderUser := int64(42407)
-	cinderGroup := int64(42407)
 
 	// TODO until we determine how to properly query for these
 	livenessProbe := &corev1.Probe{
@@ -61,40 +51,24 @@ func StatefulSet(
 		InitialDelaySeconds: 5,
 	}
 
-	args := []string{"-c"}
-	var probeCommand []string
 	// When debugging the service container will run kolla_set_configs and
 	// sleep forever and the probe container will just sleep forever.
 	if instance.Spec.Debug.Service {
-		args = append(args, common.DebugCommand)
 		livenessProbe.Exec = &corev1.ExecAction{
 			Command: []string{
 				"/bin/true",
 			},
 		}
 		startupProbe.Exec = livenessProbe.Exec
-		probeCommand = []string{
-			"/bin/sleep", "infinity",
-		}
 	} else {
-		args = append(args, ServiceCommand)
 		// Use the HTTP probe now that we have a simple server running
 		livenessProbe.HTTPGet = &corev1.HTTPGetAction{
 			Port: intstr.FromInt(8080),
 		}
 		startupProbe.HTTPGet = livenessProbe.HTTPGet
-		// Probe doesn't run kolla_set_configs because it uses the 'cinder' uid
-		// and gid and doesn't have permissions to make files be owned by root,
-		// so cinder.conf is in its original location
-		probeCommand = []string{
-			"/usr/local/bin/container-scripts/healthcheck.py",
-			"backup",
-			"/var/lib/config-data/merged/cinder.conf",
-		}
 	}
 
 	envVars := map[string]env.Setter{}
-	envVars["KOLLA_CONFIG_FILE"] = env.SetValue(KollaConfig)
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
 
@@ -106,7 +80,8 @@ func StatefulSet(
 	envVars["MALLOC_MMAP_THRESHOLD_"] = env.SetValue("131072")
 	envVars["MALLOC_TRIM_THRESHOLD_"] = env.SetValue("262144")
 
-	volumeMounts := GetVolumeMounts()
+	volumeMounts := GetVolumeMounts(instance.Name)
+	probeMounts := GetProbeVolumeMounts(instance.Name)
 
 	statefulset := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -126,14 +101,9 @@ func StatefulSet(
 					ServiceAccountName: cinder.ServiceAccount,
 					Containers: []corev1.Container{
 						{
-							Name: cinder.ServiceName + "-backup",
-							Command: []string{
-								"/bin/bash",
-							},
-							Args:  args,
+							Name:  cinder.ServiceName + "-backup",
 							Image: instance.Spec.ContainerImage,
 							SecurityContext: &corev1.SecurityContext{
-								RunAsUser:  &rootUser,
 								Privileged: &trueVar,
 							},
 							Env:           env.MergeEnvs([]corev1.EnvVar{}, envVars),
@@ -143,14 +113,10 @@ func StatefulSet(
 							StartupProbe:  startupProbe,
 						},
 						{
-							Name:    "probe",
-							Command: probeCommand,
-							Image:   instance.Spec.ContainerImage,
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser:  &cinderUser,
-								RunAsGroup: &cinderGroup,
-							},
-							VolumeMounts: volumeMounts,
+							Name:         "probe",
+							Image:        instance.Spec.ContainerImage,
+							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts: probeMounts,
 						},
 					},
 					NodeSelector: instance.Spec.NodeSelector,
@@ -181,7 +147,7 @@ func StatefulSet(
 		OSPSecret:            instance.Spec.Secret,
 		DBPasswordSelector:   instance.Spec.PasswordSelectors.Database,
 		UserPasswordSelector: instance.Spec.PasswordSelectors.Service,
-		VolumeMounts:         GetInitVolumeMounts(),
+		VolumeMounts:         GetInitVolumeMounts(instance.Name),
 		Debug:                instance.Spec.Debug.InitContainer,
 	}
 

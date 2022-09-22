@@ -2,6 +2,7 @@ package cinderbackup
 
 import (
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
+	common "github.com/openstack-k8s-operators/lib-common/modules/common"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -11,7 +12,7 @@ func GetVolumes(parentName string, name string) []corev1.Volume {
 
 	backupVolumes := []corev1.Volume{
 		{
-			Name: "config-data-custom",
+			Name: name + "-config-data",
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					DefaultMode: &config0640AccessMode,
@@ -27,11 +28,12 @@ func GetVolumes(parentName string, name string) []corev1.Volume {
 }
 
 // GetInitVolumeMounts - Cinder Backup init task VolumeMounts
-func GetInitVolumeMounts() []corev1.VolumeMount {
+func GetInitVolumeMounts(name string) []corev1.VolumeMount {
 
 	customConfVolumeMount := corev1.VolumeMount{
-		Name:      "config-data-custom",
-		MountPath: "/var/lib/config-data/custom",
+		Name:      name + "-config-data",
+		MountPath: "/var/lib/config-data/custom/" + common.CustomServiceConfigFileName,
+		SubPath:   common.CustomServiceConfigFileName,
 		ReadOnly:  true,
 	}
 
@@ -39,6 +41,25 @@ func GetInitVolumeMounts() []corev1.VolumeMount {
 }
 
 // GetVolumeMounts - Cinder Backup VolumeMounts
-func GetVolumeMounts() []corev1.VolumeMount {
-	return cinder.GetVolumeMounts()
+func GetVolumeMounts(name string) []corev1.VolumeMount {
+
+	kollaConfigVolumeMount := corev1.VolumeMount{
+		Name:      name + "-config-data",
+		MountPath: "/var/lib/kolla/config_files/config.json",
+		SubPath:   KollaConfig,
+		ReadOnly:  true,
+	}
+	return append(cinder.GetVolumeMounts(), kollaConfigVolumeMount)
+}
+
+// GetProbeVolumeMounts - Cinder Backup Probe VolumeMounts
+func GetProbeVolumeMounts(name string) []corev1.VolumeMount {
+
+	kollaConfigVolumeMount := corev1.VolumeMount{
+		Name:      name + "-config-data",
+		MountPath: "/var/lib/kolla/config_files/config.json",
+		SubPath:   KollaConfigProbe,
+		ReadOnly:  true,
+	}
+	return append(cinder.GetVolumeMounts(), kollaConfigVolumeMount)
 }

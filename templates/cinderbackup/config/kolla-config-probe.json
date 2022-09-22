@@ -1,0 +1,15 @@
+{
+    {{if .ServiceDebug}}
+    "command": "/bin/sleep infinity",
+    {{else}}
+    "command": "/usr/local/bin/container-scripts/healthcheck.py backup",
+    {{end}}
+    "config_files": [
+      {
+        "source": "/var/lib/config-data/merged/cinder.conf",
+        "dest": "/etc/cinder/cinder.conf",
+        "owner": "root:cinder",
+        "perm": "0640"
+      }
+    ]
+}

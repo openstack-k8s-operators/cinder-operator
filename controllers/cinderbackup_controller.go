@@ -455,6 +455,10 @@ func (r *CinderBackupReconciler) generateServiceConfigMaps(
 	// TODO: make sure custom.conf can not be overwritten
 	customData := map[string]string{common.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig}
 
+	templateParameters := map[string]interface{}{
+		"ServiceDebug": instance.Spec.Debug.Service,
+	}
+
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
 		customData[key] = data
 	}
@@ -464,12 +468,13 @@ func (r *CinderBackupReconciler) generateServiceConfigMaps(
 	cms := []util.Template{
 		// Custom ConfigMap
 		{
-			Name:         fmt.Sprintf("%s-config-data", instance.Name),
-			Namespace:    instance.Namespace,
-			Type:         util.TemplateTypeConfig,
-			InstanceType: instance.Kind,
-			CustomData:   customData,
-			Labels:       cmLabels,
+			Name:          fmt.Sprintf("%s-config-data", instance.Name),
+			Namespace:     instance.Namespace,
+			Type:          util.TemplateTypeConfig,
+			InstanceType:  instance.Kind,
+			CustomData:    customData,
+			Labels:        cmLabels,
+			ConfigOptions: templateParameters,
 		},
 	}
 

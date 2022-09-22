@@ -17,5 +17,7 @@ package cinderbackup
 
 const (
 	// KollaConfig -
-	KollaConfig = "/var/lib/config-data/merged/cinder-backup-config.json"
+	KollaConfig = "kolla-config.json"
+	// KollaConfigProbe -
+	KollaConfigProbe = "kolla-config-probe.json"
 )
