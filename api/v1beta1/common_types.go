@@ -33,18 +33,28 @@ type PasswordSelector struct {
 	TransportURL string `json:"transportUrl,omitempty"`
 }
 
-// CinderDebug indicates whether certain stages of Cinder deployment should pause in debug mode
+// CinderDebug indicates whether certain stages of Cinder deployment should
+// pause in debug mode
 type CinderDebug struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	// DBSync enable debug
+	// dbInitContainer enable debug (waits until /tmp/stop-init-container disappears)
+	DBInitContainer bool `json:"dbInitContainer,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// dbSync enable debug
 	DBSync bool `json:"dbSync,omitempty"`
+}
+
+// CinderServiceDebug indicates whether certain stages of Cinder service
+// deployment should pause in debug mode
+type CinderServiceDebug struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	// Bootstrap enable debug
-	Bootstrap bool `json:"bootstrap,omitempty"`
+	// initContainer enable debug (waits until /tmp/stop-init-container disappears)
+	InitContainer bool `json:"initContainer,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	// Service enable debug
+	// service enable debug
 	Service bool `json:"service,omitempty"`
 }

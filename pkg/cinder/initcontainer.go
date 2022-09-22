@@ -33,6 +33,7 @@ type APIDetails struct {
 	UserPasswordSelector string
 	VolumeMounts         []corev1.VolumeMount
 	Privileged           bool
+	Debug                bool
 }
 
 const (
@@ -53,9 +54,15 @@ func InitContainer(init APIDetails) []corev1.Container {
 		securityContext.Privileged = &trueVar
 	}
 
-	args := []string{
-		"-c",
-		InitContainerCommand,
+	args := []string{"-c"}
+
+	if init.Debug {
+		args = append(
+			args,
+			"touch /tmp/stop-init-container && while [ -f  /tmp/stop-init-container ]; do sleep 5; done",
+		)
+	} else {
+		args = append(args, InitContainerCommand)
 	}
 
 	envVars := map[string]env.Setter{}
