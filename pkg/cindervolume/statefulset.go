@@ -25,6 +25,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -39,7 +40,11 @@ func StatefulSet(
 	labels map[string]string,
 ) *appsv1.StatefulSet {
 	trueVar := true
-	runAsUser := int64(0)
+	rootUser := int64(0)
+	// Cinder's uid and gid magic numbers come from the 'cinder-user' in
+	// https://github.com/openstack/kolla/blob/master/kolla/common/users.py
+	cinderUser := int64(42407)
+	cinderGroup := int64(42407)
 
 	// TODO until we determine how to properly query for these
 	livenessProbe := &corev1.Probe{
@@ -47,12 +52,6 @@ func StatefulSet(
 		TimeoutSeconds:      5,
 		PeriodSeconds:       3,
 		InitialDelaySeconds: 3,
-	}
-	readinessProbe := &corev1.Probe{
-		// TODO might need tuning
-		TimeoutSeconds:      5,
-		PeriodSeconds:       5,
-		InitialDelaySeconds: 5,
 	}
 
 	startupProbe := &corev1.Probe{
@@ -63,6 +62,9 @@ func StatefulSet(
 	}
 
 	args := []string{"-c"}
+	var probeCommand []string
+	// When debugging the service container will run kolla_set_configs and
+	// sleep forever and the probe container will just sleep forever.
 	if instance.Spec.Debug.Service {
 		args = append(args, common.DebugCommand)
 		livenessProbe.Exec = &corev1.ExecAction{
@@ -70,17 +72,26 @@ func StatefulSet(
 				"/bin/true",
 			},
 		}
+		startupProbe.Exec = livenessProbe.Exec
+		probeCommand = []string{
+			"/bin/sleep", "infinity",
+		}
 	} else {
 		args = append(args, ServiceCommand)
-		livenessProbe.Exec = &corev1.ExecAction{
-			Command: []string{
-				"/usr/local/bin/container-scripts/healthcheck.sh",
-				"cinder-volume",
-			},
+		// Use the HTTP probe now that we have a simple server running
+		livenessProbe.HTTPGet = &corev1.HTTPGetAction{
+			Port: intstr.FromInt(8080),
+		}
+		startupProbe.HTTPGet = livenessProbe.HTTPGet
+		// Probe doesn't run kolla_set_configs because it uses the 'cinder' uid
+		// and gid and doesn't have permissions to make files be owned by root,
+		// so cinder.conf is in its original location
+		probeCommand = []string{
+			"/usr/local/bin/container-scripts/healthcheck.py",
+			"volume",
+			"/var/lib/config-data/merged/cinder.conf",
 		}
 	}
-	readinessProbe.Exec = livenessProbe.Exec
-	startupProbe.Exec = livenessProbe.Exec
 
 	envVars := map[string]env.Setter{}
 	envVars["KOLLA_CONFIG_FILE"] = env.SetValue(KollaConfig)
@@ -94,6 +105,8 @@ func StatefulSet(
 	envVars["MALLOC_ARENA_MAX"] = env.SetValue("1")
 	envVars["MALLOC_MMAP_THRESHOLD_"] = env.SetValue("131072")
 	envVars["MALLOC_TRIM_THRESHOLD_"] = env.SetValue("262144")
+
+	volumeMounts := GetVolumeMounts()
 
 	statefulset := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -120,15 +133,24 @@ func StatefulSet(
 							Args:  args,
 							Image: instance.Spec.ContainerImage,
 							SecurityContext: &corev1.SecurityContext{
-								RunAsUser:  &runAsUser,
+								RunAsUser:  &rootUser,
 								Privileged: &trueVar,
 							},
-							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:   GetVolumeMounts(),
-							Resources:      instance.Spec.Resources,
-							ReadinessProbe: readinessProbe,
-							LivenessProbe:  livenessProbe,
-							StartupProbe:   startupProbe,
+							Env:           env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:  volumeMounts,
+							Resources:     instance.Spec.Resources,
+							LivenessProbe: livenessProbe,
+							StartupProbe:  startupProbe,
+						},
+						{
+							Name:    "probe",
+							Command: probeCommand,
+							Image:   instance.Spec.ContainerImage,
+							SecurityContext: &corev1.SecurityContext{
+								RunAsUser:  &cinderUser,
+								RunAsGroup: &cinderGroup,
+							},
+							VolumeMounts: volumeMounts,
 						},
 					},
 					NodeSelector: instance.Spec.NodeSelector,
