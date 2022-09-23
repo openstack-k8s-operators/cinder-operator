@@ -455,8 +455,13 @@ func (r *CinderBackupReconciler) generateServiceConfigMaps(
 	// TODO: make sure custom.conf can not be overwritten
 	customData := map[string]string{common.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig}
 
-	templateParameters := map[string]interface{}{
-		"ServiceDebug": instance.Spec.Debug.Service,
+	templateParameters := map[string]interface{}{}
+	if instance.Spec.Debug.Service {
+		templateParameters["KollaCommand"] = cinderbackup.KollaDebugCommand
+		templateParameters["KollaProbeCommand"] = cinderbackup.KollaDebugCommand
+	} else {
+		templateParameters["KollaCommand"] = cinderbackup.KollaDefaultCommand
+		templateParameters["KollaProbeCommand"] = cinderbackup.KollaDefaultProbeCommand
 	}
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {

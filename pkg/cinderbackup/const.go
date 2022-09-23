@@ -20,4 +20,10 @@ const (
 	KollaConfig = "kolla-config.json"
 	// KollaConfigProbe -
 	KollaConfigProbe = "kolla-config-probe.json"
+	// KollaDefaultCommand -
+	KollaDefaultCommand = "/usr/bin/cinder-backup --config-file /usr/share/cinder/cinder-dist.conf --config-file /etc/cinder/cinder.conf"
+	// KollaDefaultProbeCommand -
+	KollaDefaultProbeCommand = "/usr/local/bin/container-scripts/healthcheck.py backup"
+	// KollaDebugCommand -
+	KollaDebugCommand = "/bin/sleep infinity"
 )

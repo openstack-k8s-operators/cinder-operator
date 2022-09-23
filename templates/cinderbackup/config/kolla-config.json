@@ -1,9 +1,5 @@
 {
-  {{if .ServiceDebug}}
-  "command": "/bin/sleep infinity",
-  {{else}}
-  "command": "/usr/bin/cinder-backup --config-file /usr/share/cinder/cinder-dist.conf --config-file /etc/cinder/cinder.conf",
-  {{end}}
+  "command": "{{ .KollaCommand }}",
   "config_files": [
     {
       "source": "/var/lib/config-data/merged/cinder.conf",
