@@ -100,7 +100,6 @@ type CinderReconciler struct {
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;create;update;patch;delete;watch
 // +kubebuilder:rbac:groups=mariadb.openstack.org,resources=mariadbdatabases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapis,verbs=get;list;watch
-// +kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneservices,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile -
 func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

@@ -104,6 +104,8 @@ var (
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;create;update;patch;delete;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;create;update;patch;delete;watch
+// +kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneservices,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneendpoints,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile -
 func (r *CinderAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -134,8 +136,9 @@ func (r *CinderAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
 			condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
 			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
-			// right now we have no dedicated KeystoneServiceReadyInitMessage
+			// right now we have no dedicated KeystoneServiceReadyInitMessage and KeystoneEndpointReadyInitMessage
 			condition.UnknownCondition(condition.KeystoneServiceReadyCondition, condition.InitReason, ""),
+			condition.UnknownCondition(condition.KeystoneEndpointReadyCondition, condition.InitReason, ""),
 		)
 
 		instance.Status.Conditions.Init(&cl)
@@ -236,6 +239,7 @@ func (r *CinderAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.CinderAPI{}).
 		Owns(&keystonev1.KeystoneService{}).
+		Owns(&keystonev1.KeystoneEndpoint{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Secret{}).
 		Owns(&routev1.Route{}).
@@ -403,7 +407,7 @@ func (r *CinderAPIReconciler) reconcileInit(
 	// expose service - end
 
 	//
-	// create users and endpoints - https://docs.openstack.org/Cinder/latest/install/install-rdo.html#configure-user-and-endpoints
+	// create service and user in keystone - - https://docs.openstack.org/Cinder/latest/install/install-rdo.html#configure-user-and-endpoints
 	// TODO: rework this
 	//
 	if instance.Status.ServiceIDs == nil {
@@ -416,7 +420,6 @@ func (r *CinderAPIReconciler) reconcileInit(
 			ServiceName:        ksSvc["name"],
 			ServiceDescription: ksSvc["desc"],
 			Enabled:            true,
-			APIEndpoints:       instance.Status.APIEndpoints[ksSvc["name"]],
 			ServiceUser:        instance.Spec.ServiceUser,
 			Secret:             instance.Spec.Secret,
 			PasswordSelector:   instance.Spec.PasswordSelectors.Service,
@@ -440,6 +443,33 @@ func (r *CinderAPIReconciler) reconcileInit(
 		}
 
 		instance.Status.ServiceIDs[ksSvc["name"]] = ksSvcObj.GetServiceID()
+
+		ksEndptSpec := keystonev1.KeystoneEndpointSpec{
+			ServiceName: ksSvc["name"],
+			Endpoints:   instance.Status.APIEndpoints[ksSvc["name"]],
+		}
+
+		ksEndptObj := keystonev1.NewKeystoneEndpoint(
+			ksSvc["name"],
+			instance.Namespace,
+			ksEndptSpec,
+			serviceLabels,
+			10)
+		ctrlResult, err = ksEndptObj.CreateOrPatch(ctx, helper)
+		if err != nil {
+			return ctrlResult, err
+		}
+
+		// mirror the Status, Reason, Severity and Message of the latest keystoneendpoint condition
+		// into a local condition with the type condition.KeystoneEndpointReadyCondition
+		c = ksEndptObj.GetConditions().Mirror(condition.KeystoneEndpointReadyCondition)
+		if c != nil {
+			instance.Status.Conditions.Set(c)
+		}
+
+		if (ctrlResult != ctrl.Result{}) {
+			return ctrlResult, nil
+		}
 	}
 
 	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))

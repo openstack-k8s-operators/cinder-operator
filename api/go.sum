@@ -98,8 +98,12 @@ github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1y
 github.com/onsi/gomega v1.20.2 h1:8uQq0zMgLEfa0vRrrBgaJF2gyW9Da9BmfGV+OyUzfkY=
 github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220819100430-0319abfd42d9 h1:3g6+RKXFGE0qB5XVhTjhn0NlaAERY/vBX7gMsHxZRJA=
 github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220819100430-0319abfd42d9/go.mod h1:KWqK7l2ej+rIYngoNUrxE2YjKGlRAAgJXXM0uU2R6XY=
+github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220923094431-9fca0c85a9dc h1:UTbfs3HabSI6LtE8vVClFg/H2Zq79x+zbhclQHWwpkY=
+github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20220923094431-9fca0c85a9dc/go.mod h1:KWqK7l2ej+rIYngoNUrxE2YjKGlRAAgJXXM0uU2R6XY=
 github.com/openstack-k8s-operators/lib-common/modules/storage v0.0.0-20220909175216-e774739df18a h1:IL5OcKnaVG/hHKUynkn3TrF4PW5RCOFpGAzCi8gv7uU=
 github.com/openstack-k8s-operators/lib-common/modules/storage v0.0.0-20220909175216-e774739df18a/go.mod h1:fhM62I45VF/5WVpOP1h9OpTfFn+lF2XGrT5jUBKEHVc=
+github.com/openstack-k8s-operators/lib-common/modules/storage v0.0.0-20220923094431-9fca0c85a9dc h1:Dud2dr25VhaZF9Av28nqmCeBfNkGWDckZ5TaajEcGFc=
+github.com/openstack-k8s-operators/lib-common/modules/storage v0.0.0-20220923094431-9fca0c85a9dc/go.mod h1:fhM62I45VF/5WVpOP1h9OpTfFn+lF2XGrT5jUBKEHVc=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
