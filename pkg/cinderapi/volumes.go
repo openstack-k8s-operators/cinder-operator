@@ -23,7 +23,7 @@ func GetVolumes(parentName string, name string) []corev1.Volume {
 		},
 	}
 
-	return append(cinder.GetVolumes(parentName), backupVolumes...)
+	return append(cinder.GetVolumes(parentName, false), backupVolumes...)
 }
 
 // GetInitVolumeMounts - Cinder API init task VolumeMounts
@@ -40,5 +40,5 @@ func GetInitVolumeMounts() []corev1.VolumeMount {
 
 // GetVolumeMounts - Cinder API VolumeMounts
 func GetVolumeMounts() []corev1.VolumeMount {
-	return cinder.GetVolumeMounts()
+	return cinder.GetVolumeMounts(false)
 }
