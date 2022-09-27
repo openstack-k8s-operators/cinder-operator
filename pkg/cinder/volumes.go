@@ -108,15 +108,6 @@ func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExt
 					},
 				},
 			},
-			{
-				Name: "var-lib-iscsi",
-				VolumeSource: corev1.VolumeSource{
-					HostPath: &corev1.HostPathVolumeSource{
-						Path: "/var/lib/iscsi",
-						Type: &dirOrCreate,
-					},
-				},
-			},
 			// os-brick locks need to be shared between the different volume
 			// consumers (available in OSP18)
 			{
@@ -229,10 +220,6 @@ func GetVolumeMounts(storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMou
 			{
 				Name:      "sys",
 				MountPath: "/sys",
-			},
-			{
-				Name:      "var-lib-iscsi",
-				MountPath: "/var/lib/iscsi",
 			},
 			{
 				Name:      "var-locks-brick",
