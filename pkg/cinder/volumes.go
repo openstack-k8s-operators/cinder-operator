@@ -113,6 +113,28 @@ func GetVolumes(name string, storageSvc bool) []corev1.Volume {
 					},
 				},
 			},
+			// os-brick locks need to be shared between the different volume
+			// consumers (available in OSP18)
+			{
+				Name: "var-locks-brick",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/var/locks/openstack/os-brick",
+						Type: &dirOrCreate,
+					},
+				},
+			},
+			// In OSP17 there is no os-brick specific lock path conf option,
+			// so the global cinder one is used for os-brick locks
+			{
+				Name: "var-locks-cinder",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/var/locks/openstack/cinder",
+						Type: &dirOrCreate,
+					},
+				},
+			},
 		}
 
 		res = append(res, storageVolumes...)
@@ -196,6 +218,16 @@ func GetVolumeMounts(storageSvc bool) []corev1.VolumeMount {
 			{
 				Name:      "var-lib-iscsi",
 				MountPath: "/var/lib/iscsi",
+			},
+			{
+				Name:      "var-locks-brick",
+				MountPath: "/var/locks/openstack/os-brick",
+				ReadOnly:  false,
+			},
+			{
+				Name:      "var-locks-cinder",
+				MountPath: "/var/locks/openstack/cinder",
+				ReadOnly:  false,
 			},
 		}
 		res = append(res, storageVolumeMounts...)
