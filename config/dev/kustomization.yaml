@@ -1,0 +1,5 @@
+namespace: openstack
+namePrefix: cinder-operator-
+bases:
+- ../crd
+- ../rbac
