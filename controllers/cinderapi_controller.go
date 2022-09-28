@@ -257,22 +257,32 @@ func (r *CinderAPIReconciler) reconcileDelete(ctx context.Context, instance *cin
 	if instance.Status.APIEndpoints != nil {
 		for _, ksSvc := range keystoneServices {
 
-			ks, err := keystonev1.GetKeystoneServiceWithName(ctx, helper, ksSvc["name"], instance.Namespace)
-
+			// Remove the finalizer from our KeystoneEndpoint CR
+			keystoneEndpoint, err := keystonev1.GetKeystoneEndpointWithName(ctx, helper, ksSvc["name"], instance.Namespace)
 			if err != nil && !k8s_errors.IsNotFound(err) {
 				return ctrl.Result{}, err
 			}
 
-			// Could get here if there was an error and it was "not found", so need to check again
-			// (we do it this way because we want to make sure the "RemoveFinalizer" call is
-			// executed even if the KeystoneService no longer exists)
-			if !k8s_errors.IsNotFound(err) {
-				ksSvcObj := keystonev1.NewKeystoneService(ks.Spec, instance.Namespace, map[string]string{}, 10)
-				err = ksSvcObj.Delete(ctx, helper)
-
-				if err != nil {
+			if err == nil {
+				controllerutil.RemoveFinalizer(keystoneEndpoint, helper.GetFinalizer())
+				if err = helper.GetClient().Update(ctx, keystoneEndpoint); err != nil && !k8s_errors.IsNotFound(err) {
 					return ctrl.Result{}, err
 				}
+				util.LogForObject(helper, "Removed finalizer from our KeystoneEndpoint", instance)
+			}
+
+			// Remove the finalizer from our KeystoneService CR
+			keystoneService, err := keystonev1.GetKeystoneServiceWithName(ctx, helper, ksSvc["name"], instance.Namespace)
+			if err != nil && !k8s_errors.IsNotFound(err) {
+				return ctrl.Result{}, err
+			}
+
+			if err == nil {
+				controllerutil.RemoveFinalizer(keystoneService, helper.GetFinalizer())
+				if err = helper.GetClient().Update(ctx, keystoneService); err != nil && !k8s_errors.IsNotFound(err) {
+					return ctrl.Result{}, err
+				}
+				util.LogForObject(helper, "Removed finalizer from our KeystoneService", instance)
 			}
 		}
 	}
