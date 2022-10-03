@@ -12,59 +12,10 @@ func GetVolumes(parentName string, name string) []corev1.Volume {
 
 	volumeVolumes := []corev1.Volume{
 		{
-			Name: "etc-iscsi",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/etc/iscsi",
-				},
-			},
-		},
-		{
-			Name: "dev",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/dev",
-				},
-			},
-		},
-		{
-			Name: "lib-modules",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/lib/modules",
-				},
-			},
-		},
-		{
-			Name: "run",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/run",
-				},
-			},
-		},
-		{
-			Name: "sys",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/sys",
-				},
-			},
-		},
-		{
 			Name: "var-lib-cinder",
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: "/var/lib/cinder",
-					Type: &dirOrCreate,
-				},
-			},
-		},
-		{
-			Name: "var-lib-iscsi",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/var/lib/iscsi",
 					Type: &dirOrCreate,
 				},
 			},
@@ -82,7 +33,7 @@ func GetVolumes(parentName string, name string) []corev1.Volume {
 		},
 	}
 
-	return append(cinder.GetVolumes(parentName), volumeVolumes...)
+	return append(cinder.GetVolumes(parentName, true), volumeVolumes...)
 }
 
 // GetInitVolumeMounts - Cinder Volume init task VolumeMounts
@@ -101,36 +52,10 @@ func GetInitVolumeMounts() []corev1.VolumeMount {
 func GetVolumeMounts() []corev1.VolumeMount {
 	volumeVolumeMounts := []corev1.VolumeMount{
 		{
-			Name:      "etc-iscsi",
-			MountPath: "/etc/iscsi",
-			ReadOnly:  true,
-		},
-		{
-			Name:      "dev",
-			MountPath: "/dev",
-		},
-		{
-			Name:      "lib-modules",
-			MountPath: "/lib/modules",
-			ReadOnly:  true,
-		},
-		{
-			Name:      "run",
-			MountPath: "/run",
-		},
-		{
-			Name:      "sys",
-			MountPath: "/sys",
-		},
-		{
 			Name:      "var-lib-cinder",
 			MountPath: "/var/lib/cinder",
 		},
-		{
-			Name:      "var-lib-iscsi",
-			MountPath: "/var/lib/iscsi",
-		},
 	}
 
-	return append(cinder.GetVolumeMounts(), volumeVolumeMounts...)
+	return append(cinder.GetVolumeMounts(true), volumeVolumeMounts...)
 }

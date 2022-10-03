@@ -55,16 +55,16 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string) *batchv
 								RunAsUser: &runAsUser,
 							},
 							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: GetVolumeMounts(),
+							VolumeMounts: GetVolumeMounts(false),
 						},
 					},
-					Volumes: GetVolumes(instance.Name),
+					Volumes: GetVolumes(instance.Name, false),
 				},
 			},
 		},
 	}
 
-	job.Spec.Template.Spec.Volumes = GetVolumes(ServiceName)
+	job.Spec.Template.Spec.Volumes = GetVolumes(ServiceName, false)
 
 	initContainerDetails := APIDetails{
 		ContainerImage:       instance.Spec.CinderAPI.ContainerImage,

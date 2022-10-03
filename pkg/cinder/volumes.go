@@ -5,11 +5,12 @@ import (
 )
 
 // GetVolumes -
-func GetVolumes(name string) []corev1.Volume {
+func GetVolumes(name string, storageSvc bool) []corev1.Volume {
 	var scriptsVolumeDefaultMode int32 = 0755
 	var config0640AccessMode int32 = 0640
+	var dirOrCreate = corev1.HostPathDirectoryOrCreate
 
-	return []corev1.Volume{
+	res := []corev1.Volume{
 		{
 			Name: "etc-machine-id",
 			VolumeSource: corev1.VolumeSource{
@@ -56,6 +57,90 @@ func GetVolumes(name string) []corev1.Volume {
 		},
 	}
 
+	// Volume and backup services require extra directories
+	if storageSvc {
+		storageVolumes := []corev1.Volume{
+			// os-brick reads the initiatorname.iscsi from theere
+			{
+				Name: "etc-iscsi",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/etc/iscsi",
+					},
+				},
+			},
+			// /dev needed for os-brick code that looks for things there and
+			// for Volume and Backup operations that access data
+			{
+				Name: "dev",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/dev",
+					},
+				},
+			},
+			{
+				Name: "lib-modules",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/lib/modules",
+					},
+				},
+			},
+			{
+				Name: "run",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/run",
+					},
+				},
+			},
+			// /sys needed for os-brick code that looks for information there
+			{
+				Name: "sys",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/sys",
+					},
+				},
+			},
+			{
+				Name: "var-lib-iscsi",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/var/lib/iscsi",
+						Type: &dirOrCreate,
+					},
+				},
+			},
+			// os-brick locks need to be shared between the different volume
+			// consumers (available in OSP18)
+			{
+				Name: "var-locks-brick",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/var/locks/openstack/os-brick",
+						Type: &dirOrCreate,
+					},
+				},
+			},
+			// In OSP17 there is no os-brick specific lock path conf option,
+			// so the global cinder one is used for os-brick locks
+			{
+				Name: "var-locks-cinder",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/var/locks/openstack/cinder",
+						Type: &dirOrCreate,
+					},
+				},
+			},
+		}
+
+		res = append(res, storageVolumes...)
+	}
+
+	return res
 }
 
 // GetInitVolumeMounts - Nova Control Plane init task VolumeMounts
@@ -81,8 +166,8 @@ func GetInitVolumeMounts() []corev1.VolumeMount {
 }
 
 // GetVolumeMounts - Nova Control Plane VolumeMounts
-func GetVolumeMounts() []corev1.VolumeMount {
-	return []corev1.VolumeMount{
+func GetVolumeMounts(storageSvc bool) []corev1.VolumeMount {
+	res := []corev1.VolumeMount{
 		{
 			Name:      "etc-machine-id",
 			MountPath: "/etc/machine-id",
@@ -105,4 +190,48 @@ func GetVolumeMounts() []corev1.VolumeMount {
 		},
 	}
 
+	// Volume and backup services require extra directories
+	if storageSvc {
+		storageVolumeMounts := []corev1.VolumeMount{
+			{
+				Name:      "etc-iscsi",
+				MountPath: "/etc/iscsi",
+				ReadOnly:  true,
+			},
+			{
+				Name:      "dev",
+				MountPath: "/dev",
+			},
+			{
+				Name:      "lib-modules",
+				MountPath: "/lib/modules",
+				ReadOnly:  true,
+			},
+			{
+				Name:      "run",
+				MountPath: "/run",
+			},
+			{
+				Name:      "sys",
+				MountPath: "/sys",
+			},
+			{
+				Name:      "var-lib-iscsi",
+				MountPath: "/var/lib/iscsi",
+			},
+			{
+				Name:      "var-locks-brick",
+				MountPath: "/var/locks/openstack/os-brick",
+				ReadOnly:  false,
+			},
+			{
+				Name:      "var-locks-cinder",
+				MountPath: "/var/locks/openstack/cinder",
+				ReadOnly:  false,
+			},
+		}
+		res = append(res, storageVolumeMounts...)
+	}
+
+	return res
 }
