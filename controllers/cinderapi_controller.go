@@ -50,6 +50,8 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
+
+	database "github.com/openstack-k8s-operators/lib-common/modules/database"
 )
 
 // GetClient -
@@ -252,6 +254,19 @@ func (r *CinderAPIReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *CinderAPIReconciler) reconcileDelete(ctx context.Context, instance *cinderv1beta1.CinderAPI, helper *helper.Helper) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
+
+	// remove db finalizer
+	serviceDb, err := database.GetServiceDbByName(ctx, helper, instance.Name, instance.Namespace)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+	if err == nil {
+		controllerutil.RemoveFinalizer(serviceDb, helper.GetFinalizer())
+		if err = helper.GetClient().Update(ctx, serviceDb); err != nil && !k8s_errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+		util.LogForObject(helper, "Removed finalizer from our CinderAPI database", instance)
+	}
 
 	// It's possible to get here before the endpoints have been set in the status, so check for this
 	if instance.Status.APIEndpoints != nil {
