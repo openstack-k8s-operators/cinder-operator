@@ -298,8 +298,7 @@ func (r *CinderReconciler) reconcileInit(
 	dbSyncjob := job.NewJob(
 		jobDef,
 		cinderv1beta1.DbSyncHash,
-		instance.Spec.PreserveJobs,
-		5,
+		time.Duration(5)*time.Second,
 		dbSyncHash,
 	)
 	ctrlResult, err = dbSyncjob.DoJob(
@@ -329,6 +328,12 @@ func (r *CinderReconciler) reconcileInit(
 			return ctrl.Result{}, err
 		}
 		r.Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, jobDef.Name, instance.Status.Hash[cinderv1beta1.DbSyncHash]))
+	}
+	if !instance.Spec.PreserveJobs {
+		err = job.DeleteAllSucceededJobs(ctx, helper, []string{instance.Status.Hash[cinderv1beta1.DbSyncHash]})
+		if err != nil {
+			return ctrlResult, err
+		}
 	}
 	instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage)
 
