@@ -38,6 +38,7 @@ import (
 	"github.com/openstack-k8s-operators/cinder-operator/controllers"
 	keystonev1beta1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	mariadbv1beta1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
+	rabbitmqv1 "github.com/openstack-k8s-operators/openstack-operator/apis/rabbitmq/v1beta1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -52,6 +53,7 @@ func init() {
 	utilruntime.Must(cinderv1beta1.AddToScheme(scheme))
 	utilruntime.Must(mariadbv1beta1.AddToScheme(scheme))
 	utilruntime.Must(keystonev1beta1.AddToScheme(scheme))
+	utilruntime.Must(rabbitmqv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }

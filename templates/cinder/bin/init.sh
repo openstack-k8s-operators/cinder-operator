@@ -26,8 +26,7 @@ export DBPASSWORD=${DatabasePassword:?"Please specify a DatabasePassword variabl
 export CINDERPASSWORD=${CinderPassword:?"Please specify a CinderPassword variable."}
 # TODO: nova password
 #export NOVAPASSWORD=${NovaPassword:?"Please specify a NovaPassword variable."}
-# TODO: transportURL
-#export TRANSPORTURL=${TransportURL:?"Please specify a TransportURL variable."}
+export TRANSPORTURL=${TransportURL:-""}
 
 export CUSTOMCONF=${CustomConf:-""}
 
@@ -70,8 +69,9 @@ if [ -n "$CUSTOMCONF" ]; then
 fi
 
 # set secrets
-# TODO: transportURL
-#crudini --set ${SVC_CFG_MERGED} DEFAULT transport_url $TransportURL
+if [ -n "$TRANSPORTURL" ]; then
+  crudini --set ${SVC_CFG_MERGED} DEFAULT transport_url $TRANSPORTURL
+fi
 crudini --set ${SVC_CFG_MERGED} database connection mysql+pymysql://${DBUSER}:${DBPASSWORD}@${DBHOST}/${DB}
 crudini --set ${SVC_CFG_MERGED} keystone_authtoken password $CINDERPASSWORD
 # TODO: nova password
