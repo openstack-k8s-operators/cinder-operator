@@ -136,9 +136,8 @@ spec:
                     default:
                       database: CinderDatabasePassword
                       service: CinderPassword
-                      transportUrl: TransportURL
                     description: PasswordSelectors - Selectors to identify the DB
-                      and ServiceUser password and TransportURL from the Secret
+                      and ServiceUser password from the Secret
                     properties:
                       database:
                         default: CinderDatabasePassword
@@ -148,12 +147,7 @@ spec:
                         type: string
                       service:
                         default: CinderPassword
-                        description: Database - Selector to get the cinder service
-                          password from the Secret
-                        type: string
-                      transportUrl:
-                        default: TransportURL
-                        description: Database - Selector to get the cinder service
+                        description: Service - Selector to get the cinder service
                           password from the Secret
                         type: string
                     type: object
@@ -197,6 +191,9 @@ spec:
                     default: cinder
                     description: ServiceUser - optional username used for this service
                       to register in cinder
+                    type: string
+                  transportURLSecret:
+                    description: Secret containing RabbitMq transport URL
                     type: string
                 type: object
               cinderBackup:
@@ -256,9 +253,8 @@ spec:
                     default:
                       database: CinderDatabasePassword
                       service: CinderPassword
-                      transportUrl: TransportURL
                     description: PasswordSelectors - Selectors to identify the DB
-                      and ServiceUser password and TransportURL from the Secret
+                      and ServiceUser password from the Secret
                     properties:
                       database:
                         default: CinderDatabasePassword
@@ -268,12 +264,7 @@ spec:
                         type: string
                       service:
                         default: CinderPassword
-                        description: Database - Selector to get the cinder service
-                          password from the Secret
-                        type: string
-                      transportUrl:
-                        default: TransportURL
-                        description: Database - Selector to get the cinder service
+                        description: Service - Selector to get the cinder service
                           password from the Secret
                         type: string
                     type: object
@@ -316,6 +307,9 @@ spec:
                     default: cinder
                     description: ServiceUser - optional username used for this service
                       to register in cinder
+                    type: string
+                  transportURLSecret:
+                    description: Secret containing RabbitMq transport URL
                     type: string
                 type: object
               cinderScheduler:
@@ -376,9 +370,8 @@ spec:
                     default:
                       database: CinderDatabasePassword
                       service: CinderPassword
-                      transportUrl: TransportURL
                     description: PasswordSelectors - Selectors to identify the DB
-                      and ServiceUser password and TransportURL from the Secret
+                      and ServiceUser password from the Secret
                     properties:
                       database:
                         default: CinderDatabasePassword
@@ -388,12 +381,7 @@ spec:
                         type: string
                       service:
                         default: CinderPassword
-                        description: Database - Selector to get the cinder service
-                          password from the Secret
-                        type: string
-                      transportUrl:
-                        default: TransportURL
-                        description: Database - Selector to get the cinder service
+                        description: Service - Selector to get the cinder service
                           password from the Secret
                         type: string
                     type: object
@@ -437,6 +425,9 @@ spec:
                     default: cinder
                     description: ServiceUser - optional username used for this service
                       to register in cinder
+                    type: string
+                  transportURLSecret:
+                    description: Secret containing RabbitMq transport URL
                     type: string
                 type: object
               cinderVolumes:
@@ -497,9 +488,8 @@ spec:
                       default:
                         database: CinderDatabasePassword
                         service: CinderPassword
-                        transportUrl: TransportURL
                       description: PasswordSelectors - Selectors to identify the DB
-                        and ServiceUser password and TransportURL from the Secret
+                        and ServiceUser password from the Secret
                       properties:
                         database:
                           default: CinderDatabasePassword
@@ -509,12 +499,7 @@ spec:
                           type: string
                         service:
                           default: CinderPassword
-                          description: Database - Selector to get the cinder service
-                            password from the Secret
-                          type: string
-                        transportUrl:
-                          default: TransportURL
-                          description: Database - Selector to get the cinder service
+                          description: Service - Selector to get the cinder service
                             password from the Secret
                           type: string
                       type: object
@@ -560,6 +545,9 @@ spec:
                       default: cinder
                       description: ServiceUser - optional username used for this service
                         to register in cinder
+                      type: string
+                    transportURLSecret:
+                      description: Secret containing RabbitMq transport URL
                       type: string
                   type: object
                 description: CinderVolumes - Map of chosen names to spec definitions
@@ -611,9 +599,8 @@ spec:
                 default:
                   database: CinderDatabasePassword
                   service: CinderPassword
-                  transportUrl: TransportURL
                 description: PasswordSelectors - Selectors to identify the DB and
-                  ServiceUser password and TransportURL from the Secret
+                  ServiceUser password from the Secret
                 properties:
                   database:
                     default: CinderDatabasePassword
@@ -622,12 +609,7 @@ spec:
                     type: string
                   service:
                     default: CinderPassword
-                    description: Database - Selector to get the cinder service password
-                      from the Secret
-                    type: string
-                  transportUrl:
-                    default: TransportURL
-                    description: Database - Selector to get the cinder service password
+                    description: Service - Selector to get the cinder service password
                       from the Secret
                     type: string
                 type: object
@@ -636,6 +618,10 @@ spec:
                 description: PreserveJobs - do not delete jobs after they finished
                   e.g. to check logs
                 type: boolean
+              rabbitMqClusterName:
+                description: RabbitMQ instance name Needed to request a transportURL
+                  that is created and used in Cinder
+                type: string
               secret:
                 description: Secret containing OpenStack password information for
                   CinderDatabasePassword, CinderPassword
@@ -648,6 +634,7 @@ spec:
             required:
             - cinderAPI
             - cinderScheduler
+            - rabbitMqClusterName
             type: object
           status:
             description: CinderStatus defines the observed state of Cinder
@@ -733,6 +720,9 @@ spec:
                   type: string
                 description: ServiceIDs
                 type: object
+              transportURLSecret:
+                description: TransportURLSecret - Secret containing RabbitMQ transportURL
+                type: string
             type: object
         type: object
     served: true

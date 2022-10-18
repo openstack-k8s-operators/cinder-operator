@@ -27,8 +27,8 @@ type APIDetails struct {
 	DatabaseHost         string
 	DatabaseUser         string
 	DatabaseName         string
-	TransportURL         string
 	OSPSecret            string
+	TransportURLSecret   string
 	DBPasswordSelector   string
 	UserPasswordSelector string
 	VolumeMounts         []corev1.VolumeMount
@@ -94,6 +94,22 @@ func InitContainer(init APIDetails) []corev1.Container {
 			},
 		},
 	}
+
+	if init.TransportURLSecret != "" {
+		envTransport := corev1.EnvVar{
+			Name: "TransportURL",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: init.TransportURLSecret,
+					},
+					Key: "transport_url",
+				},
+			},
+		}
+		envs = append(envs, envTransport)
+	}
+
 	envs = env.MergeEnvs(envs, envVars)
 
 	return []corev1.Container{
