@@ -26,7 +26,7 @@ type PasswordSelector struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="CinderPassword"
 	// Database - Selector to get the cinder service password from the Secret
-	Service string `json:"admin,omitempty"`
+	Service string `json:"service,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="TransportURL"
 	// Database - Selector to get the cinder service password from the Secret

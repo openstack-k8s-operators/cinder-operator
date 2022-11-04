@@ -53,7 +53,8 @@ type CinderSchedulerSpec struct {
 	Secret string `json:"secret,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// PasswordSelectors - Selectors to identify the DB and TransportURL from the Secret
+	// +kubebuilder:default={database: CinderDatabasePassword, service: CinderPassword, transportUrl: TransportURL}
+	// PasswordSelectors - Selectors to identify the DB and ServiceUser password and TransportURL from the Secret
 	PasswordSelectors PasswordSelector `json:"passwordSelectors,omitempty"`
 
 	// +kubebuilder:validation:Optional
