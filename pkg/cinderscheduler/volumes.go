@@ -1,12 +1,13 @@
 package cinderscheduler
 
 import (
+	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // GetVolumes -
-func GetVolumes(parentName string, name string) []corev1.Volume {
+func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
 	var config0640AccessMode int32 = 0640
 
 	schedulerVolumes := []corev1.Volume{
@@ -23,11 +24,11 @@ func GetVolumes(parentName string, name string) []corev1.Volume {
 		},
 	}
 
-	return append(cinder.GetVolumes(parentName, false), schedulerVolumes...)
+	return append(cinder.GetVolumes(parentName, false, extraVol, cinder.CinderSchedulerPropagation), schedulerVolumes...)
 }
 
 // GetInitVolumeMounts - Cinder Scheduler init task VolumeMounts
-func GetInitVolumeMounts() []corev1.VolumeMount {
+func GetInitVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
 
 	customConfVolumeMount := corev1.VolumeMount{
 		Name:      "config-data-custom",
@@ -35,10 +36,10 @@ func GetInitVolumeMounts() []corev1.VolumeMount {
 		ReadOnly:  true,
 	}
 
-	return append(cinder.GetInitVolumeMounts(), customConfVolumeMount)
+	return append(cinder.GetInitVolumeMounts(extraVol, cinder.CinderSchedulerPropagation), customConfVolumeMount)
 }
 
 // GetVolumeMounts - Cinder Scheduler VolumeMounts
-func GetVolumeMounts() []corev1.VolumeMount {
-	return cinder.GetVolumeMounts(false)
+func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
+	return cinder.GetVolumeMounts(false, extraVol, cinder.CinderSchedulerPropagation)
 }

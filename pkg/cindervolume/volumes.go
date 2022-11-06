@@ -1,12 +1,16 @@
 package cindervolume
 
 import (
+	"github.com/openstack-k8s-operators/lib-common/modules/storage"
+	"strings"
+
+	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // GetVolumes -
-func GetVolumes(parentName string, name string) []corev1.Volume {
+func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
 	var config0640AccessMode int32 = 0640
 	var dirOrCreate = corev1.HostPathDirectoryOrCreate
 
@@ -33,11 +37,13 @@ func GetVolumes(parentName string, name string) []corev1.Volume {
 		},
 	}
 
-	return append(cinder.GetVolumes(parentName, true), volumeVolumes...)
+	// Set the propagation levels for CinderVolume, including the backend name
+	propagation := append(cinder.CinderVolumePropagation, storage.PropagationType(strings.TrimPrefix(name, "cinder-volume-")))
+	return append(cinder.GetVolumes(parentName, true, extraVol, propagation), volumeVolumes...)
 }
 
 // GetInitVolumeMounts - Cinder Volume init task VolumeMounts
-func GetInitVolumeMounts() []corev1.VolumeMount {
+func GetInitVolumeMounts(name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
 
 	customConfVolumeMount := corev1.VolumeMount{
 		Name:      "config-data-custom",
@@ -45,11 +51,13 @@ func GetInitVolumeMounts() []corev1.VolumeMount {
 		ReadOnly:  true,
 	}
 
-	return append(cinder.GetInitVolumeMounts(), customConfVolumeMount)
+	// Set the propagation levels for CinderVolume, including the backend name
+	propagation := append(cinder.CinderVolumePropagation, storage.PropagationType(strings.TrimPrefix(name, "cinder-volume-")))
+	return append(cinder.GetInitVolumeMounts(extraVol, propagation), customConfVolumeMount)
 }
 
 // GetVolumeMounts - Cinder Volume VolumeMounts
-func GetVolumeMounts() []corev1.VolumeMount {
+func GetVolumeMounts(name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
 	volumeVolumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "var-lib-cinder",
@@ -57,5 +65,7 @@ func GetVolumeMounts() []corev1.VolumeMount {
 		},
 	}
 
-	return append(cinder.GetVolumeMounts(true), volumeVolumeMounts...)
+	// Set the propagation levels for CinderVolume, including the backend name
+	propagation := append(cinder.CinderVolumePropagation, storage.PropagationType(strings.TrimPrefix(name, "cinder-volume-")))
+	return append(cinder.GetVolumeMounts(true, extraVol, propagation), volumeVolumeMounts...)
 }
