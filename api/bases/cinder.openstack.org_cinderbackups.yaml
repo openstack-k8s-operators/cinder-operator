@@ -85,18 +85,22 @@ spec:
                   the Backup service
                 type: object
               passwordSelectors:
+                default:
+                  database: CinderDatabasePassword
+                  service: CinderPassword
+                  transportUrl: TransportURL
                 description: PasswordSelectors - Selectors to identify the DB and
-                  TransportURL from the Secret
+                  ServiceUser password and TransportURL from the Secret
                 properties:
-                  admin:
-                    default: CinderPassword
-                    description: Database - Selector to get the cinder service password
-                      from the Secret
-                    type: string
                   database:
                     default: CinderDatabasePassword
                     description: 'Database - Selector to get the cinder database user
                       password from the Secret TODO: not used, need change in mariadb-operator'
+                    type: string
+                  service:
+                    default: CinderPassword
+                    description: Database - Selector to get the cinder service password
+                      from the Secret
                     type: string
                   transportUrl:
                     default: TransportURL

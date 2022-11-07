@@ -50,11 +50,12 @@ type CinderSpec struct {
 	DatabaseUser string `json:"databaseUser"`
 
 	// +kubebuilder:validation:Required
-	// Secret containing OpenStack password information for CinderDatabasePassword, AdminPassword
+	// Secret containing OpenStack password information for CinderDatabasePassword, CinderPassword
 	Secret string `json:"secret,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// PasswordSelectors - Selectors to identify the DB and AdminUser password and TransportURL from the Secret
+	// +kubebuilder:default={database: CinderDatabasePassword, service: CinderPassword, transportUrl: TransportURL}
+	// PasswordSelectors - Selectors to identify the DB and ServiceUser password and TransportURL from the Secret
 	PasswordSelectors PasswordSelector `json:"passwordSelectors,omitempty"`
 
 	// +kubebuilder:validation:Optional
