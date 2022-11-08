@@ -50,6 +50,7 @@ type CinderSpec struct {
 	DatabaseUser string `json:"databaseUser"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:default=rabbitmq
 	// RabbitMQ instance name
 	// Needed to request a transportURL that is created and used in Cinder
 	RabbitMqClusterName string `json:"rabbitMqClusterName"`

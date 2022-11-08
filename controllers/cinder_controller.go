@@ -762,11 +762,7 @@ func (r *CinderReconciler) transportURLCreateOrUpdate(instance *cinderv1beta1.Ci
 		transportURL.Spec.RabbitmqClusterName = instance.Spec.RabbitMqClusterName
 
 		err := controllerutil.SetControllerReference(instance, transportURL, r.Scheme)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	})
 
 	return transportURL, op, err
