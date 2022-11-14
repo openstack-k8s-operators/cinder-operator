@@ -639,7 +639,9 @@ spec:
             required:
             - cinderAPI
             - cinderScheduler
+            - databaseInstance
             - rabbitMqClusterName
+            - secret
             type: object
           status:
             description: CinderStatus defines the observed state of Cinder
