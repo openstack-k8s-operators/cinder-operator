@@ -50,12 +50,18 @@ type CinderSpec struct {
 	DatabaseUser string `json:"databaseUser"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:default=rabbitmq
+	// RabbitMQ instance name
+	// Needed to request a transportURL that is created and used in Cinder
+	RabbitMqClusterName string `json:"rabbitMqClusterName"`
+
+	// +kubebuilder:validation:Required
 	// Secret containing OpenStack password information for CinderDatabasePassword, CinderPassword
 	Secret string `json:"secret,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={database: CinderDatabasePassword, service: CinderPassword, transportUrl: TransportURL}
-	// PasswordSelectors - Selectors to identify the DB and ServiceUser password and TransportURL from the Secret
+	// +kubebuilder:default={database: CinderDatabasePassword, service: CinderPassword}
+	// PasswordSelectors - Selectors to identify the DB and ServiceUser password from the Secret
 	PasswordSelectors PasswordSelector `json:"passwordSelectors,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -125,6 +131,9 @@ type CinderStatus struct {
 
 	// Cinder Database Hostname
 	DatabaseHostname string `json:"databaseHostname,omitempty"`
+
+	// TransportURLSecret - Secret containing RabbitMQ transportURL
+	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 
 	// API endpoints
 	APIEndpoints map[string]map[string]string `json:"apiEndpoints,omitempty"`
