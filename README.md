@@ -233,6 +233,9 @@ targets.
 More information about the Makefile can be found via the [Kubebuilder
 Documentation]( https://book.kubebuilder.io/introduction.html).
 
+For developer specific documentation please refer to the [Contributing
+Guide](CONTRIBUTING.md).
+
 # LICENSE
 
 Copyright 2022.
