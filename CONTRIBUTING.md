@@ -70,6 +70,13 @@ section](README.md#getting-started):
 
 - [Run operator locally](docs/dev/local.md)
 - [Run operator in OpenShift using a custom image](docs/dev/custom-image.md)
+- [Running locally with external dependencies](docs/dev/local-dependencies.md)
+- [Running in OpenShift with external
+  dependencies](docs/dev/custom-image-dependencies.md)
+
+There is a script called `hack/checkout_pr.sh` that is helpful when we want to
+test an existing PR that has dependencies. Check the [Testing PR section in the
+hack documentation](hack/README.md#testing-prs) for additional information.
 
 ### Pull Requests
 
@@ -90,6 +97,38 @@ single commit but will look to preserve all submitted individual commits
 instead using a merge strategy instead.  This means that we can have both
 single commit and as multi-commit PRs, and both have their places. It's all
 about how and when to split changes.
+
+#### Dependency Management
+
+When submitting a PR that has dependencies in other repositories these
+dependencies should be stated in the PR or the commits using the `Depends-On:`
+tag.
+
+There are 4 ways to state a dependency with another projects PR:
+- `Depends-On: lib-common=88`
+- `Depends-On: lib-common#88`
+- `Depends-On: openstack-k8s-operators/lib-common#88`
+- `Depends-On: https://github.com/openstack-k8s-operators/lib-common/88`
+
+Multiple `Depends-On:` tags are supported.
+
+For the time being these tags are only useful when using the
+`hack/checkout_pr.sh` or `hack/showdeps.py` scripts.
+
+A good example of using these tags is the `extraVol` series of PRs. There are
+PRs in 4 projects: lib-common, cinder-operator, glance-operator, and the
+openstack-operator.
+
+The operators all require the lib-common PR, but then there are 2 circular
+requirements.  One is between the cinder-operator and the openstack-operator,
+and the other is between the glance-operator and the openstack-operator.
+
+These are the PRs for reference:
+
+- https://github.com/openstack-k8s-operators/lib-common/pull/88
+- https://github.com/openstack-k8s-operators/cinder-operator/pull/65
+- https://github.com/openstack-k8s-operators/glance-operator/pull/75
+- https://github.com/openstack-k8s-operators/openstack-operator/pull/38
 
 #### Structural split of changes
 
