@@ -78,6 +78,14 @@ There is a script called `hack/checkout_pr.sh` that is helpful when we want to
 test an existing PR that has dependencies. Check the [Testing PR section in the
 hack documentation](hack/README.md#testing-prs) for additional information.
 
+### Debugging
+
+When working on the cinder-operator there will be times where things won't work
+as expected and we'll need to debug things.
+
+In the [debugging article](docs/dev/debug.md) we present some ideas to help you
+figure things out.
+
 ### Pull Requests
 
 While the pull request flow is used for submitting new issues and for
