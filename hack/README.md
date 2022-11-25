@@ -1,5 +1,31 @@
 # Hacking
 
+### Testing PRs
+
+To facilitate testing PRs we have the `hack/checkout_pr.sh` script that will
+checkout the specified cinder PR into local branch pr#, then recursively check
+the dependencies using the PRs commit messages and then replace modules in our
+go workspace to use those dependencies.
+
+Example to get the PR#65 from cinder-operator:
+
+```sh
+$ hack/checkout_pr.sh 65
+Cleaning go.work
+Fetching PR 65 on upstream/pr65
+Checking PR dependecies
+Setting dependencies: lib-common=88
+Source for lib-common PR#88 is github.com/fmount/lib-common@extra_volumes
+Checking the go mod version for branch @extra_volumes
+go work edit -replace github.com/openstack-k8s-operators/lib-common/modules/common=github.com/fmount/lib-common/modules/common@v0.0.0-20221123175721-3e11759d254f
+go work edit -replace github.com/openstack-k8s-operators/lib-common/modules/database=github.com/fmount/lib-common/modules/database@v0.0.0-20221123175721-3e11759d254f
+go work edit -replace github.com/openstack-k8s-operators/lib-common/modules/storage=github.com/fmount/lib-common/modules/storage@v0.0.0-20221123175721-3e11759d254f
+```
+
+This script leverages scripts `hack/cleandeps.py` that cleans existing
+dependencies, `hack/showdeps.py` that shows dependencies for a given PR, and
+`hack/setdeps.py` that sets the go workspace replaces.
+
 ### Ceph cluster
 
 As describe in the [Getting Started Guide](../README.md#getting-started), the
