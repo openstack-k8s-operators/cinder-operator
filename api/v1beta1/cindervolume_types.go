@@ -30,6 +30,7 @@ type CinderVolumeSpec struct {
 	ServiceUser string `json:"serviceUser"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo"
 	// ContainerImage - Cinder Volume Container Image URL
 	ContainerImage string `json:"containerImage,omitempty"`
 

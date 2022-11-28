@@ -30,6 +30,7 @@ type CinderBackupSpec struct {
 	ServiceUser string `json:"serviceUser"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo"
 	// ContainerImage - Cinder Backup Container Image URL
 	ContainerImage string `json:"containerImage,omitempty"`
 

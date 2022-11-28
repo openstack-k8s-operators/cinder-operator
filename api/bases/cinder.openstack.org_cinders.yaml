@@ -84,6 +84,7 @@ spec:
                   Cinder deployment
                 properties:
                   containerImage:
+                    default: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
                     description: ContainerImage - Cinder API Container Image URL
                     type: string
                   customServiceConfig:
@@ -201,6 +202,7 @@ spec:
                   of this Cinder deployment
                 properties:
                   containerImage:
+                    default: quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo
                     description: ContainerImage - Cinder Backup Container Image URL
                     type: string
                   customServiceConfig:
@@ -317,6 +319,7 @@ spec:
                   of this Cinder deployment
                 properties:
                   containerImage:
+                    default: quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo
                     description: ContainerImage - Cinder Scheduler Container Image
                       URL
                     type: string
@@ -435,6 +438,7 @@ spec:
                   description: CinderVolumeSpec defines the desired state of CinderVolume
                   properties:
                     containerImage:
+                      default: quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo
                       description: ContainerImage - Cinder Volume Container Image
                         URL
                       type: string

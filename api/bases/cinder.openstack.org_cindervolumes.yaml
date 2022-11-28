@@ -36,6 +36,7 @@ spec:
             description: CinderVolumeSpec defines the desired state of CinderVolume
             properties:
               containerImage:
+                default: quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo
                 description: ContainerImage - Cinder Volume Container Image URL
                 type: string
               customServiceConfig:

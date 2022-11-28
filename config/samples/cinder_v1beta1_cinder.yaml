@@ -13,15 +13,15 @@ spec:
   rabbitMqClusterName: rabbitmq
   cinderAPI:
     replicas: 1
-    containerImage: quay.io/tripleowallabycentos9/openstack-cinder-api:current-tripleo
+    containerImage: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
   cinderScheduler:
     replicas: 1
-    containerImage: quay.io/tripleowallabycentos9/openstack-cinder-scheduler:current-tripleo
+    containerImage: quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo
   cinderBackup:
     replicas: 1
-    containerImage: quay.io/tripleowallabycentos9/openstack-cinder-backup:current-tripleo
+    containerImage: quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo
   secret: cinder-secret
   cinderVolumes:
     volume1:
-      containerImage: quay.io/tripleowallabycentos9/openstack-cinder-volume:current-tripleo
+      containerImage: quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo
       replicas: 1
