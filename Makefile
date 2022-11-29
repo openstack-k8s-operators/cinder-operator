@@ -154,6 +154,22 @@ ifeq ($(IMG), $(DEFAULT_IMG))
 endif
 	podman push --tls-verify=${VERIFY_TLS} ${IMG}
 
+# --- CINDER-OPERATOR EXTRA TARGETS
+.PHONY: run-dev
+run-dev: ## Run a controller from your host in development mode, only rebuilds if binary doesn't exist
+ifeq ($(shell test -e bin/manager || echo -n no),no)
+	make build
+endif
+	# if zap-level>=4 then the verbosity of client-go will be set to this level.
+	OPERATOR_TEMPLATES=$PWD/templates bin/manager --zap-devel --zap-time-encoding=iso8601 --zap-log-level=3 --zap-encoder=console
+
+.PHONY: docker-build-dev
+docker-build-dev: test ## Build docker image with the manager in development mode.
+	cp Dockerfile hack/Dockerfile.devel
+	echo 'CMD ["--zap-devel", "--zap-time-encoding=iso8601", "--zap-log-level=3", "--zap-encoder=console"]' >> hack/Dockerfile.devel
+	podman build -f hack/Dockerfile.devel -t ${IMG} .
+# --- END OF CINDER-OPERATOR EXTRA TARGETS
+
 ##@ Deployment
 
 ifndef ignore-not-found
