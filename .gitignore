@@ -34,3 +34,7 @@ CI_TOOLS_REPO
 # generated workspace file
 go.work
 go.work.sum
+
+# Hack files that are modified by scripts
+hack/dev/openstack-ceph.yaml
+hack/dev/openstack-lvm-ceph.yaml

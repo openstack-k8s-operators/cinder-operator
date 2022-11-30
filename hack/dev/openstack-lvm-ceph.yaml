@@ -41,6 +41,13 @@ spec:
       customServiceConfig: |
         [DEFAULT]
         debug = true
+        enabled_backends=default_backend:rbd
+
+        [default_backend]
+        rbd_store_ceph_conf=/etc/ceph/ceph.conf
+        rbd_store_user=admin
+        rbd_store_pool=images
+        store_description=Ceph glance store backend.
       glanceAPIInternal:
         debug:
           service: false
@@ -51,14 +58,6 @@ spec:
           service: false
         preserveJobs: false
         replicas: 1
-      cephBackend:
-        cephFsid: 5fe62cc7-0392-4a32-8466-081ce0ea970f
-        cephMons: 192.168.130.1
-        cephClientKey: AQBCtBhj0gM6FRAACq4EGHK6qYqRBSbw4zFavg==
-        cephUser: admin
-        cephPools:
-          glance:
-            name: images
   cinder:
     enabled: true
     template:
@@ -116,16 +115,33 @@ spec:
           customServiceConfig: |
             [DEFAULT]
             enabled_backends=ceph
+            [ceph]
+            volume_backend_name=ceph
+            volume_driver=cinder.volume.drivers.rbd.RBDDriver
+            rbd_ceph_conf=/etc/ceph/ceph.conf
+            rbd_user=admin
+            rbd_pool=volumes
+            rbd_flatten_volume_from_snapshot=False
+            rbd_secret_uuid=5fe62cc7-0392-4a32-8466-081ce0ea970f
           debug:
             initContainer: false
             service: false
-      cephBackend:
-        cephFsid: 5fe62cc7-0392-4a32-8466-081ce0ea970f
-        cephMons: 192.168.130.1
-        cephClientKey: AQBCtBhj0gM6FRAACq4EGHK6qYqRBSbw4zFavg==
-        cephUser: admin
-        cephPools:
-          cinder:
-            name: volumes
-          cinder_backup:
-            name: backup
+  extraMounts:
+    - name: cephfiles
+      region: r1
+      extraVol:
+      - propagation:
+        - Glance
+        - CinderVolume
+        - CinderBackup
+        extraVolType: Ceph
+        volumes:
+        - name: ceph
+          projected:
+            sources:
+            - secret:
+                name: ceph-client-files
+        mounts:
+        - name: ceph
+          mountPath: "/etc/ceph"
+          readOnly: true
