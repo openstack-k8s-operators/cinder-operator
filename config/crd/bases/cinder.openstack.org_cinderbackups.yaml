@@ -36,6 +36,7 @@ spec:
             description: CinderBackupSpec defines the desired state of CinderBackup
             properties:
               containerImage:
+                default: quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo
                 description: ContainerImage - Cinder Backup Container Image URL
                 type: string
               customServiceConfig:

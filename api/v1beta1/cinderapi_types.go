@@ -30,6 +30,7 @@ type CinderAPISpec struct {
 	ServiceUser string `json:"serviceUser"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo"
 	// ContainerImage - Cinder API Container Image URL
 	ContainerImage string `json:"containerImage,omitempty"`
 
