@@ -40,6 +40,10 @@ BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 
 VERIFY_TLS ?= true
 
+# GOWORK
+GOWORK ?= off
+export GOWORK := $(GOWORK)
+
 # USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
 # You can enable this value if you would like to use SHA Based Digests
 # To enable set flag to true
@@ -117,11 +121,17 @@ fmt: ## Run go fmt against code.
 
 .PHONY: vet
 vet: ## Run go vet against code.
-	go vet ./...
+	go vet ./... ./api/...
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... ./api/... -coverprofile cover.out
+
+.PHONY: gowork
+gowork: ## Generate go.work file to support our multi module repository
+	test -f go.work || go work init
+	go work use .
+	go work use ./api
 
 ##@ Build
 
@@ -135,7 +145,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	podman build -t ${IMG} .
+	podman build --build-arg GOWORK=$(GOWORK) -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -273,19 +283,25 @@ get-ci-tools:
 # Run go fmt against code
 gofmt: get-ci-tools
 	$(CI_TOOLS_REPO_DIR)/test-runner/gofmt.sh
+	$(CI_TOOLS_REPO_DIR)/test-runner/gofmt.sh ./api
 
 # Run go vet against code
 govet: get-ci-tools
 	$(CI_TOOLS_REPO_DIR)/test-runner/govet.sh
+	$(CI_TOOLS_REPO_DIR)/test-runner/govet.sh ./api
 
 # Run go test against code
 gotest: get-ci-tools
 	$(CI_TOOLS_REPO_DIR)/test-runner/gotest.sh
+	$(CI_TOOLS_REPO_DIR)/test-runner/gotest.sh ./api
 
 # Run golangci-lint test against code
 golangci: get-ci-tools
 	$(CI_TOOLS_REPO_DIR)/test-runner/golangci.sh
+	$(CI_TOOLS_REPO_DIR)/test-runner/golangci.sh ./api
 
 # Run go lint against code
 golint: get-ci-tools
 	PATH=$(GOBIN):$(PATH); $(CI_TOOLS_REPO_DIR)/test-runner/golint.sh
+	PATH=$(GOBIN):$(PATH); $(CI_TOOLS_REPO_DIR)/test-runner/golint.sh ./api
+

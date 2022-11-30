@@ -4,6 +4,9 @@ ARG OPERATOR_BASE_IMAGE=gcr.io/distroless/static:nonroot
 # Build the manager binary
 FROM $GOLANG_BUILDER AS builder
 
+ARG GOWORK=off
+ENV GOWORK=$GOWORK
+
 #Arguments required by OSBS build system
 ARG CACHITO_ENV_FILE=/remote-source/cachito.env
 
