@@ -599,6 +599,12 @@ spec:
                   files. Those get added to the service config dir in /etc/<service>
                   . TODO: -> implement'
                 type: object
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                description: NodeSelector to target subset of worker nodes running
+                  Cinder services
+                type: object
               passwordSelectors:
                 default:
                   database: CinderDatabasePassword
