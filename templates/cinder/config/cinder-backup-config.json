@@ -12,18 +12,6 @@
       "dest": "/etc/cinder/nfs_shares",
       "owner": "root:cinder",
       "perm": "0640"
-    },
-    {
-      "source": "/var/lib/config-data/merged/ceph.conf",
-      "dest": "/etc/ceph/ceph.conf",
-      "owner": "root:cinder",
-      "perm": "0600"
-    },
-    {
-      "source": "/var/lib/config-data/merged/ceph.client.openstack.keyring",
-      "dest": "/etc/ceph/ceph.client.{{ .User }}.keyring",
-      "owner": "root:cinder",
-      "perm": "0600"
     }
   ]
 }

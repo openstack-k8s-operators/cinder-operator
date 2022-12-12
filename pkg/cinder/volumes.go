@@ -1,11 +1,13 @@
 package cinder
 
 import (
+	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // GetVolumes -
-func GetVolumes(name string, storageSvc bool) []corev1.Volume {
+func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMounts, svc []storage.PropagationType) []corev1.Volume {
 	var scriptsVolumeDefaultMode int32 = 0755
 	var config0640AccessMode int32 = 0640
 	var dirOrCreate = corev1.HostPathDirectoryOrCreate
@@ -140,12 +142,17 @@ func GetVolumes(name string, storageSvc bool) []corev1.Volume {
 		res = append(res, storageVolumes...)
 	}
 
+	for _, exv := range extraVol {
+		for _, vol := range exv.Propagate(svc) {
+			res = append(res, vol.Volumes...)
+		}
+	}
 	return res
 }
 
 // GetInitVolumeMounts - Nova Control Plane init task VolumeMounts
-func GetInitVolumeMounts() []corev1.VolumeMount {
-	return []corev1.VolumeMount{
+func GetInitVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts, svc []storage.PropagationType) []corev1.VolumeMount {
+	vm := []corev1.VolumeMount{
 		{
 			Name:      "scripts",
 			MountPath: "/usr/local/bin/container-scripts",
@@ -163,10 +170,16 @@ func GetInitVolumeMounts() []corev1.VolumeMount {
 		},
 	}
 
+	for _, exv := range extraVol {
+		for _, vol := range exv.Propagate(svc) {
+			vm = append(vm, vol.Mounts...)
+		}
+	}
+	return vm
 }
 
 // GetVolumeMounts - Nova Control Plane VolumeMounts
-func GetVolumeMounts(storageSvc bool) []corev1.VolumeMount {
+func GetVolumeMounts(storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMounts, svc []storage.PropagationType) []corev1.VolumeMount {
 	res := []corev1.VolumeMount{
 		{
 			Name:      "etc-machine-id",
@@ -233,5 +246,10 @@ func GetVolumeMounts(storageSvc bool) []corev1.VolumeMount {
 		res = append(res, storageVolumeMounts...)
 	}
 
+	for _, exv := range extraVol {
+		for _, vol := range exv.Propagate(svc) {
+			res = append(res, vol.Mounts...)
+		}
+	}
 	return res
 }

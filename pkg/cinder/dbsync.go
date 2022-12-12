@@ -19,6 +19,8 @@ const (
 // DbSyncJob func
 func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string) *batchv1.Job {
 
+	dbSyncExtraMounts := []cinderv1beta1.CinderExtraVolMounts{}
+
 	args := []string{"-c"}
 	if instance.Spec.Debug.DBSync {
 		args = append(args, common.DebugCommand)
@@ -55,16 +57,16 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string) *batchv
 								RunAsUser: &runAsUser,
 							},
 							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: GetVolumeMounts(false),
+							VolumeMounts: GetVolumeMounts(false, dbSyncExtraMounts, DbsyncPropagation),
 						},
 					},
-					Volumes: GetVolumes(instance.Name, false),
+					Volumes: GetVolumes(instance.Name, false, dbSyncExtraMounts, DbsyncPropagation),
 				},
 			},
 		},
 	}
 
-	job.Spec.Template.Spec.Volumes = GetVolumes(ServiceName, false)
+	job.Spec.Template.Spec.Volumes = GetVolumes(ServiceName, false, dbSyncExtraMounts, DbsyncPropagation)
 
 	initContainerDetails := APIDetails{
 		ContainerImage:       instance.Spec.CinderAPI.ContainerImage,
@@ -74,7 +76,7 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string) *batchv
 		OSPSecret:            instance.Spec.Secret,
 		DBPasswordSelector:   instance.Spec.PasswordSelectors.Database,
 		UserPasswordSelector: instance.Spec.PasswordSelectors.Service,
-		VolumeMounts:         GetInitVolumeMounts(),
+		VolumeMounts:         GetInitVolumeMounts(dbSyncExtraMounts, DbsyncPropagation),
 		Debug:                instance.Spec.Debug.DBInitContainer,
 	}
 	job.Spec.Template.Spec.InitContainers = InitContainer(initContainerDetails)

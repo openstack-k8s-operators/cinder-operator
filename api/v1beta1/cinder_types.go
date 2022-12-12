@@ -18,8 +18,8 @@ package v1beta1
 
 import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
-	"github.com/openstack-k8s-operators/lib-common/modules/storage/ceph"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 )
 
 const (
@@ -117,8 +117,8 @@ type CinderSpec struct {
 	CinderVolumes map[string]CinderVolumeSpec `json:"cinderVolumes"`
 
 	// +kubebuilder:validation:Optional
-	// CephBackend - The ceph Backend structure with all the parameters
-	CephBackend ceph.Backend `json:"cephBackend,omitempty"`
+	// ExtraMounts containing conf files and credentials
+	ExtraMounts []CinderExtraVolMounts `json:"extraMounts"`
 }
 
 // CinderStatus defines the observed state of Cinder
@@ -191,4 +191,28 @@ func (instance Cinder) IsReady() bool {
 	}
 
 	return ready
+}
+
+// CinderExtraVolMounts exposes additional parameters processed by the cinder-operator
+// and defines the common VolMounts structure provided by the main storage module
+type CinderExtraVolMounts struct {
+	// +kubebuilder:validation:Optional
+	Name string `json:"name,omitempty"`
+	// +kubebuilder:validation:Optional
+	Region string `json:"region,omitempty"`
+	// +kubebuilder:validation:Required
+	VolMounts []storage.VolMounts `json:"extraVol"`
+}
+
+// Propagate is a function used to filter VolMounts according to the specified
+// PropagationType array
+func (c *CinderExtraVolMounts) Propagate(svc []storage.PropagationType) []storage.VolMounts {
+
+	var vl []storage.VolMounts
+
+	for _, gv := range c.VolMounts {
+		vl = append(vl, gv.Propagate(svc)...)
+	}
+
+	return vl
 }

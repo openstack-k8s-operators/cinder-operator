@@ -108,7 +108,7 @@ func Deployment(
 								RunAsUser: &runAsUser,
 							},
 							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:   GetVolumeMounts(),
+							VolumeMounts:   GetVolumeMounts(instance.Spec.ExtraMounts),
 							Resources:      instance.Spec.Resources,
 							ReadinessProbe: readinessProbe,
 							LivenessProbe:  livenessProbe,
@@ -119,7 +119,7 @@ func Deployment(
 			},
 		},
 	}
-	deployment.Spec.Template.Spec.Volumes = GetVolumes(cinder.GetOwningCinderName(instance), instance.Name)
+	deployment.Spec.Template.Spec.Volumes = GetVolumes(cinder.GetOwningCinderName(instance), instance.Name, instance.Spec.ExtraMounts)
 	// If possible two pods of the same service should not
 	// run on the same worker node. If this is not possible
 	// the get still created on the same worker node.
@@ -143,7 +143,7 @@ func Deployment(
 		TransportURLSecret:   instance.Spec.TransportURLSecret,
 		DBPasswordSelector:   instance.Spec.PasswordSelectors.Database,
 		UserPasswordSelector: instance.Spec.PasswordSelectors.Service,
-		VolumeMounts:         GetInitVolumeMounts(),
+		VolumeMounts:         GetInitVolumeMounts(instance.Spec.ExtraMounts),
 		Debug:                instance.Spec.Debug.InitContainer,
 	}
 	deployment.Spec.Template.Spec.InitContainers = cinder.InitContainer(initContainerDetails)
