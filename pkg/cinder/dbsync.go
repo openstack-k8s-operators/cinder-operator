@@ -66,8 +66,6 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string) *batchv
 		},
 	}
 
-	job.Spec.Template.Spec.Volumes = GetVolumes(ServiceName, false, dbSyncExtraMounts, DbsyncPropagation)
-
 	initContainerDetails := APIDetails{
 		ContainerImage:       instance.Spec.CinderAPI.ContainerImage,
 		DatabaseHost:         instance.Status.DatabaseHostname,
