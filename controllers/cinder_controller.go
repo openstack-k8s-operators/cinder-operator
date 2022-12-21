@@ -635,10 +635,8 @@ func (r *CinderReconciler) reconcileUpgrade(ctx context.Context, instance *cinde
 	return ctrl.Result{}, nil
 }
 
-//
 // generateServiceConfigMaps - create create configmaps which hold scripts and service configuration
 // TODO add DefaultConfigOverwrite
-//
 func (r *CinderReconciler) generateServiceConfigMaps(
 	ctx context.Context,
 	h *helper.Helper,
@@ -706,10 +704,8 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 	return nil
 }
 
-//
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart
 // if any of the input resources change, like configs, passwords, ...
-//
 func (r *CinderReconciler) createHashOfInputHashes(
 	ctx context.Context,
 	instance *cinderv1beta1.Cinder,
@@ -766,6 +762,9 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(instance *cinderv1beta1.C
 		deployment.Spec.Secret = instance.Spec.Secret
 		deployment.Spec.TransportURLSecret = instance.Status.TransportURLSecret
 		deployment.Spec.ExtraMounts = instance.Spec.ExtraMounts
+		if len(deployment.Spec.NodeSelector) == 0 {
+			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
+		}
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {
@@ -796,6 +795,9 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(instance *cinderv1b
 		deployment.Spec.Secret = instance.Spec.Secret
 		deployment.Spec.TransportURLSecret = instance.Status.TransportURLSecret
 		deployment.Spec.ExtraMounts = instance.Spec.ExtraMounts
+		if len(deployment.Spec.NodeSelector) == 0 {
+			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
+		}
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {
@@ -826,6 +828,9 @@ func (r *CinderReconciler) backupDeploymentCreateOrUpdate(instance *cinderv1beta
 		deployment.Spec.Secret = instance.Spec.Secret
 		deployment.Spec.TransportURLSecret = instance.Status.TransportURLSecret
 		deployment.Spec.ExtraMounts = instance.Spec.ExtraMounts
+		if len(deployment.Spec.NodeSelector) == 0 {
+			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
+		}
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {
@@ -856,6 +861,9 @@ func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(instance *cinderv1beta
 		deployment.Spec.Secret = instance.Spec.Secret
 		deployment.Spec.TransportURLSecret = instance.Status.TransportURLSecret
 		deployment.Spec.ExtraMounts = instance.Spec.ExtraMounts
+		if len(deployment.Spec.NodeSelector) == 0 {
+			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
+		}
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {

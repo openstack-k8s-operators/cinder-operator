@@ -63,7 +63,8 @@ type CinderSchedulerSpec struct {
 	PasswordSelectors PasswordSelector `json:"passwordSelectors,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// NodeSelector to target subset of worker nodes for running the Scheduler service
+	// NodeSelector to target subset of worker nodes running this service. Setting here overrides
+	// any global NodeSelector settings within the Cinder CR.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// +kubebuilder:validation:Optional

@@ -18,8 +18,8 @@ package v1beta1
 
 import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/openstack-k8s-operators/lib-common/modules/storage"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -119,6 +119,12 @@ type CinderSpec struct {
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
 	ExtraMounts []CinderExtraVolMounts `json:"extraMounts"`
+
+	// +kubebuilder:validation:Optional
+	// NodeSelector to target subset of worker nodes running this service. Setting
+	// NodeSelector here acts as a default value and can be overridden by service
+	// specific NodeSelector Settings.
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 // CinderStatus defines the observed state of Cinder
