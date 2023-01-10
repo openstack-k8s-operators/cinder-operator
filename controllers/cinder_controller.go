@@ -27,7 +27,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
@@ -195,6 +198,40 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	transportURLSecretFn := func(o client.Object) []reconcile.Request {
+		result := []reconcile.Request{}
+
+		// get all Cinder CRs
+		cinders := &cinderv1beta1.CinderList{}
+		listOpts := []client.ListOption{
+			client.InNamespace(o.GetNamespace()),
+		}
+		if err := r.Client.List(context.Background(), cinders, listOpts...); err != nil {
+			r.Log.Error(err, "Unable to retrieve Cinder CRs %v")
+			return nil
+		}
+
+		for _, ownerRef := range o.GetOwnerReferences() {
+			if ownerRef.Kind == "TransportURL" {
+				for _, cr := range cinders.Items {
+					if ownerRef.Name == fmt.Sprintf("%s-cinder-transport", cr.Name) {
+						// return namespace and Name of CR
+						name := client.ObjectKey{
+							Namespace: o.GetNamespace(),
+							Name:      cr.Name,
+						}
+						r.Log.Info(fmt.Sprintf("TransportURL Secret %s belongs to TransportURL belonging to Cinder CR %s", o.GetName(), cr.Name))
+						result = append(result, reconcile.Request{NamespacedName: name})
+					}
+				}
+			}
+		}
+		if len(result) > 0 {
+			return result
+		}
+		return nil
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.Cinder{}).
 		Owns(&mariadbv1.MariaDBDatabase{}).
@@ -205,7 +242,9 @@ func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rabbitmqv1.TransportURL{}).
 		Owns(&batchv1.Job{}).
 		Owns(&corev1.ConfigMap{}).
-		Owns(&corev1.Secret{}).
+		// Watch for TransportURL Secrets which belong to any TransportURLs created by Cinder CRs
+		Watches(&source.Kind{Type: &corev1.Secret{}},
+			handler.EnqueueRequestsFromMapFunc(transportURLSecretFn)).
 		Complete(r)
 }
 
