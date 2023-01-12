@@ -22,16 +22,12 @@ import (
 const (
 	// ServiceName -
 	ServiceName = "cinder"
-	// ServiceNameV2 -
-	ServiceNameV2 = "cinderv2"
 	// ServiceNameV3 -
 	ServiceNameV3 = "cinderv3"
 	// ServiceType -
 	ServiceType = "cinder"
 	// ServiceAccount -
 	ServiceAccount = "cinder-operator-cinder"
-	// ServiceTypeV2 -
-	ServiceTypeV2 = "volumev2"
 	// ServiceTypeV3 -
 	ServiceTypeV3 = "volumev3"
 	// DatabaseName -
