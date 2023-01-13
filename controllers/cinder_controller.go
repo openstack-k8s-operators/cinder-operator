@@ -45,6 +45,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/job"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
+	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	"github.com/openstack-k8s-operators/lib-common/modules/database"
@@ -104,6 +105,7 @@ type CinderReconciler struct {
 // +kubebuilder:rbac:groups=mariadb.openstack.org,resources=mariadbdatabases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapis,verbs=get;list;watch
 // +kubebuilder:rbac:groups=rabbitmq.openstack.org,resources=transporturls,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=k8s.cni.cncf.io,resources=network-attachment-definitions,verbs=get;list;watch
 
 // Reconcile -
 func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
@@ -170,6 +172,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 			condition.UnknownCondition(cinderv1beta1.CinderBackupReadyCondition, condition.InitReason, cinderv1beta1.CinderBackupReadyInitMessage),
 			condition.UnknownCondition(cinderv1beta1.CinderVolumeReadyCondition, condition.InitReason, cinderv1beta1.CinderVolumeReadyInitMessage),
 			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
+			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 		)
 
 		instance.Status.Conditions.Init(&cl)
@@ -289,6 +292,7 @@ func (r *CinderReconciler) reconcileInit(
 	instance *cinderv1beta1.Cinder,
 	helper *helper.Helper,
 	serviceLabels map[string]string,
+	serviceAnnotations map[string]string,
 ) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
 
@@ -353,7 +357,8 @@ func (r *CinderReconciler) reconcileInit(
 	// run Cinder db sync
 	//
 	dbSyncHash := instance.Status.Hash[cinderv1beta1.DbSyncHash]
-	jobDef := cinder.DbSyncJob(instance, serviceLabels)
+	jobDef := cinder.DbSyncJob(instance, serviceLabels, serviceAnnotations)
+
 	dbSyncjob := job.NewJob(
 		jobDef,
 		cinderv1beta1.DbSyncHash,
@@ -387,6 +392,9 @@ func (r *CinderReconciler) reconcileInit(
 		r.Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, jobDef.Name, instance.Status.Hash[cinderv1beta1.DbSyncHash]))
 	}
 	instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage)
+
+	// when job passed, mark NetworkAttachmentsReadyCondition ready
+	instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
 
 	// run Cinder db sync - end
 
@@ -513,8 +521,37 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		common.AppSelector: cinder.ServiceName,
 	}
 
+	// networks to attach to
+	for _, netAtt := range instance.Spec.CinderAPI.NetworkAttachments {
+		_, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
+		if err != nil {
+			if k8s_errors.IsNotFound(err) {
+				instance.Status.Conditions.Set(condition.FalseCondition(
+					condition.NetworkAttachmentsReadyCondition,
+					condition.RequestedReason,
+					condition.SeverityInfo,
+					condition.NetworkAttachmentsReadyWaitingMessage,
+					netAtt))
+				return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("network-attachment-definition %s not found", netAtt)
+			}
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.NetworkAttachmentsReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.NetworkAttachmentsReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
+	}
+
+	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.CinderAPI.NetworkAttachments)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
+			instance.Spec.CinderAPI.NetworkAttachments, err)
+	}
+
 	// Handle service init
-	ctrlResult, err := r.reconcileInit(ctx, instance, helper, serviceLabels)
+	ctrlResult, err := r.reconcileInit(ctx, instance, helper, serviceLabels, serviceAnnotations)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {

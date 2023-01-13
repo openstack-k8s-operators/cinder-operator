@@ -2061,6 +2061,12 @@ spec:
                       - extraVol
                       type: object
                     type: array
+                  networkAttachments:
+                    description: NetworkAttachments is a list of NetworkAttachment
+                      resource names to expose the services to the given network
+                    items:
+                      type: string
+                    type: array
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -4170,6 +4176,12 @@ spec:
                       - extraVol
                       type: object
                     type: array
+                  networkAttachments:
+                    description: NetworkAttachments is a list of NetworkAttachment
+                      resource names to expose the services to the given network
+                    items:
+                      type: string
+                    type: array
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -6277,6 +6289,12 @@ spec:
                       required:
                       - extraVol
                       type: object
+                    type: array
+                  networkAttachments:
+                    description: NetworkAttachments is a list of NetworkAttachment
+                      resource names to expose the services to the given network
+                    items:
+                      type: string
                     type: array
                   nodeSelector:
                     additionalProperties:
@@ -8438,6 +8456,12 @@ spec:
                         required:
                         - extraVol
                         type: object
+                      type: array
+                    networkAttachments:
+                      description: NetworkAttachments is a list of NetworkAttachment
+                        resource names to expose the services to the given network
+                      items:
+                        type: string
                       type: array
                     nodeSelector:
                       additionalProperties:
