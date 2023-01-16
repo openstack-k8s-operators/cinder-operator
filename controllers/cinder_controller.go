@@ -212,6 +212,18 @@ func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *CinderReconciler) reconcileDelete(ctx context.Context, instance *cinderv1beta1.Cinder, helper *helper.Helper) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
+	// remove db finalizer first
+	db, err := database.GetDatabaseByName(ctx, helper, instance.Name)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+
+	if !k8s_errors.IsNotFound(err) {
+		if err := db.DeleteFinalizer(ctx, helper); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// TODO: We might need to control how the sub-services (API, Backup, Scheduler and Volumes) are
 	// deleted (when their parent Cinder CR is deleted) once we further develop their functionality
 
