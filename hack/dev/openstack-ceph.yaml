@@ -1,0 +1,130 @@
+apiVersion: core.openstack.org/v1beta1
+kind: OpenStackControlPlane
+metadata:
+  name: openstack
+spec:
+  secret: osp-secret
+  storageClass: local-storage
+  keystone:
+    template:
+      containerImage: quay.io/tripleozedcentos9/openstack-keystone:current-tripleo
+      databaseInstance: openstack
+      secret: osp-secret
+  mariadb:
+    template:
+      containerImage: quay.io/tripleozedcentos9/openstack-mariadb:current-tripleo
+      storageRequest: 500M
+  rabbitmq:
+    template:
+      replicas: 1
+      #resources:
+      #  requests:
+      #    cpu: 500m
+      #    memory: 1Gi
+      #  limits:
+      #    cpu: 800m
+      #    memory: 1Gi
+  placement:
+    enabled: false
+    template:
+      containerImage: quay.io/tripleozedcentos9/openstack-placement-api:current-tripleo
+      databaseInstance: openstack
+      secret: osp-secret
+  glance:
+    template:
+      serviceUser: glance
+      databaseInstance: openstack
+      databaseUser: glance
+      secret: osp-secret
+      storageClass: ""
+      storageRequest: 1G
+      customServiceConfig: |
+        [DEFAULT]
+        debug = true
+        enabled_backends=default_backend:rbd
+
+        [default_backend]
+        rbd_store_ceph_conf=/etc/ceph/ceph.conf
+        rbd_store_user=admin
+        rbd_store_pool=images
+        store_description=Ceph glance store backend.
+      glanceAPIInternal:
+        debug:
+          service: false
+        preserveJobs: false
+        replicas: 1
+      glanceAPIExternal:
+        debug:
+          service: false
+        preserveJobs: false
+        replicas: 1
+  cinder:
+    enabled: true
+    template:
+      rabbitMqClusterName: rabbitmq
+      customServiceConfig: |
+        [DEFAULT]
+        debug = true
+      databaseInstance: openstack
+      databaseUser: cinder
+      cinderAPI:
+        replicas: 1
+        containerImage: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
+        debug:
+          initContainer: false
+          service: false
+      cinderScheduler:
+        replicas: 1
+        containerImage: quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo
+        debug:
+          initContainer: false
+          service: false
+      cinderBackup:
+        replicas: 1
+        containerImage: quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo
+        customServiceConfig: |
+          [DEFAULT]
+          backup_driver = cinder.backup.drivers.ceph.CephBackupDriver
+          backup_ceph_pool = backups
+          backup_ceph_user = admin
+        debug:
+          initContainer: false
+          service: false
+      secret: osp-secret
+      cinderVolumes:
+        ceph:
+          containerImage: quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo
+          replicas: 1
+          customServiceConfig: |
+            [DEFAULT]
+            enabled_backends=ceph
+            [ceph]
+            volume_backend_name=ceph
+            volume_driver=cinder.volume.drivers.rbd.RBDDriver
+            rbd_ceph_conf=/etc/ceph/ceph.conf
+            rbd_user=admin
+            rbd_pool=volumes
+            rbd_flatten_volume_from_snapshot=False
+            rbd_secret_uuid=5fe62cc7-0392-4a32-8466-081ce0ea970f
+          debug:
+            initContainer: false
+            service: false
+  extraMounts:
+    - name: cephfiles
+      region: r1
+      extraVol:
+      - propagation:
+        - Glance
+        - CinderVolume
+        - CinderBackup
+        extraVolType: Ceph
+        volumes:
+        - name: ceph
+          projected:
+            sources:
+            - secret:
+                name: ceph-client-files
+        mounts:
+        - name: ceph
+          mountPath: "/etc/ceph"
+          readOnly: true

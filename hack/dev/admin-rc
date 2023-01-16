@@ -1,0 +1,23 @@
+# Clear any old environment that may conflict.
+for key in $( set | awk -F= '/^OS_/ {print $1}' ); do unset "${key}" ; done
+
+export OS_AUTH_TYPE=password
+export OS_PASSWORD=12345678
+export OS_AUTH_URL=http://keystone-public-openstack.apps-crc.testing
+export OS_SYSTEM_SCOPE=all
+export OS_USERNAME=admin
+export OS_PROJECT_NAME=admin
+export COMPUTE_API_VERSION=1.1
+export NOVA_VERSION=1.1
+export OS_NO_CACHE=True
+export OS_CLOUDNAME=default
+export OS_IDENTITY_API_VERSION='3'
+export OS_USER_DOMAIN_NAME='Default'
+export OS_PROJECT_DOMAIN_NAME='Default'
+export OS_CACERT="/etc/pki/ca-trust/source/anchors/cm-local-ca.pem"
+# Add OS_CLOUDNAME to PS1
+if [ -z "${CLOUDPROMPT_ENABLED:-}" ]; then
+    export PS1=${PS1:-""}
+    export PS1=\${OS_CLOUDNAME:+"(\$OS_CLOUDNAME)"}\ $PS1
+    export CLOUDPROMPT_ENABLED=1
+fi
