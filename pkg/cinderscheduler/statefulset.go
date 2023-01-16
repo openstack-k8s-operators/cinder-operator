@@ -88,7 +88,7 @@ func StatefulSet(
 		probeCommand = []string{
 			"/usr/local/bin/container-scripts/healthcheck.py",
 			"scheduler",
-			"/var/lib/config-data/merged/cinder.conf",
+			"/var/lib/config-data/merged/cinder.conf.d",
 		}
 	}
 

@@ -15,7 +15,7 @@
 # under the License.
 set -ex
 
-# This script generates the nova.conf file and copies the result to the
+# This script generates cinder.conf.d files and copies the result to the
 # ephemeral /var/lib/config-data/merged volume.
 #
 # Secrets are obtained from ENV variables.
@@ -26,51 +26,59 @@ export DBPASSWORD=${DatabasePassword:?"Please specify a DatabasePassword variabl
 export PASSWORD=${CinderPassword:?"Please specify a CinderPassword variable."}
 export TRANSPORTURL=${TransportURL:-""}
 
-export CUSTOMCONF=${CustomConf:-""}
-
+DEFAULT_DIR=/var/lib/config-data/default
+CUSTOM_DIR=/var/lib/config-data/custom
+MERGED_DIR=/var/lib/config-data/merged
 SVC_CFG=/etc/cinder/cinder.conf
-SVC_CFG_MERGED=/var/lib/config-data/merged/cinder.conf
+SVC_CFG_MERGED=${MERGED_DIR}/cinder.conf
+SVC_CFG_MERGED_DIR=${MERGED_DIR}/cinder.conf.d
 
-# expect that the common.sh is in the same dir as the calling script
-SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-. ${SCRIPTPATH}/common.sh --source-only
+mkdir -p ${SVC_CFG_MERGED_DIR}
 
-# Copy default service config from container image as base
-cp -a ${SVC_CFG} ${SVC_CFG_MERGED}
+cp ${DEFAULT_DIR}/* ${MERGED_DIR}
 
-# Merge all templates from config-data defaults first, then custom
-# NOTE: custom.conf files (for both the umbrella Cinder CR in config-data/defaults
-#       and each custom.conf for each sub-service in config-data/custom) still need
-#       to be handled separately below because the "merge_config_dir" function will
-#       not merge custom.conf into cinder.conf (because the files obviously have
-#       different names)
-for dir in /var/lib/config-data/default /var/lib/config-data/custom; do
-    merge_config_dir ${dir}
-done
+# Save the default service config from container image as cinder.conf.sample,
+# and create a small cinder.conf file that directs people to files in
+# cinder.conf.d.
+cp -a ${SVC_CFG} ${SVC_CFG_MERGED}.sample
+cat <<EOF > ${SVC_CFG_MERGED}
+# Service configuration snippets are stored in the cinder.conf.d subdirectory.
+EOF
 
-# TODO: a cleaner way to handle this?
-# Merge custom.conf with cinder.conf, since the Kolla config doesn't seem
-# to allow us to customize the cinder command (it calls httpd instead).
-# Can we just put custom.conf in something like /etc/cinder/cinder.conf.d/custom.conf
-# and have it automatically detected, or would we have to somehow change the call
-# to the cinder binary to tell it to use that custom conf dir?
-echo merging /var/lib/config-data/default/custom.conf into ${SVC_CFG_MERGED}
-crudini --merge ${SVC_CFG_MERGED} < /var/lib/config-data/default/custom.conf
+cp ${DEFAULT_DIR}/cinder.conf ${SVC_CFG_MERGED_DIR}/00-default.conf
 
-# TODO: a cleaner way to handle this?
-# There might be service-specific extra custom conf that needs to be merged
-# with the main cinder.conf for this particular service
-if [ -n "$CUSTOMCONF" ]; then
-    echo merging /var/lib/config-data/custom/${CUSTOMCONF} into ${SVC_CFG_MERGED}
-    crudini --merge ${SVC_CFG_MERGED} < /var/lib/config-data/custom/${CUSTOMCONF}
-fi
-
-# set secrets
+# Generate 01-secrets.conf
+SVC_CFG_SECRETS=${SVC_CFG_MERGED_DIR}/01-secrets.conf
 if [ -n "$TRANSPORTURL" ]; then
-    crudini --set ${SVC_CFG_MERGED} DEFAULT transport_url $TRANSPORTURL
+    cat <<EOF > ${SVC_CFG_SECRETS}
+[DEFAULT]
+transport_url = ${TRANSPORTURL}
+
+EOF
 fi
-crudini --set ${SVC_CFG_MERGED} database connection mysql+pymysql://${DBUSER}:${DBPASSWORD}@${DBHOST}/${DB}
-crudini --set ${SVC_CFG_MERGED} keystone_authtoken password $PASSWORD
-crudini --set ${SVC_CFG_MERGED} nova password $PASSWORD
+
 # TODO: service token
-#crudini --set ${SVC_CFG_MERGED} service_user password $CinderPassword
+cat <<EOF >> ${SVC_CFG_SECRETS}
+[database]
+connection = mysql+pymysql://${DBUSER}:${DBPASSWORD}@${DBHOST}/${DB}
+
+[keystone_authtoken]
+password = ${PASSWORD}
+
+[nova]
+password = ${PASSWORD}
+EOF
+
+if [ -f ${DEFAULT_DIR}/custom.conf ]; then
+    cp ${DEFAULT_DIR}/custom.conf ${SVC_CFG_MERGED_DIR}/02-global.conf
+fi
+
+if [ -f ${CUSTOM_DIR}/custom.conf ]; then
+    cp ${CUSTOM_DIR}/custom.conf ${SVC_CFG_MERGED_DIR}/03-service.conf
+fi
+
+# Probes cannot run kolla_set_configs because it uses the 'cinder' uid
+# and gid and doesn't have permission to make files be owned by root.
+# This means the probe must use files in the "merged" location, and the
+# files must be readable by 'cinder'.
+chown -R :cinder ${SVC_CFG_MERGED_DIR}

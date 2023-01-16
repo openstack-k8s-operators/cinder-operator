@@ -90,7 +90,7 @@ func StatefulSet(
 		probeCommand = []string{
 			"/usr/local/bin/container-scripts/healthcheck.py",
 			"backup",
-			"/var/lib/config-data/merged/cinder.conf",
+			"/var/lib/config-data/merged/cinder.conf.d",
 		}
 	}
 

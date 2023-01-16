@@ -1,17 +1,11 @@
 {
-  "command": "/usr/bin/cinder-backup --config-file /usr/share/cinder/cinder-dist.conf --config-file /etc/cinder/cinder.conf",
+  "command": "/usr/bin/cinder-backup --config-dir /etc/cinder/cinder.conf.d",
   "config_files": [
     {
-      "source": "/var/lib/config-data/merged/cinder.conf",
-      "dest": "/etc/cinder/cinder.conf",
+      "source": "/var/lib/config-data/merged/cinder.conf.d",
+      "dest": "/etc/cinder/cinder.conf.d",
       "owner": "root:cinder",
-      "perm": "0640"
-    },
-    {
-      "source": "/var/lib/config-data/merged/nfs_shares",
-      "dest": "/etc/cinder/nfs_shares",
-      "owner": "root:cinder",
-      "perm": "0640"
+      "perm": "0750"
     }
   ]
 }
