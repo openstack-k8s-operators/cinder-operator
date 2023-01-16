@@ -83,11 +83,6 @@ type CinderAPIReconciler struct {
 var (
 	keystoneServices = []map[string]string{
 		{
-			"type": cinder.ServiceTypeV2,
-			"name": cinder.ServiceNameV2,
-			"desc": "Cinder V2 Service",
-		},
-		{
 			"type": cinder.ServiceTypeV3,
 			"name": cinder.ServiceNameV3,
 			"desc": "Cinder V3 Service",
@@ -303,73 +298,20 @@ func (r *CinderAPIReconciler) reconcileInit(
 	// expose the service (create service, route and return the created endpoint URLs)
 	//
 
-	// V2
+	// V3
 	adminEndpointData := endpoint.Data{
 		Port: cinder.CinderAdminPort,
-		Path: "/v2/%(project_id)s",
+		Path: "/v3",
 	}
 	publicEndpointData := endpoint.Data{
 		Port: cinder.CinderPublicPort,
-		Path: "/v2/%(project_id)s",
+		Path: "/v3",
 	}
 	internalEndpointData := endpoint.Data{
 		Port: cinder.CinderInternalPort,
-		Path: "/v2/%(project_id)s",
+		Path: "/v3",
 	}
 	data := map[endpoint.Endpoint]endpoint.Data{
-		endpoint.EndpointAdmin:    adminEndpointData,
-		endpoint.EndpointPublic:   publicEndpointData,
-		endpoint.EndpointInternal: internalEndpointData,
-	}
-
-	apiEndpointsV2, ctrlResult, err := endpoint.ExposeEndpoints(
-		ctx,
-		helper,
-		cinder.ServiceName,
-		serviceLabels,
-		data,
-	)
-	if err != nil {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.ExposeServiceReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.ExposeServiceReadyErrorMessage,
-			err.Error()))
-		return ctrlResult, err
-	} else if (ctrlResult != ctrl.Result{}) {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.ExposeServiceReadyCondition,
-			condition.RequestedReason,
-			condition.SeverityInfo,
-			condition.ExposeServiceReadyRunningMessage))
-		return ctrlResult, nil
-	}
-
-	//
-	// Update instance status with service endpoint url from route host information for v2
-	//
-	// TODO: need to support https default here
-	if instance.Status.APIEndpoints == nil {
-		instance.Status.APIEndpoints = map[string]map[string]string{}
-	}
-	instance.Status.APIEndpoints[cinder.ServiceNameV2] = apiEndpointsV2
-	// V2 - end
-
-	// V3
-	adminEndpointData = endpoint.Data{
-		Port: cinder.CinderAdminPort,
-		Path: "/v3/%(project_id)s",
-	}
-	publicEndpointData = endpoint.Data{
-		Port: cinder.CinderPublicPort,
-		Path: "/v3/%(project_id)s",
-	}
-	internalEndpointData = endpoint.Data{
-		Port: cinder.CinderInternalPort,
-		Path: "/v3/%(project_id)s",
-	}
-	data = map[endpoint.Endpoint]endpoint.Data{
 		endpoint.EndpointAdmin:    adminEndpointData,
 		endpoint.EndpointPublic:   publicEndpointData,
 		endpoint.EndpointInternal: internalEndpointData,
@@ -400,9 +342,13 @@ func (r *CinderAPIReconciler) reconcileInit(
 	}
 
 	//
-	// Update instance status with service endpoint url from route host information for v2
+	// Update instance status with service endpoint url from route host information
 	//
 	// TODO: need to support https default here
+	if instance.Status.APIEndpoints == nil {
+		instance.Status.APIEndpoints = map[string]map[string]string{}
+	}
+
 	instance.Status.APIEndpoints[cinder.ServiceNameV3] = apiEndpointsV3
 	// V3 - end
 
