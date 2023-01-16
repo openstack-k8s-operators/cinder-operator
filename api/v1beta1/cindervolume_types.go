@@ -35,7 +35,7 @@ type CinderVolumeSpec struct {
 	ContainerImage string `json:"containerImage,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=1
+	// +kubebuilder:default=0
 	// +kubebuilder:validation:Maximum=1
 	// Replicas - Cinder Volume Replicas
 	Replicas int32 `json:"replicas"`
@@ -134,5 +134,5 @@ func init() {
 
 // IsReady - returns true if service is ready to serve requests
 func (instance CinderVolume) IsReady() bool {
-	return instance.Status.ReadyCount >= 1
+	return instance.Status.ReadyCount >= 1 || instance.Spec.Replicas == 0
 }

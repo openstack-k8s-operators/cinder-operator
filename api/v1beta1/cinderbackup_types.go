@@ -35,6 +35,7 @@ type CinderBackupSpec struct {
 	ContainerImage string `json:"containerImage,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=0
 	// Replicas - Cinder Backup Replicas
 	Replicas int32 `json:"replicas"`
 
@@ -132,5 +133,5 @@ func init() {
 
 // IsReady - returns true if service is ready to serve requests
 func (instance CinderBackup) IsReady() bool {
-	return instance.Status.ReadyCount >= 1
+	return instance.Status.ReadyCount >= 1 || instance.Spec.Replicas == 0
 }

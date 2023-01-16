@@ -183,11 +183,22 @@ func init() {
 
 // IsReady - returns true if service is ready to serve requests
 func (instance Cinder) IsReady() bool {
-	ready := instance.Status.CinderAPIReadyCount > 0 && instance.Status.CinderBackupReadyCount > 0 &&
+	
+	// Both CinderAPI and CinderScheduler should always be considered
+	ready := instance.Status.CinderAPIReadyCount > 0 &&
 		instance.Status.CinderSchedulerReadyCount > 0
 
+	// Update the ready variable only if CinderBackup CR has at least 1 replica
+	if instance.Spec.CinderBackup.Replicas > 0 {
+		ready = ready && instance.Status.CinderBackupReadyCount > 0
+	}
+
 	for name := range instance.Spec.CinderVolumes {
-		ready = ready && instance.Status.CinderVolumesReadyCounts[name] > 0
+		// The IsReady status should consider only cinder-volume CRs with
+		// replica > 0
+		if instance.Spec.CinderVolumes[name].Replicas > 0 {
+			ready = ready && instance.Status.CinderVolumesReadyCounts[name] > 0
+		}
 	}
 
 	return ready

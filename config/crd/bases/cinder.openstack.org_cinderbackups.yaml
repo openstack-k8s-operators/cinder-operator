@@ -1907,6 +1907,7 @@ spec:
                     type: string
                 type: object
               replicas:
+                default: 0
                 description: Replicas - Cinder Backup Replicas
                 format: int32
                 type: integer

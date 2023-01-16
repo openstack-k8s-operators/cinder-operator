@@ -1907,7 +1907,7 @@ spec:
                     type: string
                 type: object
               replicas:
-                default: 1
+                default: 0
                 description: Replicas - Cinder Volume Replicas
                 format: int32
                 maximum: 1
