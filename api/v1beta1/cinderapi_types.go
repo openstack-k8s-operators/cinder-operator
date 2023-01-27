@@ -97,6 +97,10 @@ type CinderAPISpec struct {
 	// +kubebuilder:validation:Optional
 	// NetworkAttachments is a list of NetworkAttachment resource names to expose the services to the given network
 	NetworkAttachments []string `json:"networkAttachments"`
+
+	// +kubebuilder:validation:Optional
+	// ExternalEndpoints, expose a VIP via MetalLB on the pre-created address pool
+	ExternalEndpoints []MetalLBConfig `json:"externalEndpoints"`
 }
 
 // CinderAPIStatus defines the observed state of CinderAPI

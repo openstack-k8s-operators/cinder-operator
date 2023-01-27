@@ -324,12 +324,26 @@ func (r *CinderAPIReconciler) reconcileInit(
 		endpoint.EndpointInternal: internalEndpointData,
 	}
 
+	for _, metallbcfg := range instance.Spec.ExternalEndpoints {
+		portCfg := data[metallbcfg.Endpoint]
+
+		portCfg.MetalLB = &endpoint.MetalLBData{
+			IPAddressPool:   metallbcfg.IPAddressPool,
+			SharedIP:        metallbcfg.SharedIP,
+			SharedIPKey:     metallbcfg.SharedIPKey,
+			LoadBalancerIPs: metallbcfg.LoadBalancerIPs,
+		}
+
+		data[metallbcfg.Endpoint] = portCfg
+	}
+
 	apiEndpointsV3, ctrlResult, err := endpoint.ExposeEndpoints(
 		ctx,
 		helper,
 		cinder.ServiceName,
 		serviceLabels,
 		data,
+		time.Duration(5)*time.Second,
 	)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
