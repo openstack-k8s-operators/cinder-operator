@@ -19,9 +19,7 @@ import (
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 )
 
-//
 // Cinder Condition Types used by API objects.
-//
 const (
 	// CinderRabbitMqTransportURLReadyCondition Status=True condition which indicates if the RabbitMQ TransportURLUrl is ready
 	CinderRabbitMqTransportURLReadyCondition condition.Type = "CinderRabbitMqTransportURLReady"
@@ -39,14 +37,10 @@ const (
 	CinderVolumeReadyCondition condition.Type = "CinderVolumeReady"
 )
 
-//
 // Cinder Reasons used by API objects.
-//
 const ()
 
-//
 // Common Messages used by API objects.
-//
 const (
 	//
 	// CinderRabbitMqTransportURLReady condition messages
