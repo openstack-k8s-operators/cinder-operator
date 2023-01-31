@@ -306,10 +306,6 @@ func (r *CinderAPIReconciler) reconcileInit(
 	//
 
 	// V3
-	adminEndpointData := endpoint.Data{
-		Port: cinder.CinderAdminPort,
-		Path: "/v3",
-	}
 	publicEndpointData := endpoint.Data{
 		Port: cinder.CinderPublicPort,
 		Path: "/v3",
@@ -319,7 +315,6 @@ func (r *CinderAPIReconciler) reconcileInit(
 		Path: "/v3",
 	}
 	data := map[endpoint.Endpoint]endpoint.Data{
-		endpoint.EndpointAdmin:    adminEndpointData,
 		endpoint.EndpointPublic:   publicEndpointData,
 		endpoint.EndpointInternal: internalEndpointData,
 	}
