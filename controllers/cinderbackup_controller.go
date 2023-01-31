@@ -448,10 +448,8 @@ func (r *CinderBackupReconciler) reconcileUpgrade(ctx context.Context, instance 
 	return ctrl.Result{}, nil
 }
 
-//
 // generateServiceConfigMaps - create custom configmap to hold service-specific config
 // TODO add DefaultConfigOverwrite
-//
 func (r *CinderBackupReconciler) generateServiceConfigMaps(
 	ctx context.Context,
 	h *helper.Helper,
@@ -496,12 +494,10 @@ func (r *CinderBackupReconciler) generateServiceConfigMaps(
 	return nil
 }
 
-//
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart
 // if any of the input resources change, like configs, passwords, ...
 //
 // returns the hash, whether the hash changed (as a bool) and any error
-//
 func (r *CinderBackupReconciler) createHashOfInputHashes(
 	ctx context.Context,
 	instance *cinderv1beta1.CinderBackup,

@@ -709,12 +709,10 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 	return nil
 }
 
-//
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart
 // if any of the input resources change, like configs, passwords, ...
 //
 // returns the hash, whether the hash changed (as a bool) and any error
-//
 func (r *CinderReconciler) createHashOfInputHashes(
 	ctx context.Context,
 	instance *cinderv1beta1.Cinder,
