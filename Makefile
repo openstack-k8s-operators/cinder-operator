@@ -306,4 +306,3 @@ golangci: get-ci-tools
 golint: get-ci-tools
 	PATH=$(GOBIN):$(PATH); $(CI_TOOLS_REPO_DIR)/test-runner/golint.sh
 	PATH=$(GOBIN):$(PATH); $(CI_TOOLS_REPO_DIR)/test-runner/golint.sh ./api
-
