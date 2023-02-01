@@ -198,6 +198,17 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// transportURLSecretFn - Watch for changes made to the secret associated with the RabbitMQ
+	// TransportURL created and used by Cinder CRs.  Watch functions return a list of namespace-scoped
+	// CRs that then get fed  to the reconciler.  Hence, in this case, we need to know the name of the
+	// Cinder CR associated with the secret we are examining in the function.  We could parse the name
+	// out of the "%s-cinder-transport" secret label, which would be faster than getting the list of
+	// the Cinder CRs and trying to match on each one.  The downside there, however, is that technically
+	// someone could randomly label a secret "something-cinder-transport" where "something" actually
+	// matches the name of an existing Cinder CR.  In that case changes to that secret would trigger
+	// reconciliation for a Cinder CR that does not need it.
+	//
+	// TODO: We also need a watch func to monitor for changes to the secret referenced by Cinder.Spec.Secret
 	transportURLSecretFn := func(o client.Object) []reconcile.Request {
 		result := []reconcile.Request{}
 
