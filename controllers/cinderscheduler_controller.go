@@ -257,7 +257,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -281,7 +281,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("TransportURL secret %s not found", instance.Spec.TransportURLSecret)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("TransportURL secret %s not found", instance.Spec.TransportURLSecret)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -313,7 +313,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("Could not find all config maps for parent Cinder CR %s", parentCinderName)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("Could not find all config maps for parent Cinder CR %s", parentCinderName)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -435,7 +435,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	ssDef := cinderscheduler.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations)
 	ss := statefulset.NewStatefulSet(
 		ssDef,
-		5,
+		time.Duration(5)*time.Second,
 	)
 
 	ctrlResult, err = ss.CreateOrPatch(ctx, helper)

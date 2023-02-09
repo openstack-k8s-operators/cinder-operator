@@ -363,7 +363,7 @@ func (r *CinderReconciler) reconcileInit(
 		jobDef,
 		cinderv1beta1.DbSyncHash,
 		instance.Spec.PreserveJobs,
-		5,
+		time.Duration(5)*time.Second,
 		dbSyncHash,
 	)
 	ctrlResult, err = dbSyncjob.DoJob(
@@ -437,7 +437,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			condition.RequestedReason,
 			condition.SeverityInfo,
 			cinderv1beta1.CinderRabbitMqTransportURLReadyRunningMessage))
-		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
+		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
 	}
 
 	instance.Status.Conditions.MarkTrue(cinderv1beta1.CinderRabbitMqTransportURLReadyCondition, cinderv1beta1.CinderRabbitMqTransportURLReadyMessage)
@@ -455,7 +455,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,

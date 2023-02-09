@@ -391,7 +391,7 @@ func (r *CinderAPIReconciler) reconcileInit(
 			PasswordSelector:   instance.Spec.PasswordSelectors.Service,
 		}
 
-		ksSvcObj := keystonev1.NewKeystoneService(ksSvcSpec, instance.Namespace, serviceLabels, 10)
+		ksSvcObj := keystonev1.NewKeystoneService(ksSvcSpec, instance.Namespace, serviceLabels, time.Duration(10)*time.Second)
 		ctrlResult, err = ksSvcObj.CreateOrPatch(ctx, helper)
 		if err != nil {
 			return ctrlResult, err
@@ -420,7 +420,7 @@ func (r *CinderAPIReconciler) reconcileInit(
 			instance.Namespace,
 			ksEndptSpec,
 			serviceLabels,
-			10)
+			time.Duration(10)*time.Second)
 		ctrlResult, err = ksEndptObj.CreateOrPatch(ctx, helper)
 		if err != nil {
 			return ctrlResult, err
@@ -459,7 +459,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -483,7 +483,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("TransportURL secret %s not found", instance.Spec.TransportURLSecret)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("TransportURL secret %s not found", instance.Spec.TransportURLSecret)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -515,7 +515,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("Could not find all config maps for parent Cinder CR %s", parentCinderName)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("Could not find all config maps for parent Cinder CR %s", parentCinderName)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -637,7 +637,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	deplDef := cinderapi.Deployment(instance, inputHash, serviceLabels, serviceAnnotations)
 	depl := deployment.NewDeployment(
 		deplDef,
-		5,
+		time.Duration(5)*time.Second,
 	)
 
 	ctrlResult, err = depl.CreateOrPatch(ctx, helper)
