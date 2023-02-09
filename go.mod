@@ -8,12 +8,12 @@ require (
 	github.com/onsi/gomega v1.24.1
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/openstack-k8s-operators/cinder-operator/api v0.0.0-20221010180347-a9a8efadf3c3
+	github.com/openstack-k8s-operators/infra-operator/apis v0.0.0-20230203135116-2adc2960b33c
 	github.com/openstack-k8s-operators/keystone-operator/api v0.0.0-20220927090553-6b3218c776f7
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20230120104300-c5aa132b34d6
 	github.com/openstack-k8s-operators/lib-common/modules/database v0.0.0-20230110110231-28368fe6a6a9
 	github.com/openstack-k8s-operators/lib-common/modules/storage v0.0.0-20221207150746-c4fe7a228d42
 	github.com/openstack-k8s-operators/mariadb-operator/api v0.0.0-20221014164348-0a612ae8b391
-	github.com/openstack-k8s-operators/openstack-operator/apis v0.0.0-20221107090218-8d63dba1ec13
 	k8s.io/api v0.26.0
 	k8s.io/apimachinery v0.26.1
 	k8s.io/client-go v0.26.0
