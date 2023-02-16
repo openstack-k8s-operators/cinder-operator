@@ -326,3 +326,8 @@ golangci: get-ci-tools
 golint: get-ci-tools
 	PATH=$(GOBIN):$(PATH); $(CI_TOOLS_REPO_DIR)/test-runner/golint.sh
 	PATH=$(GOBIN):$(PATH); $(CI_TOOLS_REPO_DIR)/test-runner/golint.sh ./api
+
+.PHONY: operator-lint
+operator-lint: $(LOCALBIN) gowork
+	GOBIN=$(LOCALBIN) go install github.com/gibizer/operator-lint@2ffa25b7f1c13fb2bdae5444a3dd1b5bbad5
+	go vet -vettool=$(LOCALBIN)/operator-lint ./... ./api/...
