@@ -135,6 +135,7 @@ gowork: ## Generate go.work file to support our multi module repository
 	test -f go.work || go work init
 	go work use .
 	go work use ./api
+	go work sync
 
 ##@ Build
 
