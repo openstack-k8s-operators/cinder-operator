@@ -17,7 +17,7 @@ const (
 )
 
 // DbSyncJob func
-func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string) *batchv1.Job {
+func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string, annotations map[string]string) *batchv1.Job {
 
 	dbSyncExtraMounts := []cinderv1beta1.CinderExtraVolMounts{}
 
@@ -42,6 +42,9 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string) *batchv
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: annotations,
+				},
 				Spec: corev1.PodSpec{
 					RestartPolicy:      "OnFailure",
 					ServiceAccountName: ServiceAccount,
