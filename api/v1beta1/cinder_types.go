@@ -118,7 +118,7 @@ type CinderSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
-	ExtraMounts []CinderExtraVolMounts `json:"extraMounts"`
+	ExtraMounts []CinderExtraVolMounts `json:"extraMounts,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// NodeSelector to target subset of worker nodes running this service. Setting
