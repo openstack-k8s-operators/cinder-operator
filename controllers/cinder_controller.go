@@ -1005,7 +1005,7 @@ func (r *CinderReconciler) volumeCleanupDeployments(ctx context.Context, instanc
 		if !exists && volume.DeletionTimestamp.IsZero() {
 			err := r.Client.Delete(ctx, &volume)
 			if err != nil && !k8s_errors.IsNotFound(err) {
-				err = fmt.Errorf("Error cleaning up %s: %v", volume.Name, err)
+				err = fmt.Errorf("Error cleaning up %s: %w", volume.Name, err)
 				return err
 			}
 		}
