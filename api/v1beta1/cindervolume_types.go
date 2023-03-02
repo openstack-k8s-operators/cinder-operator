@@ -75,8 +75,14 @@ type CinderVolumeSpec struct {
 	// +kubebuilder:validation:Optional
 	// CustomServiceConfig - customize the service config using this parameter to change service defaults,
 	// or overwrite rendered information using raw OpenStack config format. The content gets added to
-	// to /etc/<service>/<service>.conf.d directory as custom.conf file.
+	// to /etc/<service>/<service>.conf.d directory as a custom config file.
 	CustomServiceConfig string `json:"customServiceConfig,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// CustomServiceConfigSecrets - customize the service config using this parameter to specify Secrets
+	// that contain sensitive service config data. The content of each Secret gets added to the
+	// /etc/<service>/<service>.conf.d directory as a custom config file.
+	CustomServiceConfigSecrets []string `json:"customServiceConfigSecrets,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// ConfigOverwrite - interface to overwrite default config files like e.g. policy.json.

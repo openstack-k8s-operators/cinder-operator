@@ -47,10 +47,10 @@ EOF
 
 cp ${DEFAULT_DIR}/cinder.conf ${SVC_CFG_MERGED_DIR}/00-default.conf
 
-# Generate 01-secrets.conf
-SVC_CFG_SECRETS=${SVC_CFG_MERGED_DIR}/01-secrets.conf
+# Generate 01-deployment-secrets.conf
+DEPLOYMENT_SECRETS=${SVC_CFG_MERGED_DIR}/01-deployment-secrets.conf
 if [ -n "$TRANSPORTURL" ]; then
-    cat <<EOF > ${SVC_CFG_SECRETS}
+    cat <<EOF > ${DEPLOYMENT_SECRETS}
 [DEFAULT]
 transport_url = ${TRANSPORTURL}
 
@@ -58,7 +58,7 @@ EOF
 fi
 
 # TODO: service token
-cat <<EOF >> ${SVC_CFG_SECRETS}
+cat <<EOF >> ${DEPLOYMENT_SECRETS}
 [database]
 connection = mysql+pymysql://${DBUSER}:${DBPASSWORD}@${DBHOST}/${DB}
 
@@ -75,6 +75,11 @@ fi
 
 if [ -f ${CUSTOM_DIR}/custom.conf ]; then
     cp ${CUSTOM_DIR}/custom.conf ${SVC_CFG_MERGED_DIR}/03-service.conf
+fi
+
+SECRET_FILES="$(ls /var/lib/config-data/secret-*/* 2>/dev/null || true)"
+if [ -n "${SECRET_FILES}" ]; then
+    cat ${SECRET_FILES} > ${SVC_CFG_MERGED_DIR}/04-secrets.conf
 fi
 
 # Probes cannot run kolla_set_configs because it uses the 'cinder' uid

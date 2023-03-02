@@ -1,6 +1,8 @@
 package cinder
 
 import (
+	"strconv"
+
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	corev1 "k8s.io/api/core/v1"
@@ -252,4 +254,40 @@ func GetVolumeMounts(storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMou
 		}
 	}
 	return res
+}
+
+// GetSecretVolumes - Returns a list of volumes associated with a list of Secret names
+func GetSecretVolumes(secretNames []string) []corev1.Volume {
+	var config0640AccessMode int32 = 0640
+	secretVolumes := []corev1.Volume{}
+
+	for _, secretName := range secretNames {
+		secretVol := corev1.Volume{
+			Name: secretName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  secretName,
+					DefaultMode: &config0640AccessMode,
+				},
+			},
+		}
+		secretVolumes = append(secretVolumes, secretVol)
+	}
+	return secretVolumes
+}
+
+// GetSecretVolumeMounts - Returns a list of volume mounts associated with a list of Secret names
+func GetSecretVolumeMounts(secretNames []string) []corev1.VolumeMount {
+	secretMounts := []corev1.VolumeMount{}
+
+	for idx, secretName := range secretNames {
+		secretMount := corev1.VolumeMount{
+			Name: secretName,
+			// Each secret needs its own MountPath
+			MountPath: "/var/lib/config-data/secret-" + strconv.Itoa(idx),
+			ReadOnly:  true,
+		}
+		secretMounts = append(secretMounts, secretMount)
+	}
+	return secretMounts
 }
