@@ -1,0 +1,194 @@
+apiVersion: cinder.openstack.org/v1beta1
+kind: Cinder
+metadata:
+  name: cinder
+  namespace: openstack
+spec:
+  serviceUser: cinder
+  customServiceConfig: |
+    [DEFAULT]
+    debug = true
+  databaseInstance: openstack
+  databaseUser: cinder
+  rabbitMqClusterName: rabbitmq
+  cinderAPI:
+    replicas: 1
+    containerImage: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
+  cinderScheduler:
+    replicas: 1
+    containerImage: quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo
+  cinderBackup:
+    replicas: 1
+    containerImage: quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo
+  cinderVolumes:
+    volume1:
+      containerImage: quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo
+      replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cinder
+  namespace: openstack
+  ownerReferences:
+  - apiVersion: cinder.openstack.org/v1beta1
+    blockOwnerDeletion: true
+    controller: true
+    kind: CinderAPI
+    name: cinder-api
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      service: cinder
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        service: cinder
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: service
+                  operator: In
+                  values:
+                  - cinder
+              topologyKey: kubernetes.io/hostname
+            weight: 1
+      containers:
+      - args:
+        - -c
+        - /usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start
+        command:
+        - /bin/bash
+        image: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthcheck
+            port: 8776
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 3
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: cinder-api
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthcheck
+            port: 8776
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources: {}
+        securityContext:
+          runAsUser: 0
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/machine-id
+          name: etc-machine-id
+          readOnly: true
+        - mountPath: /etc/localtime
+          name: etc-localtime
+          readOnly: true
+        - mountPath: /usr/local/bin/container-scripts
+          name: scripts
+          readOnly: true
+        - mountPath: /var/lib/config-data/merged
+          name: config-data-merged
+      dnsPolicy: ClusterFirst
+      initContainers:
+      - args:
+        - -c
+        - /usr/local/bin/container-scripts/init.sh
+        command:
+        - /bin/bash
+        env:
+        - name: DatabasePassword
+          valueFrom:
+            secretKeyRef:
+              key: CinderDatabasePassword
+              name: osp-secret
+        - name: CinderPassword
+          valueFrom:
+            secretKeyRef:
+              key: CinderPassword
+              name: osp-secret
+        - name: TransportURL
+          valueFrom:
+            secretKeyRef:
+              key: transport_url
+              name: rabbitmq-transport-url-cinder-cinder-transport
+        - name: DatabaseHost
+          value: openstack
+        - name: DatabaseName
+          value: cinder
+        - name: DatabaseUser
+          value: cinder
+        - name: CustomConf
+          value: custom.conf
+        image: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
+        imagePullPolicy: IfNotPresent
+        name: init
+        resources: {}
+        securityContext:
+          runAsUser: 0
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /usr/local/bin/container-scripts
+          name: scripts
+          readOnly: true
+        - mountPath: /var/lib/config-data/default
+          name: config-data
+          readOnly: true
+        - mountPath: /var/lib/config-data/merged
+          name: config-data-merged
+        - mountPath: /var/lib/config-data/custom
+          name: config-data-custom
+          readOnly: true
+      restartPolicy: Always
+      serviceAccount: cinder-operator-cinder
+      serviceAccountName: cinder-operator-cinder
+      volumes:
+      - hostPath:
+          path: /etc/machine-id
+          type: ""
+        name: etc-machine-id
+      - hostPath:
+          path: /etc/localtime
+          type: ""
+        name: etc-localtime
+      - configMap:
+          defaultMode: 493
+          name: cinder-scripts
+        name: scripts
+      - configMap:
+          defaultMode: 416
+          name: cinder-config-data
+        name: config-data
+      - emptyDir: {}
+        name: config-data-merged
+      - configMap:
+          defaultMode: 416
+          name: cinder-api-config-data
+        name: config-data-custom
+status:
+  availableReplicas: 1
+  replicas: 1
