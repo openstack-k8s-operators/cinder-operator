@@ -49,7 +49,6 @@ spec:
             description: CinderAPISpec defines the desired state of CinderAPI
             properties:
               containerImage:
-                default: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
                 description: ContainerImage - Cinder API Container Image URL
                 type: string
               customServiceConfig:
@@ -2087,6 +2086,8 @@ spec:
               transportURLSecret:
                 description: Secret containing RabbitMq transport URL
                 type: string
+            required:
+            - containerImage
             type: object
           status:
             description: CinderAPIStatus defines the observed state of CinderAPI

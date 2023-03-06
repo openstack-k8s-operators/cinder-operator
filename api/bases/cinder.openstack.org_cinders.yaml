@@ -49,7 +49,6 @@ spec:
                   Cinder deployment
                 properties:
                   containerImage:
-                    default: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
                     description: ContainerImage - Cinder API Container Image URL
                     type: string
                   customServiceConfig:
@@ -2202,13 +2201,14 @@ spec:
                   transportURLSecret:
                     description: Secret containing RabbitMq transport URL
                     type: string
+                required:
+                - containerImage
                 type: object
               cinderBackup:
                 description: CinderBackup - Spec definition for the Backup service
                   of this Cinder deployment
                 properties:
                   containerImage:
-                    default: quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo
                     description: ContainerImage - Cinder Backup Container Image URL
                     type: string
                   customServiceConfig:
@@ -4315,13 +4315,14 @@ spec:
                   transportURLSecret:
                     description: Secret containing RabbitMq transport URL
                     type: string
+                required:
+                - containerImage
                 type: object
               cinderScheduler:
                 description: CinderScheduler - Spec definition for the Scheduler service
                   of this Cinder deployment
                 properties:
                   containerImage:
-                    default: quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo
                     description: ContainerImage - Cinder Scheduler Container Image
                       URL
                     type: string
@@ -6431,13 +6432,14 @@ spec:
                   transportURLSecret:
                     description: Secret containing RabbitMq transport URL
                     type: string
+                required:
+                - containerImage
                 type: object
               cinderVolumes:
                 additionalProperties:
                   description: CinderVolumeSpec defines the desired state of CinderVolume
                   properties:
                     containerImage:
-                      default: quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo
                       description: ContainerImage - Cinder Volume Container Image
                         URL
                       type: string
@@ -8600,6 +8602,8 @@ spec:
                     transportURLSecret:
                       description: Secret containing RabbitMq transport URL
                       type: string
+                  required:
+                  - containerImage
                   type: object
                 description: CinderVolumes - Map of chosen names to spec definitions
                   for the Volume(s) service(s) of this Cinder deployment

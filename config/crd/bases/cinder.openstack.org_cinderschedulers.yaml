@@ -49,7 +49,6 @@ spec:
             description: CinderSchedulerSpec defines the desired state of CinderScheduler
             properties:
               containerImage:
-                default: quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo
                 description: ContainerImage - Cinder Scheduler Container Image URL
                 type: string
               customServiceConfig:
@@ -2044,6 +2043,8 @@ spec:
               transportURLSecret:
                 description: Secret containing RabbitMq transport URL
                 type: string
+            required:
+            - containerImage
             type: object
           status:
             description: CinderSchedulerStatus defines the observed state of CinderScheduler
