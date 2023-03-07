@@ -465,7 +465,8 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			err.Error()))
 		return ctrl.Result{}, err
 	}
-	configMapVars[ospSecret.Name] = env.SetValue(hash)
+	// Add a prefix to the var name to avoid accidental collision with other non-secret vars.
+	configMapVars["secret-"+ospSecret.Name] = env.SetValue(hash)
 
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 	// run check OpenStack secret - end
