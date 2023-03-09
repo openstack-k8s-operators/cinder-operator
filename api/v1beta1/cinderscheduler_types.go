@@ -29,10 +29,9 @@ type CinderSchedulerSpec struct {
 	// ServiceUser - optional username used for this service to register in cinder
 	ServiceUser string `json:"serviceUser"`
 
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo"
+	// +kubebuilder:validation:Required
 	// ContainerImage - Cinder Scheduler Container Image URL
-	ContainerImage string `json:"containerImage,omitempty"`
+	ContainerImage string `json:"containerImage"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=1

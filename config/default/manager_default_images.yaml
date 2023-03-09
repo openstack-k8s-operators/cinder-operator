@@ -1,0 +1,21 @@
+# This patch inject custom ENV settings to the manager container
+# Used to set our default image locations
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: CINDER_API_IMAGE_URL_DEFAULT
+          value: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
+        - name: CINDER_BACKUP_IMAGE_URL_DEFAULT
+          value: quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo
+        - name: CINDER_SCHEDULER_IMAGE_URL_DEFAULT
+          value: quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo
+        - name: CINDER_VOLUME_IMAGE_URL_DEFAULT
+          value: quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo
