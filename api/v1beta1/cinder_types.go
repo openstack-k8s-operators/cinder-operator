@@ -114,7 +114,7 @@ type CinderSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// CinderVolumes - Map of chosen names to spec definitions for the Volume(s) service(s) of this Cinder deployment
-	CinderVolumes map[string]CinderVolumeSpec `json:"cinderVolumes"`
+	CinderVolumes map[string]CinderVolumeSpec `json:"cinderVolumes,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
