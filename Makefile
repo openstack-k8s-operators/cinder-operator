@@ -56,7 +56,7 @@ endif
 DEFAULT_IMG ?= quay.io/openstack-k8s-operators/cinder-operator:latest
 IMG ?= $(DEFAULT_IMG)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.24.1
+ENVTEST_K8S_VERSION = 1.25.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -120,18 +120,22 @@ fmt: ## Run go fmt against code.
 	go fmt ./...
 
 .PHONY: vet
-vet: ## Run go vet against code.
-	go vet ./... ./api/...
+vet: export GOWORK=
+vet: gowork ## Run go vet against code.
+	go vet ./...
+	go vet ./api/...
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... ./api/... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
 .PHONY: gowork
+gowork: export GOWORK=
 gowork: ## Generate go.work file to support our multi module repository
 	test -f go.work || go work init
 	go work use .
 	go work use ./api
+	go work sync
 
 ##@ Build
 
@@ -153,6 +157,23 @@ ifeq ($(IMG), $(DEFAULT_IMG))
 	$(error As a precaution this target cannot push the default image. If that's really your intentention you'll need to do it manually.)
 endif
 	podman push --tls-verify=${VERIFY_TLS} ${IMG}
+
+# PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
+# architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
+# - able to use docker buildx . More info: https://docs.docker.com/build/buildx/
+# - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
+# - be able to push the image for your registry (i.e. if you do not inform a valid value via IMG=<myregistry/image:<tag>> than the export will fail)
+# To properly provided solutions that supports more than one platform you should use this option.
+PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
+.PHONY: docker-buildx
+docker-buildx: test ## Build and push docker image for the manager for cross-platform support
+	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
+	- docker buildx create --name project-v3-builder
+	docker buildx use project-v3-builder
+	- docker buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f Dockerfile.cross
+	- docker buildx rm project-v3-builder
+	rm Dockerfile.cross
 
 ##@ Deployment
 
@@ -193,7 +214,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v3.8.7
-CONTROLLER_TOOLS_VERSION ?= v0.9.2
+CONTROLLER_TOOLS_VERSION ?= v0.10.0
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
@@ -307,3 +328,7 @@ golint: get-ci-tools
 	PATH=$(GOBIN):$(PATH); $(CI_TOOLS_REPO_DIR)/test-runner/golint.sh
 	PATH=$(GOBIN):$(PATH); $(CI_TOOLS_REPO_DIR)/test-runner/golint.sh ./api
 
+.PHONY: operator-lint
+operator-lint: $(LOCALBIN) gowork
+	GOBIN=$(LOCALBIN) go install github.com/gibizer/operator-lint@2ffa25b7f1c13fb2bdae5444a3dd1b5bbad5
+	go vet -vettool=$(LOCALBIN)/operator-lint ./... ./api/...

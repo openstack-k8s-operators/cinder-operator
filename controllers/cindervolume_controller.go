@@ -44,6 +44,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
+	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/statefulset"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
@@ -81,9 +82,11 @@ type CinderVolumeReconciler struct {
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cindervolumes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cindervolumes/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;create;update;patch;delete;watch
 // +kubebuilder:rbac:groups=security.openshift.io,namespace=openstack,resources=securitycontextconstraints,resourceNames=privileged,verbs=use
+// +kubebuilder:rbac:groups=k8s.cni.cncf.io,resources=network-attachment-definitions,verbs=get;list;watch
 
 // Reconcile -
 func (r *CinderVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
@@ -143,6 +146,7 @@ func (r *CinderVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
 			condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
 			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
+			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 		)
 
 		instance.Status.Conditions.Init(&cl)
@@ -152,6 +156,9 @@ func (r *CinderVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	if instance.Status.Hash == nil {
 		instance.Status.Hash = map[string]string{}
+	}
+	if instance.Status.NetworkAttachments == nil {
+		instance.Status.NetworkAttachments = map[string][]string{}
 	}
 
 	// Handle service delete
@@ -251,7 +258,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -275,7 +282,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("TransportURL secret %s not found", instance.Spec.TransportURLSecret)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("TransportURL secret %s not found", instance.Spec.TransportURLSecret)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -307,7 +314,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("Could not find all config maps for parent Cinder CR %s", parentCinderName)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("Could not find all config maps for parent Cinder CR %s", parentCinderName)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -368,6 +375,35 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 		common.AppSelector: cinder.ServiceName,
 	}
 
+	// networks to attach to
+	for _, netAtt := range instance.Spec.NetworkAttachments {
+		_, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
+		if err != nil {
+			if k8s_errors.IsNotFound(err) {
+				instance.Status.Conditions.Set(condition.FalseCondition(
+					condition.NetworkAttachmentsReadyCondition,
+					condition.RequestedReason,
+					condition.SeverityInfo,
+					condition.NetworkAttachmentsReadyWaitingMessage,
+					netAtt))
+				return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("network-attachment-definition %s not found", netAtt)
+			}
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.NetworkAttachmentsReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.NetworkAttachmentsReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
+	}
+
+	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.NetworkAttachments)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
+			instance.Spec.NetworkAttachments, err)
+	}
+
 	// Handle service init
 	ctrlResult, err := r.reconcileInit(ctx, instance, helper, serviceLabels)
 	if err != nil {
@@ -397,9 +433,10 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 
 	// Deploy a statefulset
+	ssDef := cindervolume.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations)
 	ss := statefulset.NewStatefulSet(
-		cindervolume.StatefulSet(instance, inputHash, serviceLabels),
-		5,
+		ssDef,
+		time.Duration(5)*time.Second,
 	)
 
 	ctrlResult, err = ss.CreateOrPatch(ctx, helper)
@@ -420,6 +457,28 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 		return ctrlResult, nil
 	}
 	instance.Status.ReadyCount = ss.GetStatefulSet().Status.ReadyReplicas
+
+	// verify if network attachment matches expectations
+	networkReady, networkAttachmentStatus, err := nad.VerifyNetworkStatusFromAnnotation(ctx, helper, instance.Spec.NetworkAttachments, serviceLabels, instance.Status.ReadyCount)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	instance.Status.NetworkAttachments = networkAttachmentStatus
+	if networkReady {
+		instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
+	} else {
+		err := fmt.Errorf("not all pods have interfaces with ips as configured in NetworkAttachments: %s", instance.Spec.NetworkAttachments)
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.NetworkAttachmentsReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.NetworkAttachmentsReadyErrorMessage,
+			err.Error()))
+
+		return ctrl.Result{}, err
+	}
+
 	if instance.Status.ReadyCount > 0 {
 		instance.Status.Conditions.MarkTrue(condition.DeploymentReadyCondition, condition.DeploymentReadyMessage)
 	}
@@ -449,10 +508,8 @@ func (r *CinderVolumeReconciler) reconcileUpgrade(ctx context.Context, instance 
 	return ctrl.Result{}, nil
 }
 
-//
 // generateServiceConfigMaps - create custom configmap to hold service-specific config
 // TODO add DefaultConfigOverwrite
-//
 func (r *CinderVolumeReconciler) generateServiceConfigMaps(
 	ctx context.Context,
 	h *helper.Helper,
@@ -489,20 +546,13 @@ func (r *CinderVolumeReconciler) generateServiceConfigMaps(
 		},
 	}
 
-	err := configmap.EnsureConfigMaps(ctx, h, instance, cms, envVars)
-	if err != nil {
-		return nil
-	}
-
-	return nil
+	return configmap.EnsureConfigMaps(ctx, h, instance, cms, envVars)
 }
 
-//
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart
 // if any of the input resources change, like configs, passwords, ...
 //
 // returns the hash, whether the hash changed (as a bool) and any error
-//
 func (r *CinderVolumeReconciler) createHashOfInputHashes(
 	ctx context.Context,
 	instance *cinderv1beta1.CinderVolume,

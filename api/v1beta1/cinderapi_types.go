@@ -29,10 +29,9 @@ type CinderAPISpec struct {
 	// ServiceUser - optional username used for this service to register in cinder
 	ServiceUser string `json:"serviceUser"`
 
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo"
+	// +kubebuilder:validation:Required
 	// ContainerImage - Cinder API Container Image URL
-	ContainerImage string `json:"containerImage,omitempty"`
+	ContainerImage string `json:"containerImage"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=1
@@ -92,7 +91,15 @@ type CinderAPISpec struct {
 
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
-	ExtraMounts []CinderExtraVolMounts `json:"extraMounts"`
+	ExtraMounts []CinderExtraVolMounts `json:"extraMounts,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// NetworkAttachments is a list of NetworkAttachment resource names to expose the services to the given network
+	NetworkAttachments []string `json:"networkAttachments,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// ExternalEndpoints, expose a VIP via MetalLB on the pre-created address pool
+	ExternalEndpoints []MetalLBConfig `json:"externalEndpoints,omitempty"`
 }
 
 // CinderAPIStatus defines the observed state of CinderAPI
@@ -111,10 +118,16 @@ type CinderAPIStatus struct {
 
 	// ServiceIDs
 	ServiceIDs map[string]string `json:"serviceIDs,omitempty"`
+
+	// NetworkAttachments status of the deployment pods
+	NetworkAttachments map[string][]string `json:"networkAttachments,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="NetworkAttachments",type="string",JSONPath=".status.networkAttachments",description="NetworkAttachments"
+//+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[0].status",description="Status"
+//+kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[0].message",description="Message"
 
 // CinderAPI is the Schema for the cinderapis API
 type CinderAPI struct {

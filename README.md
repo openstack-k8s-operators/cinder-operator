@@ -6,7 +6,7 @@
 
 ## Getting Started
 You’ll need a Kubernetes cluster to run against.  Our recommendation for the time being is to use
-[OpenShift Local](https://access.redhat.com/documentation/en-us/red_hat_openshift_local/2.2/html/getting_started_guide/installation_gsg) (formerly known as CRC / Code Ready Containers).  
+[OpenShift Local](https://access.redhat.com/documentation/en-us/red_hat_openshift_local/2.2/html/getting_started_guide/installation_gsg) (formerly known as CRC / Code Ready Containers).
 We have [companion development tools](https://github.com/openstack-k8s-operators/install_yamls/blob/master/devsetup/README.md) available that will install OpenShift Local for you.
 
 ### Running on the cluster
@@ -17,11 +17,11 @@ kubectl apply -f config/samples/
 ```
 
 2. Build and push your image to the location specified by `IMG`:
-	
+
 ```sh
 make docker-build docker-push IMG=<some-registry>/cinder-operator:tag
 ```
-	
+
 3. Deploy the controller to the cluster with the image specified by `IMG`:
 
 ```sh
@@ -165,6 +165,151 @@ When the service is up and running, it's possible to interact with the Cinder
 API and create the Ceph `cinder type` backend which is associated with the Ceph
 tier specified in the config file.
 
+## Example: configure Cinder with additional networks
+
+The Cinder spec can be used to configure Cinder to have the pods
+being attached to additional networks to e.g. connect to a Ceph
+RBD server on a dedicated storage network.
+
+Create a network-attachement-definition which then can be referenced
+from the Cinder CR.
+
+```
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: storage
+  namespace: openstack
+spec:
+  config: |
+    {
+      "cniVersion": "0.3.1",
+      "name": "storage",
+      "type": "macvlan",
+      "master": "enp7s0.21",
+      "ipam": {
+        "type": "whereabouts",
+        "range": "172.18.0.0/24",
+        "range_start": "172.18.0.50",
+        "range_end": "172.18.0.100"
+      }
+    }
+```
+
+The following represents an example of Cinder resource that can be used
+to trigger the service deployment, and have the Cinder Volume and Cinder Backup
+service pods attached to the storage network using the above NetworkAttachmentDefinition.
+
+```
+apiVersion: cinder.openstack.org/v1beta1
+kind: Cinder
+metadata:
+  name: cinder
+spec:
+  ...
+  cinderBackup:
+    ...
+    networkAttachents:
+    - storage
+  cinderVolume:
+    volume1:
+      ...
+      networkAttachents:
+      - storage
+...
+```
+
+When the service is up and running, it will now have an additional nic
+configured for the storage network:
+
+```
+# oc rsh cinder-volume-volume1-0
+Defaulted container "cinder-volume" out of: cinder-volume, probe, init (init)
+sh-5.1# ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host
+       valid_lft forever preferred_lft forever
+3: eth0@if334: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UP group default
+    link/ether 0a:58:0a:82:01:44 brd ff:ff:ff:ff:ff:ff link-netns 7ea23955-d990-449d-81f9-fd57cb710daa
+    inet 10.130.1.68/23 brd 10.130.1.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::bc92:5cff:fef3:2e27/64 scope link
+       valid_lft forever preferred_lft forever
+4: net1@if17: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+    link/ether 26:35:09:03:71:b3 brd ff:ff:ff:ff:ff:ff link-netns 7ea23955-d990-449d-81f9-fd57cb710daa
+    inet 172.18.0.20/24 brd 172.18.0.255 scope global net1
+       valid_lft forever preferred_lft forever
+    inet6 fe80::2435:9ff:fe03:71b3/64 scope link
+       valid_lft forever preferred_lft forever
+```
+
+## Example: expose Cinder API to an isolated network
+
+The Cinder spec can be used to configure Cinder API to register e.g.
+the internal endpoint to an isolated network. MetalLB is used for this
+scenario.
+
+As a pre requisite, MetalLB needs to be installed and worker nodes
+prepared to work as MetalLB nodes to serve the LoadBalancer service.
+
+In this example the following MetalLB IPAddressPool is used:
+
+```
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: osp-internalapi
+  namespace: metallb-system
+spec:
+  addresses:
+  - 172.17.0.200-172.17.0.210
+  autoAssign: false
+```
+
+The following represents an example of Cinder resource that can be used
+to trigger the service deployment, and have the cinderAPI endpoint
+registerd as a MetalLB service using the IPAddressPool `osp-internal`,
+request to use the IP `172.17.0.202` as the VIP and the IP is shared with
+other services.
+
+```
+apiVersion: cinder.openstack.org/v1beta1
+kind: Cinder
+metadata:
+  name: cinder
+spec:
+  ...
+  cinderAPI:
+    ...
+    externalEndpoints:
+      - endpoint: internal
+        ipAddressPool: osp-internalapi
+        loadBalancerIPs:
+        - 172.17.0.202
+        sharedIP: true
+        sharedIPKey: ""
+    ...
+...
+```
+
+The internal cinder endpoint gets registered with its service name. This
+service name needs to resolve to the `LoadBalancerIP` on the isolated network
+either by DNS or via /etc/hosts:
+
+```
+# openstack endpoint list -c 'Service Name' -c Interface -c URL --service cinderv3
++--------------+-----------+------------------------------------------------------------------+
+| Service Name | Interface | URL                                                              |
++--------------+-----------+------------------------------------------------------------------+
+| cinderv3     | internal  | http://cinder-internal.openstack.svc:8776/v3                     |
+| cinderv3     | public    | http://cinder-public-openstack.apps.ostest.test.metalkube.org/v3 |
++--------------+-----------+------------------------------------------------------------------+
+```
 
 ## Contributing
 // TODO(user): Add detailed information on how you would like others to contribute to this project
@@ -172,8 +317,8 @@ tier specified in the config file.
 ### How it works
 This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
 
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) 
-which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster 
+It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/)
+which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster
 
 ### Test It Out
 1. Install the CRDs into the cluster:
@@ -216,4 +361,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-

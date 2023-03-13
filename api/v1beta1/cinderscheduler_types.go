@@ -29,10 +29,9 @@ type CinderSchedulerSpec struct {
 	// ServiceUser - optional username used for this service to register in cinder
 	ServiceUser string `json:"serviceUser"`
 
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo"
+	// +kubebuilder:validation:Required
 	// ContainerImage - Cinder Scheduler Container Image URL
-	ContainerImage string `json:"containerImage,omitempty"`
+	ContainerImage string `json:"containerImage"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=1
@@ -92,7 +91,11 @@ type CinderSchedulerSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
-	ExtraMounts []CinderExtraVolMounts `json:"extraMounts"`
+	ExtraMounts []CinderExtraVolMounts `json:"extraMounts,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// NetworkAttachments is a list of NetworkAttachment resource names to expose the services to the given network
+	NetworkAttachments []string `json:"networkAttachments,omitempty"`
 }
 
 // CinderSchedulerStatus defines the observed state of CinderScheduler
@@ -105,10 +108,16 @@ type CinderSchedulerStatus struct {
 
 	// ReadyCount of Cinder Scheduler instances
 	ReadyCount int32 `json:"readyCount,omitempty"`
+
+	// NetworkAttachments status of the deployment pods
+	NetworkAttachments map[string][]string `json:"networkAttachments,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="NetworkAttachments",type="string",JSONPath=".status.networkAttachments",description="NetworkAttachments"
+//+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[0].status",description="Status"
+//+kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[0].message",description="Message"
 
 // CinderScheduler is the Schema for the cinderschedulers API
 type CinderScheduler struct {

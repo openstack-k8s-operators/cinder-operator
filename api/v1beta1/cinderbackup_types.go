@@ -29,10 +29,9 @@ type CinderBackupSpec struct {
 	// ServiceUser - optional username used for this service to register in cinder
 	ServiceUser string `json:"serviceUser"`
 
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo"
+	// +kubebuilder:validation:Required
 	// ContainerImage - Cinder Backup Container Image URL
-	ContainerImage string `json:"containerImage,omitempty"`
+	ContainerImage string `json:"containerImage"`
 
 	// +kubebuilder:validation:Optional
 	// Replicas - Cinder Backup Replicas
@@ -90,7 +89,11 @@ type CinderBackupSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
-	ExtraMounts []CinderExtraVolMounts `json:"extraMounts"`
+	ExtraMounts []CinderExtraVolMounts `json:"extraMounts,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// NetworkAttachments is a list of NetworkAttachment resource names to expose the services to the given network
+	NetworkAttachments []string `json:"networkAttachments,omitempty"`
 }
 
 // CinderBackupStatus defines the observed state of CinderBackup
@@ -103,10 +106,16 @@ type CinderBackupStatus struct {
 
 	// ReadyCount of Cinder Backup instances
 	ReadyCount int32 `json:"readyCount,omitempty"`
+
+	// NetworkAttachments status of the deployment pods
+	NetworkAttachments map[string][]string `json:"networkAttachments,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="NetworkAttachments",type="string",JSONPath=".status.networkAttachments",description="NetworkAttachments"
+//+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[0].status",description="Status"
+//+kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[0].message",description="Message"
 
 // CinderBackup is the Schema for the cinderbackups API
 type CinderBackup struct {

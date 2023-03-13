@@ -1,4 +1,4 @@
-#!/bin//bash
+#!/bin/bash
 #
 # Copyright 2020 Red Hat Inc.
 #
@@ -23,9 +23,7 @@ export DB=${DatabaseName:-"cinder"}
 export DBHOST=${DatabaseHost:?"Please specify a DatabaseHost variable."}
 export DBUSER=${DatabaseUser:-"cinder"}
 export DBPASSWORD=${DatabasePassword:?"Please specify a DatabasePassword variable."}
-export CINDERPASSWORD=${CinderPassword:?"Please specify a CinderPassword variable."}
-# TODO: nova password
-#export NOVAPASSWORD=${NovaPassword:?"Please specify a NovaPassword variable."}
+export PASSWORD=${CinderPassword:?"Please specify a CinderPassword variable."}
 export TRANSPORTURL=${TransportURL:-""}
 
 export CUSTOMCONF=${CustomConf:-""}
@@ -46,8 +44,7 @@ cp -a ${SVC_CFG} ${SVC_CFG_MERGED}
 #       to be handled separately below because the "merge_config_dir" function will
 #       not merge custom.conf into cinder.conf (because the files obviously have
 #       different names)
-for dir in /var/lib/config-data/default /var/lib/config-data/custom
-do
+for dir in /var/lib/config-data/default /var/lib/config-data/custom; do
     merge_config_dir ${dir}
 done
 
@@ -64,17 +61,16 @@ crudini --merge ${SVC_CFG_MERGED} < /var/lib/config-data/default/custom.conf
 # There might be service-specific extra custom conf that needs to be merged
 # with the main cinder.conf for this particular service
 if [ -n "$CUSTOMCONF" ]; then
-  echo merging /var/lib/config-data/custom/${CUSTOMCONF} into ${SVC_CFG_MERGED}
-  crudini --merge ${SVC_CFG_MERGED} < /var/lib/config-data/custom/${CUSTOMCONF}
+    echo merging /var/lib/config-data/custom/${CUSTOMCONF} into ${SVC_CFG_MERGED}
+    crudini --merge ${SVC_CFG_MERGED} < /var/lib/config-data/custom/${CUSTOMCONF}
 fi
 
 # set secrets
 if [ -n "$TRANSPORTURL" ]; then
-  crudini --set ${SVC_CFG_MERGED} DEFAULT transport_url $TRANSPORTURL
+    crudini --set ${SVC_CFG_MERGED} DEFAULT transport_url $TRANSPORTURL
 fi
 crudini --set ${SVC_CFG_MERGED} database connection mysql+pymysql://${DBUSER}:${DBPASSWORD}@${DBHOST}/${DB}
-crudini --set ${SVC_CFG_MERGED} keystone_authtoken password $CINDERPASSWORD
-# TODO: nova password
-#crudini --set ${SVC_CFG_MERGED} nova password $NOVAPASSWORD
+crudini --set ${SVC_CFG_MERGED} keystone_authtoken password $PASSWORD
+crudini --set ${SVC_CFG_MERGED} nova password $PASSWORD
 # TODO: service token
 #crudini --set ${SVC_CFG_MERGED} service_user password $CinderPassword

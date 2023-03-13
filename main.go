@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -34,11 +35,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
-	"github.com/openstack-k8s-operators/cinder-operator/controllers"
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
 	keystonev1beta1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	mariadbv1beta1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
-	rabbitmqv1 "github.com/openstack-k8s-operators/openstack-operator/apis/rabbitmq/v1beta1"
+
+	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/cinder-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -55,6 +58,7 @@ func init() {
 	utilruntime.Must(keystonev1beta1.AddToScheme(scheme))
 	utilruntime.Must(rabbitmqv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(networkv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -155,6 +159,25 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "CinderVolume")
 		os.Exit(1)
 	}
+
+	// Acquire environmental defaults and initialize Cinder defaults with them
+	cinderDefaults := cinderv1beta1.CinderDefaults{
+		APIContainerImageURL:       os.Getenv("CINDER_API_IMAGE_URL_DEFAULT"),
+		BackupContainerImageURL:    os.Getenv("CINDER_BACKUP_IMAGE_URL_DEFAULT"),
+		SchedulerContainerImageURL: os.Getenv("CINDER_SCHEDULER_IMAGE_URL_DEFAULT"),
+		VolumeContainerImageURL:    os.Getenv("CINDER_VOLUME_IMAGE_URL_DEFAULT"),
+	}
+
+	(&cinderv1beta1.Cinder{}).Spec.SetupDefaults(cinderDefaults)
+
+	// Setup webhooks if requested
+	if strings.ToLower(os.Getenv("ENABLE_WEBHOOKS")) != "false" {
+		if err = (&cinderv1beta1.Cinder{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Cinder")
+			os.Exit(1)
+		}
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

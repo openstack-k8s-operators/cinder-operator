@@ -27,11 +27,15 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
+	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
@@ -41,11 +45,11 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/job"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
+	nad "github.com/openstack-k8s-operators/lib-common/modules/common/networkattachment"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	"github.com/openstack-k8s-operators/lib-common/modules/database"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
-	rabbitmqv1 "github.com/openstack-k8s-operators/openstack-operator/apis/rabbitmq/v1beta1"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -101,6 +105,7 @@ type CinderReconciler struct {
 // +kubebuilder:rbac:groups=mariadb.openstack.org,resources=mariadbdatabases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapis,verbs=get;list;watch
 // +kubebuilder:rbac:groups=rabbitmq.openstack.org,resources=transporturls,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=k8s.cni.cncf.io,resources=network-attachment-definitions,verbs=get;list;watch
 
 // Reconcile -
 func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
@@ -167,6 +172,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 			condition.UnknownCondition(cinderv1beta1.CinderBackupReadyCondition, condition.InitReason, cinderv1beta1.CinderBackupReadyInitMessage),
 			condition.UnknownCondition(cinderv1beta1.CinderVolumeReadyCondition, condition.InitReason, cinderv1beta1.CinderVolumeReadyInitMessage),
 			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
+			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 		)
 
 		instance.Status.Conditions.Init(&cl)
@@ -195,6 +201,51 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// transportURLSecretFn - Watch for changes made to the secret associated with the RabbitMQ
+	// TransportURL created and used by Cinder CRs.  Watch functions return a list of namespace-scoped
+	// CRs that then get fed  to the reconciler.  Hence, in this case, we need to know the name of the
+	// Cinder CR associated with the secret we are examining in the function.  We could parse the name
+	// out of the "%s-cinder-transport" secret label, which would be faster than getting the list of
+	// the Cinder CRs and trying to match on each one.  The downside there, however, is that technically
+	// someone could randomly label a secret "something-cinder-transport" where "something" actually
+	// matches the name of an existing Cinder CR.  In that case changes to that secret would trigger
+	// reconciliation for a Cinder CR that does not need it.
+	//
+	// TODO: We also need a watch func to monitor for changes to the secret referenced by Cinder.Spec.Secret
+	transportURLSecretFn := func(o client.Object) []reconcile.Request {
+		result := []reconcile.Request{}
+
+		// get all Cinder CRs
+		cinders := &cinderv1beta1.CinderList{}
+		listOpts := []client.ListOption{
+			client.InNamespace(o.GetNamespace()),
+		}
+		if err := r.Client.List(context.Background(), cinders, listOpts...); err != nil {
+			r.Log.Error(err, "Unable to retrieve Cinder CRs %v")
+			return nil
+		}
+
+		for _, ownerRef := range o.GetOwnerReferences() {
+			if ownerRef.Kind == "TransportURL" {
+				for _, cr := range cinders.Items {
+					if ownerRef.Name == fmt.Sprintf("%s-cinder-transport", cr.Name) {
+						// return namespace and Name of CR
+						name := client.ObjectKey{
+							Namespace: o.GetNamespace(),
+							Name:      cr.Name,
+						}
+						r.Log.Info(fmt.Sprintf("TransportURL Secret %s belongs to TransportURL belonging to Cinder CR %s", o.GetName(), cr.Name))
+						result = append(result, reconcile.Request{NamespacedName: name})
+					}
+				}
+			}
+		}
+		if len(result) > 0 {
+			return result
+		}
+		return nil
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.Cinder{}).
 		Owns(&mariadbv1.MariaDBDatabase{}).
@@ -205,7 +256,9 @@ func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rabbitmqv1.TransportURL{}).
 		Owns(&batchv1.Job{}).
 		Owns(&corev1.ConfigMap{}).
-		Owns(&corev1.Secret{}).
+		// Watch for TransportURL Secrets which belong to any TransportURLs created by Cinder CRs
+		Watches(&source.Kind{Type: &corev1.Secret{}},
+			handler.EnqueueRequestsFromMapFunc(transportURLSecretFn)).
 		Complete(r)
 }
 
@@ -239,6 +292,7 @@ func (r *CinderReconciler) reconcileInit(
 	instance *cinderv1beta1.Cinder,
 	helper *helper.Helper,
 	serviceLabels map[string]string,
+	serviceAnnotations map[string]string,
 ) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
 
@@ -303,12 +357,13 @@ func (r *CinderReconciler) reconcileInit(
 	// run Cinder db sync
 	//
 	dbSyncHash := instance.Status.Hash[cinderv1beta1.DbSyncHash]
-	jobDef := cinder.DbSyncJob(instance, serviceLabels)
+	jobDef := cinder.DbSyncJob(instance, serviceLabels, serviceAnnotations)
+
 	dbSyncjob := job.NewJob(
 		jobDef,
 		cinderv1beta1.DbSyncHash,
 		instance.Spec.PreserveJobs,
-		5,
+		time.Duration(5)*time.Second,
 		dbSyncHash,
 	)
 	ctrlResult, err = dbSyncjob.DoJob(
@@ -337,6 +392,9 @@ func (r *CinderReconciler) reconcileInit(
 		r.Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, jobDef.Name, instance.Status.Hash[cinderv1beta1.DbSyncHash]))
 	}
 	instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage)
+
+	// when job passed, mark NetworkAttachmentsReadyCondition ready
+	instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
 
 	// run Cinder db sync - end
 
@@ -379,7 +437,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			condition.RequestedReason,
 			condition.SeverityInfo,
 			cinderv1beta1.CinderRabbitMqTransportURLReadyRunningMessage))
-		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
+		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
 	}
 
 	instance.Status.Conditions.MarkTrue(cinderv1beta1.CinderRabbitMqTransportURLReadyCondition, cinderv1beta1.CinderRabbitMqTransportURLReadyMessage)
@@ -397,7 +455,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
+			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -463,8 +521,37 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		common.AppSelector: cinder.ServiceName,
 	}
 
+	// networks to attach to
+	for _, netAtt := range instance.Spec.CinderAPI.NetworkAttachments {
+		_, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
+		if err != nil {
+			if k8s_errors.IsNotFound(err) {
+				instance.Status.Conditions.Set(condition.FalseCondition(
+					condition.NetworkAttachmentsReadyCondition,
+					condition.RequestedReason,
+					condition.SeverityInfo,
+					condition.NetworkAttachmentsReadyWaitingMessage,
+					netAtt))
+				return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("network-attachment-definition %s not found", netAtt)
+			}
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.NetworkAttachmentsReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.NetworkAttachmentsReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
+	}
+
+	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.CinderAPI.NetworkAttachments)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
+			instance.Spec.CinderAPI.NetworkAttachments, err)
+	}
+
 	// Handle service init
-	ctrlResult, err := r.reconcileInit(ctx, instance, helper, serviceLabels)
+	ctrlResult, err := r.reconcileInit(ctx, instance, helper, serviceLabels, serviceAnnotations)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -701,20 +788,13 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 		},
 	}
 
-	err = configmap.EnsureConfigMaps(ctx, h, instance, cms, envVars)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return configmap.EnsureConfigMaps(ctx, h, instance, cms, envVars)
 }
 
-//
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart
 // if any of the input resources change, like configs, passwords, ...
 //
 // returns the hash, whether the hash changed (as a bool) and any error
-//
 func (r *CinderReconciler) createHashOfInputHashes(
 	ctx context.Context,
 	instance *cinderv1beta1.Cinder,
