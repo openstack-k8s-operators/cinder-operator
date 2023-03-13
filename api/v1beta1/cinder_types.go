@@ -62,7 +62,7 @@ type CinderSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default={database: CinderDatabasePassword, service: CinderPassword}
 	// PasswordSelectors - Selectors to identify the DB and ServiceUser password from the Secret
-	PasswordSelectors PasswordSelector `json:"passwordSelectors,omitempty"`
+	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
 
 	// +kubebuilder:validation:Optional
 	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
@@ -72,10 +72,9 @@ type CinderSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// PreserveJobs - do not delete jobs after they finished e.g. to check logs
-	PreserveJobs bool `json:"preserveJobs,omitempty"`
+	PreserveJobs bool `json:"preserveJobs"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="# add your customization here"
 	// CustomServiceConfig - customize the service config for all Cinder services using this parameter to change service defaults,
 	// or overwrite rendered information using raw OpenStack config format. The content gets added to
 	// to /etc/<service>/<service>.conf.d directory as custom.conf file.

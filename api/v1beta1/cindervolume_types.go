@@ -47,7 +47,7 @@ type CinderVolumeSpec struct {
 	// +kubebuilder:default=cinder
 	// DatabaseUser - optional username used for cinder DB, defaults to cinder
 	// TODO: -> implement needs work in mariadb-operator, right now only cinder
-	DatabaseUser string `json:"databaseUser,omitempty"`
+	DatabaseUser string `json:"databaseUser"`
 
 	// +kubebuilder:validation:Optional
 	// Secret containing OpenStack password information for CinderDatabasePassword
@@ -60,7 +60,7 @@ type CinderVolumeSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default={database: CinderDatabasePassword, service: CinderPassword}
 	// PasswordSelectors - Selectors to identify the DB and ServiceUser password from the Secret
-	PasswordSelectors PasswordSelector `json:"passwordSelectors,omitempty"`
+	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
 
 	// +kubebuilder:validation:Optional
 	// NodeSelector to target subset of worker nodes running this service. Setting here overrides
@@ -73,7 +73,6 @@ type CinderVolumeSpec struct {
 	Debug CinderServiceDebug `json:"debug,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="# add your customization here"
 	// CustomServiceConfig - customize the service config using this parameter to change service defaults,
 	// or overwrite rendered information using raw OpenStack config format. The content gets added to
 	// to /etc/<service>/<service>.conf.d directory as custom.conf file.
