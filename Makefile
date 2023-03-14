@@ -333,3 +333,20 @@ golint: get-ci-tools
 operator-lint: $(LOCALBIN) gowork
 	GOBIN=$(LOCALBIN) go install github.com/gibizer/operator-lint@2ffa25b7f1c13fb2bdae5444a3dd1b5bbad5
 	go vet -vettool=$(LOCALBIN)/operator-lint ./... ./api/...
+
+# Used for webhook testing
+# Please ensure the cinder-controller-manager deployment and
+# webhook definitions are removed from the csv before running
+# this. Also, cleanup the webhook configuration for local testing
+# before deplying with olm again.
+# $oc delete -n openstack validatingwebhookconfiguration/vcinder.kb.io
+# $oc delete -n openstack mutatingwebhookconfiguration/mcinder.kb.io
+SKIP_CERT ?=false
+.PHONY: run-with-webhook
+run-with-webhook: export CINDER_API_IMAGE_URL_DEFAULT=quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
+run-with-webhook: export CINDER_BACKUP_IMAGE_URL_DEFAULT=quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo
+run-with-webhook: export CINDER_SCHEDULER_IMAGE_URL_DEFAULT=quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo
+run-with-webhook: export CINDER_VOLUME_IMAGE_URL_DEFAULT=quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo
+run-with-webhook: manifests generate fmt vet ## Run a controller from your host.
+	/bin/bash hack/configure_local_webhook.sh
+	go run ./main.go
