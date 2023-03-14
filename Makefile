@@ -106,6 +106,7 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
+manifests: CRDDESC_OVERRIDE=:maxDescLen=0
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd$(CRDDESC_OVERRIDE) webhook paths="./..." output:crd:artifacts:config=config/crd/bases && \
 	rm -f api/bases/* && cp -a config/crd/bases api/
