@@ -24,11 +24,11 @@ type PasswordSelector struct {
 	// +kubebuilder:default="CinderDatabasePassword"
 	// Database - Selector to get the cinder database user password from the Secret
 	// TODO: not used, need change in mariadb-operator
-	Database string `json:"database,omitempty"`
+	Database string `json:"database"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="CinderPassword"
 	// Service - Selector to get the cinder service password from the Secret
-	Service string `json:"service,omitempty"`
+	Service string `json:"service"`
 }
 
 // CinderDebug indicates whether certain stages of Cinder deployment should
@@ -37,11 +37,11 @@ type CinderDebug struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// dbInitContainer enable debug (waits until /tmp/stop-init-container disappears)
-	DBInitContainer bool `json:"dbInitContainer,omitempty"`
+	DBInitContainer bool `json:"dbInitContainer"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// dbSync enable debug
-	DBSync bool `json:"dbSync,omitempty"`
+	DBSync bool `json:"dbSync"`
 }
 
 // CinderServiceDebug indicates whether certain stages of Cinder service
@@ -50,11 +50,11 @@ type CinderServiceDebug struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// initContainer enable debug (waits until /tmp/stop-init-container disappears)
-	InitContainer bool `json:"initContainer,omitempty"`
+	InitContainer bool `json:"initContainer"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// service enable debug
-	Service bool `json:"service,omitempty"`
+	Service bool `json:"service"`
 }
 
 // MetalLBConfig to configure the MetalLB loadbalancer service

@@ -41,7 +41,6 @@ spec:
                   containerImage:
                     type: string
                   customServiceConfig:
-                    default: '# add your customization here'
                     type: string
                   databaseHostname:
                     type: string
@@ -913,7 +912,6 @@ spec:
                   containerImage:
                     type: string
                   customServiceConfig:
-                    default: '# add your customization here'
                     type: string
                   databaseHostname:
                     type: string
@@ -1758,7 +1756,6 @@ spec:
                   containerImage:
                     type: string
                   customServiceConfig:
-                    default: '# add your customization here'
                     type: string
                   databaseHostname:
                     type: string
@@ -2605,7 +2602,6 @@ spec:
                     containerImage:
                       type: string
                     customServiceConfig:
-                      default: '# add your customization here'
                       type: string
                     databaseHostname:
                       type: string
@@ -3449,7 +3445,6 @@ spec:
                   type: object
                 type: object
               customServiceConfig:
-                default: '# add your customization here'
                 type: string
               databaseInstance:
                 type: string
@@ -4255,7 +4250,9 @@ spec:
             required:
             - cinderAPI
             - cinderScheduler
+            - databaseInstance
             - rabbitMqClusterName
+            - secret
             type: object
           status:
             properties:

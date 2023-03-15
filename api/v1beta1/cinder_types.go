@@ -41,7 +41,7 @@ type CinderSpec struct {
 	// MariaDB instance name
 	// Right now required by the maridb-operator to get the credentials from the instance to create the DB
 	// Might not be required in future
-	DatabaseInstance string `json:"databaseInstance,omitempty"`
+	DatabaseInstance string `json:"databaseInstance"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=cinder
@@ -57,12 +57,12 @@ type CinderSpec struct {
 
 	// +kubebuilder:validation:Required
 	// Secret containing OpenStack password information for CinderDatabasePassword, CinderPassword
-	Secret string `json:"secret,omitempty"`
+	Secret string `json:"secret"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default={database: CinderDatabasePassword, service: CinderPassword}
 	// PasswordSelectors - Selectors to identify the DB and ServiceUser password from the Secret
-	PasswordSelectors PasswordSelector `json:"passwordSelectors,omitempty"`
+	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
 
 	// +kubebuilder:validation:Optional
 	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
@@ -72,10 +72,9 @@ type CinderSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// PreserveJobs - do not delete jobs after they finished e.g. to check logs
-	PreserveJobs bool `json:"preserveJobs,omitempty"`
+	PreserveJobs bool `json:"preserveJobs"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="# add your customization here"
 	// CustomServiceConfig - customize the service config for all Cinder services using this parameter to change service defaults,
 	// or overwrite rendered information using raw OpenStack config format. The content gets added to
 	// to /etc/<service>/<service>.conf.d directory as custom.conf file.

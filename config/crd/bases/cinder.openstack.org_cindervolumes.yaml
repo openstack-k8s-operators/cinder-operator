@@ -43,7 +43,6 @@ spec:
               containerImage:
                 type: string
               customServiceConfig:
-                default: '# add your customization here'
                 type: string
               databaseHostname:
                 type: string
