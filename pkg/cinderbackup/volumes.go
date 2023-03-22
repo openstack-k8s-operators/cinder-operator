@@ -7,10 +7,20 @@ import (
 )
 
 // GetVolumes -
-func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
+func GetVolumes(parentName string, name string, secretNames []string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
 	var config0640AccessMode int32 = 0640
+	var dirOrCreate = corev1.HostPathDirectoryOrCreate
 
-	backupVolumes := []corev1.Volume{
+	volumes := []corev1.Volume{
+		{
+			Name: "var-lib-cinder",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/var/lib/cinder",
+					Type: &dirOrCreate,
+				},
+			},
+		},
 		{
 			Name: "config-data-custom",
 			VolumeSource: corev1.VolumeSource{
@@ -24,19 +34,24 @@ func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderE
 		},
 	}
 
-	return append(cinder.GetVolumes(parentName, true, extraVol, cinder.CinderBackupPropagation), backupVolumes...)
+	volumes = append(volumes, cinder.GetSecretVolumes(secretNames)...)
+
+	return append(cinder.GetVolumes(parentName, true, extraVol, cinder.CinderBackupPropagation), volumes...)
 }
 
 // GetInitVolumeMounts - Cinder Backup init task VolumeMounts
-func GetInitVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
-
-	customConfVolumeMount := corev1.VolumeMount{
-		Name:      "config-data-custom",
-		MountPath: "/var/lib/config-data/custom",
-		ReadOnly:  true,
+func GetInitVolumeMounts(secretNames []string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
+	initVolumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "config-data-custom",
+			MountPath: "/var/lib/config-data/custom",
+			ReadOnly:  true,
+		},
 	}
 
-	return append(cinder.GetInitVolumeMounts(extraVol, cinder.CinderBackupPropagation), customConfVolumeMount)
+	initVolumeMounts = append(initVolumeMounts, cinder.GetSecretVolumeMounts(secretNames)...)
+
+	return append(cinder.GetInitVolumeMounts(extraVol, cinder.CinderBackupPropagation), initVolumeMounts...)
 }
 
 // GetVolumeMounts - Cinder Backup VolumeMounts

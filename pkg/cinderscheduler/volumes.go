@@ -7,10 +7,10 @@ import (
 )
 
 // GetVolumes -
-func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
+func GetVolumes(parentName string, name string, secretNames []string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
 	var config0640AccessMode int32 = 0640
 
-	schedulerVolumes := []corev1.Volume{
+	volumes := []corev1.Volume{
 		{
 			Name: "config-data-custom",
 			VolumeSource: corev1.VolumeSource{
@@ -24,19 +24,24 @@ func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderE
 		},
 	}
 
-	return append(cinder.GetVolumes(parentName, false, extraVol, cinder.CinderSchedulerPropagation), schedulerVolumes...)
+	volumes = append(volumes, cinder.GetSecretVolumes(secretNames)...)
+
+	return append(cinder.GetVolumes(parentName, false, extraVol, cinder.CinderSchedulerPropagation), volumes...)
 }
 
 // GetInitVolumeMounts - Cinder Scheduler init task VolumeMounts
-func GetInitVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
-
-	customConfVolumeMount := corev1.VolumeMount{
-		Name:      "config-data-custom",
-		MountPath: "/var/lib/config-data/custom",
-		ReadOnly:  true,
+func GetInitVolumeMounts(secretNames []string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
+	initVolumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "config-data-custom",
+			MountPath: "/var/lib/config-data/custom",
+			ReadOnly:  true,
+		},
 	}
 
-	return append(cinder.GetInitVolumeMounts(extraVol, cinder.CinderSchedulerPropagation), customConfVolumeMount)
+	initVolumeMounts = append(initVolumeMounts, cinder.GetSecretVolumeMounts(secretNames)...)
+
+	return append(cinder.GetInitVolumeMounts(extraVol, cinder.CinderSchedulerPropagation), initVolumeMounts...)
 }
 
 // GetVolumeMounts - Cinder Scheduler VolumeMounts

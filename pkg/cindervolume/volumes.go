@@ -10,11 +10,11 @@ import (
 )
 
 // GetVolumes -
-func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
+func GetVolumes(parentName string, name string, secretNames []string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
 	var config0640AccessMode int32 = 0640
 	var dirOrCreate = corev1.HostPathDirectoryOrCreate
 
-	volumeVolumes := []corev1.Volume{
+	volumes := []corev1.Volume{
 		{
 			Name: "var-lib-cinder",
 			VolumeSource: corev1.VolumeSource{
@@ -37,23 +37,28 @@ func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderE
 		},
 	}
 
+	volumes = append(volumes, cinder.GetSecretVolumes(secretNames)...)
+
 	// Set the propagation levels for CinderVolume, including the backend name
 	propagation := append(cinder.CinderVolumePropagation, storage.PropagationType(strings.TrimPrefix(name, "cinder-volume-")))
-	return append(cinder.GetVolumes(parentName, true, extraVol, propagation), volumeVolumes...)
+	return append(cinder.GetVolumes(parentName, true, extraVol, propagation), volumes...)
 }
 
 // GetInitVolumeMounts - Cinder Volume init task VolumeMounts
-func GetInitVolumeMounts(name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
-
-	customConfVolumeMount := corev1.VolumeMount{
-		Name:      "config-data-custom",
-		MountPath: "/var/lib/config-data/custom",
-		ReadOnly:  true,
+func GetInitVolumeMounts(name string, secretNames []string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
+	initVolumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "config-data-custom",
+			MountPath: "/var/lib/config-data/custom",
+			ReadOnly:  true,
+		},
 	}
+
+	initVolumeMounts = append(initVolumeMounts, cinder.GetSecretVolumeMounts(secretNames)...)
 
 	// Set the propagation levels for CinderVolume, including the backend name
 	propagation := append(cinder.CinderVolumePropagation, storage.PropagationType(strings.TrimPrefix(name, "cinder-volume-")))
-	return append(cinder.GetInitVolumeMounts(extraVol, propagation), customConfVolumeMount)
+	return append(cinder.GetInitVolumeMounts(extraVol, propagation), initVolumeMounts...)
 }
 
 // GetVolumeMounts - Cinder Volume VolumeMounts

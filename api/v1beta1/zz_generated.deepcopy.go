@@ -125,6 +125,11 @@ func (in *CinderAPISpec) DeepCopyInto(out *CinderAPISpec) {
 		}
 	}
 	out.Debug = in.Debug
+	if in.CustomServiceConfigSecrets != nil {
+		in, out := &in.CustomServiceConfigSecrets, &out.CustomServiceConfigSecrets
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.DefaultConfigOverwrite != nil {
 		in, out := &in.DefaultConfigOverwrite, &out.DefaultConfigOverwrite
 		*out = make(map[string]string, len(*in))
@@ -303,6 +308,11 @@ func (in *CinderBackupSpec) DeepCopyInto(out *CinderBackupSpec) {
 		}
 	}
 	out.Debug = in.Debug
+	if in.CustomServiceConfigSecrets != nil {
+		in, out := &in.CustomServiceConfigSecrets, &out.CustomServiceConfigSecrets
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.DefaultConfigOverwrite != nil {
 		in, out := &in.DefaultConfigOverwrite, &out.DefaultConfigOverwrite
 		*out = make(map[string]string, len(*in))
@@ -534,6 +544,11 @@ func (in *CinderSchedulerSpec) DeepCopyInto(out *CinderSchedulerSpec) {
 		}
 	}
 	out.Debug = in.Debug
+	if in.CustomServiceConfigSecrets != nil {
+		in, out := &in.CustomServiceConfigSecrets, &out.CustomServiceConfigSecrets
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.DefaultConfigOverwrite != nil {
 		in, out := &in.DefaultConfigOverwrite, &out.DefaultConfigOverwrite
 		*out = make(map[string]string, len(*in))
@@ -804,6 +819,11 @@ func (in *CinderVolumeSpec) DeepCopyInto(out *CinderVolumeSpec) {
 		}
 	}
 	out.Debug = in.Debug
+	if in.CustomServiceConfigSecrets != nil {
+		in, out := &in.CustomServiceConfigSecrets, &out.CustomServiceConfigSecrets
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.DefaultConfigOverwrite != nil {
 		in, out := &in.DefaultConfigOverwrite, &out.DefaultConfigOverwrite
 		*out = make(map[string]string, len(*in))

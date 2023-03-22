@@ -18,7 +18,7 @@
 # Cinder-API hast its own health check endpoint and does not need this.
 #
 # The only check this server currently does is using the heartbeat in the
-# database service table, accessing the DB directly here using the cinder.conf
+# database service table, accessing the DB directly here using cinder's
 # configuration options.
 #
 # The benefit of accessing the DB directly is that it doesn't depend on the
@@ -32,7 +32,7 @@
 #
 # Requires the name of the service as the first argument (volume, backup,
 # scheduler) and optionally a second argument with the location of the
-# configuration file (defaults to /etc/cinder/cinder.conf)
+# configuration directory (defaults to /etc/cinder/cinder.conf.d)
 
 from http import server
 import signal
@@ -145,11 +145,12 @@ if __name__ == "__main__":
     if 3 < len(sys.argv) < 2 or sys.argv[1] not in BINARIES:
         print('Healthcheck requires the binary type as argument (one of: '
               + ', '.join(BINARIES) +
-              ') and optionally the location of the config file.')
+              ') and optionally the location of the config.d directory.')
         sys.exit(1)
     binary = sys.argv[1]
 
-    cfg_file = sys.argv[2] if len(sys.argv) == 3 else '/etc/cinder/cinder.conf'
+    cfg_dir = (sys.argv[2] if len(sys.argv) == 3 else
+               '/etc/cinder/cinder.conf.d')
 
     objects.register_all()
 
@@ -159,7 +160,7 @@ if __name__ == "__main__":
     # enabled_backends
     # Initialize Oslo Config
     CONF.register_opt(cfg.StrOpt('cluster', default=None))
-    CONF(['--config-file', cfg_file], project='cinder')
+    CONF([ '--config-dir', cfg_dir], project='cinder')
 
     HeartbeatServer.initialize_class(binary)
 
