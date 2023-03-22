@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -583,7 +584,9 @@ func (r *CinderVolumeReconciler) generateServiceConfigMaps(
 		customData[key] = data
 	}
 
-	customData[common.CustomServiceConfigFileName] = instance.Spec.CustomServiceConfig
+	customServiceConfig := extendCustomServiceConfig(instance.Spec.CustomServiceConfig)
+
+	customData[common.CustomServiceConfigFileName] = customServiceConfig
 
 	cms := []util.Template{
 		// Custom ConfigMap
@@ -621,4 +624,65 @@ func (r *CinderVolumeReconciler) createHashOfInputHashes(
 		r.Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
 	}
 	return hash, changed, nil
+}
+
+// extendCustomServiceConfig - A general purpose hook that may extend the customServiceConfig
+// string in the CR. Note that this is not equivalent to a transforming or defaulting webhook,
+// as the CR is not updated. It only influences the final settings in cinder.conf.
+//
+// Currently this is limited to defining the list of enabled_backends in case its missing.
+func extendCustomServiceConfig(customServiceConfig string) string {
+	svcConfigLines := strings.Split(customServiceConfig, "\n")
+	hasEnabledBackends := false
+	defaultSectionIdx := -1
+	sectionName := ""
+	backendNames := []string{}
+
+	for idx, line := range svcConfigLines {
+		token := strings.SplitN(strings.TrimSpace(line), "=", 2)[0]
+
+		if token == "" || strings.HasPrefix(token, "#") {
+			// Skip blank lines and comments
+			continue
+		}
+
+		if token == "enabled_backends" {
+			// Note when the CRD already specifies the enabled_backends
+			hasEnabledBackends = true
+			break
+
+		} else if token == "[DEFAULT]" {
+			// Note when the customServiceConfig contains a [DEFAULT] section
+			defaultSectionIdx = idx
+
+		} else if strings.HasPrefix(token, "[") && strings.HasSuffix(token, "]") {
+			// Note the section name before looking for a volume_backend_name
+			sectionName = strings.Trim(token, "[]")
+
+		} else if token == "volume_backend_name" {
+			backendNames = append(backendNames, sectionName)
+		}
+	}
+
+	var extendedConfig string
+	if hasEnabledBackends || len(backendNames) == 0 {
+		// Nothing to do, just return the original customServiceConfig
+		extendedConfig = customServiceConfig
+
+	} else if defaultSectionIdx == -1 {
+		// Prepend a new [DEFAULT] section that specifies the enabled_backends
+		extendedConfig = fmt.Sprintf(
+			"[DEFAULT]\nenabled_backends=%s\n%s",
+			strings.Join(backendNames, ","),
+			customServiceConfig)
+
+	} else {
+		// Replace the "[DEFAULT]" line in svcConfigLines with text that includes the enabled_backends
+		svcConfigLines[defaultSectionIdx] = fmt.Sprintf(
+			"[DEFAULT]\nenabled_backends=%s",
+			strings.Join(backendNames, ","))
+		extendedConfig = strings.Join(svcConfigLines, "\n")
+	}
+
+	return extendedConfig
 }
