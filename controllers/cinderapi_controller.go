@@ -590,7 +590,8 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	//
 
 	serviceLabels := map[string]string{
-		common.AppSelector: cinder.ServiceName,
+		common.AppSelector:       cinder.ServiceName,
+		common.ComponentSelector: cinderapi.Component,
 	}
 
 	// networks to attach to

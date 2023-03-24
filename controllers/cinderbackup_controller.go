@@ -388,7 +388,8 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 
 	serviceLabels := map[string]string{
-		common.AppSelector: cinder.ServiceName,
+		common.AppSelector:       cinder.ServiceName,
+		common.ComponentSelector: cinderbackup.Component,
 	}
 
 	// networks to attach to

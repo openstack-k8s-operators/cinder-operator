@@ -388,7 +388,8 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	//
 
 	serviceLabels := map[string]string{
-		common.AppSelector: cinder.ServiceName,
+		common.AppSelector:       cinder.ServiceName,
+		common.ComponentSelector: cinderscheduler.Component,
 	}
 
 	// networks to attach to

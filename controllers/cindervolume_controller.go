@@ -390,7 +390,8 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 
 	serviceLabels := map[string]string{
-		common.AppSelector: cinder.ServiceName,
+		common.AppSelector:       cinder.ServiceName,
+		common.ComponentSelector: cindervolume.Component,
 	}
 
 	// networks to attach to
