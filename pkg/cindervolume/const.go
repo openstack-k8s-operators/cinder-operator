@@ -18,4 +18,7 @@ package cindervolume
 const (
 	// KollaConfig -
 	KollaConfig = "/var/lib/config-data/merged/cinder-volume-config.json"
+
+	// Component -
+	Component = "cinder-volume"
 )

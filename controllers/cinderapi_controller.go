@@ -590,7 +590,8 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	//
 
 	serviceLabels := map[string]string{
-		common.AppSelector: cinder.ServiceName,
+		common.AppSelector:       cinder.ServiceName,
+		common.ComponentSelector: cinderapi.Component,
 	}
 
 	// networks to attach to
@@ -677,9 +678,21 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	instance.Status.ReadyCount = depl.GetDeployment().Status.ReadyReplicas
 
 	// verify if network attachment matches expectations
-	networkReady, networkAttachmentStatus, err := nad.VerifyNetworkStatusFromAnnotation(ctx, helper, instance.Spec.NetworkAttachments, serviceLabels, instance.Status.ReadyCount)
-	if err != nil {
-		return ctrl.Result{}, err
+	networkReady := false
+	networkAttachmentStatus := map[string][]string{}
+	if instance.Spec.Replicas > 0 {
+		networkReady, networkAttachmentStatus, err = nad.VerifyNetworkStatusFromAnnotation(
+			ctx,
+			helper,
+			instance.Spec.NetworkAttachments,
+			serviceLabels,
+			instance.Status.ReadyCount,
+		)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	} else {
+		networkReady = true
 	}
 
 	instance.Status.NetworkAttachments = networkAttachmentStatus
