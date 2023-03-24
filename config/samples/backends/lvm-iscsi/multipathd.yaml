@@ -1,0 +1,30 @@
+# Includes the /etc/multipathd.conf contents and the systemd unit changes
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: master
+    service: cinder
+  name: 99-master-cinder-enable-multipathd
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+    storage:
+      files:
+        - path: /etc/multipath.conf
+          overwrite: false
+          # Mode must be decimal, this is 0600
+          mode: 384
+          user:
+            name: root
+          group:
+            name: root
+          contents:
+            # Source can be a http, https, tftp, s3, gs, or data as defined in rfc2397.
+            # This is the rfc2397 text/plain string format
+            source: data:,defaults%20%7B%0A%20%20user_friendly_names%20no%0A%20%20skip_kpartx%20yes%0A%20%20find_multipaths%20yes%0A%7D%0A%0Ablacklist%20%7B%0A%7D
+    systemd:
+      units:
+      - enabled: true
+        name: multipathd.service

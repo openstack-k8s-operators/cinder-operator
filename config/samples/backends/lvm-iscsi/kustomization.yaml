@@ -1,0 +1,7 @@
+resources:
+  - iscsid.yaml
+  - multipathd.yaml
+  - lvm.yaml
+  - ./../bases
+patches:
+  - backend.yaml

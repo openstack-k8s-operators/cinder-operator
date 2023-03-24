@@ -1,0 +1,25 @@
+# This sample requires an LVM VG with the name of `cinder-volumes` to exist on the OpenShift node where cinder-volume runs
+# It also requires that iscsid and multpathd are running on the host.
+# The correct way to configure and run the daemons is using `MachineConfig` as shown in `iscsid.yaml` and `multipathd.yaml`.
+# To create the LVM on CRC the sample also uses a `MachineConfig` using a systemd unit with file `lvm.yaml`
+#
+# ATTENTION: After applying this OpenShift nodes will reboot, because of the `MachineConfig` changes and will take a while to recover.
+
+apiVersion: core.openstack.org/v1beta1
+kind: OpenStackControlPlane
+metadata:
+  name: openstack
+spec:
+  cinder:
+    template:
+      cinderVolumes:
+        lvm-iscsi:
+          customServiceConfig: |
+            [lvm]
+            image_volume_cache_enabled=false
+            use_multipath_for_image_xfer=true
+            volume_driver=cinder.volume.drivers.lvm.LVMVolumeDriver
+            volume_group=cinder-volumes
+            target_protocol=iscsi
+            target_helper=lioadm
+            volume_backend_name=lvm_iscsi
