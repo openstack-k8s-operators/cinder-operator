@@ -158,5 +158,5 @@ func init() {
 
 // IsReady - returns true if service is ready to serve requests
 func (instance CinderAPI) IsReady() bool {
-	return instance.Status.ReadyCount >= 1
+	return instance.Status.ReadyCount == instance.Spec.Replicas
 }
