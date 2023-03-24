@@ -8,13 +8,13 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/onsi/gomega v1.27.4
 	github.com/openshift/api v3.9.0+incompatible
-	github.com/openstack-k8s-operators/cinder-operator/api v0.0.0-20221010180347-a9a8efadf3c3
-	github.com/openstack-k8s-operators/infra-operator/apis v0.0.0-20230203135116-2adc2960b33c
-	github.com/openstack-k8s-operators/keystone-operator/api v0.0.0-20230217165024-22a34597a601
+	github.com/openstack-k8s-operators/cinder-operator/api v0.0.0-20230324140107-0092fa3af97f
+	github.com/openstack-k8s-operators/infra-operator/apis v0.0.0-20230324141445-d1ac945900ed
+	github.com/openstack-k8s-operators/keystone-operator/api v0.0.0-20230320104825-e625fcd50844
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.0.0-20230324095542-399b7542675d
-	github.com/openstack-k8s-operators/lib-common/modules/database v0.0.0-20230215134634-d31141e5bbba
-	github.com/openstack-k8s-operators/lib-common/modules/storage v0.0.0-20230215134634-d31141e5bbba
-	github.com/openstack-k8s-operators/mariadb-operator/api v0.0.0-20221014164348-0a612ae8b391
+	github.com/openstack-k8s-operators/lib-common/modules/database v0.0.0-20230324095542-399b7542675d
+	github.com/openstack-k8s-operators/lib-common/modules/storage v0.0.0-20230324095542-399b7542675d
+	github.com/openstack-k8s-operators/mariadb-operator/api v0.0.0-20230324124348-01a691f02aa0
 	k8s.io/api v0.26.2
 	k8s.io/apimachinery v0.26.2
 	k8s.io/client-go v0.26.2
@@ -50,7 +50,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.0.0-20230215134634-d31141e5bbba // indirect
+	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.0.0-20230324095542-399b7542675d // indirect; indirect // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
