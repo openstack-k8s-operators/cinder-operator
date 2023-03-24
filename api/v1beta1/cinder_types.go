@@ -186,16 +186,12 @@ func init() {
 	SchemeBuilder.Register(&Cinder{}, &CinderList{})
 }
 
-// IsReady - returns true if service is ready to serve requests
+// IsReady - returns true if all subresources Ready condition is true
 func (instance Cinder) IsReady() bool {
-	ready := instance.Status.CinderAPIReadyCount > 0 && instance.Status.CinderBackupReadyCount > 0 &&
-		instance.Status.CinderSchedulerReadyCount > 0
-
-	for name := range instance.Spec.CinderVolumes {
-		ready = ready && instance.Status.CinderVolumesReadyCounts[name] > 0
-	}
-
-	return ready
+	return instance.Status.Conditions.IsTrue(CinderAPIReadyCondition) &&
+		instance.Status.Conditions.IsTrue(CinderBackupReadyCondition) &&
+		instance.Status.Conditions.IsTrue(CinderSchedulerReadyCondition) &&
+		instance.Status.Conditions.IsTrue(CinderVolumeReadyCondition)
 }
 
 // CinderExtraVolMounts exposes additional parameters processed by the cinder-operator
