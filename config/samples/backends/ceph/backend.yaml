@@ -1,0 +1,61 @@
+# Sample using Ceph for glance, cinder volume, and cinder backup.
+# Requires a running Ceph cluster and its `/etc/ceph` files in secret `ceph-conf-files`
+# This can be achieved with the `ceph` target of `install_yamls`
+apiVersion: core.openstack.org/v1beta1
+kind: OpenStackControlPlane
+metadata:
+  name: openstack
+spec:
+  extraMounts:
+    - name: v1
+      region: r1
+      extraVol:
+        - propagation:
+          - CinderVolume
+          - CinderBackup
+          - GlanceAPI
+          extraVolType: Ceph
+          volumes:
+          - name: ceph
+            projected:
+              sources:
+              - secret:
+                  name: ceph-conf-files
+          mounts:
+          - name: ceph
+            mountPath: "/etc/ceph"
+            readOnly: true
+  cinder:
+    template:
+      cinderVolumes:
+        ceph:
+          # Once nova is enabled we need to either manually define the
+          # rbd_secret_uuid configuration option or use Antelope release.
+          customServiceConfig: |
+            [ceph]
+            volume_backend_name=ceph
+            volume_driver=cinder.volume.drivers.rbd.RBDDriver
+            rbd_ceph_conf=/etc/ceph/ceph.conf
+            rbd_user=openstack
+            rbd_pool=volumes
+            rbd_flatten_volume_from_snapshot=False
+            report_discard_supported=True
+      cinderBackup:
+        replicas: 1
+        customServiceConfig: |
+          [DEFAULT]
+          backup_driver = cinder.backup.drivers.ceph.CephBackupDriver
+          backup_ceph_pool = backups
+          backup_ceph_user = openstack
+  glance:
+    template:
+      customServiceConfig: |
+            [DEFAULT]
+            enabled_backends=default_backend:rbd
+            [glance_store]
+            default_backend=default_backend
+            [default_backend]
+            rbd_store_ceph_conf=/etc/ceph/ceph.conf
+            rbd_store_user=openstack
+            rbd_store_pool=images
+            store_description=ceph_glance_store

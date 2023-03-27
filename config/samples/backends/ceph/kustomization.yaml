@@ -1,0 +1,4 @@
+resources:
+  - ./../bases
+patches:
+  - backend.yaml
