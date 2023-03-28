@@ -168,7 +168,7 @@ func main() {
 		VolumeContainerImageURL:    os.Getenv("CINDER_VOLUME_IMAGE_URL_DEFAULT"),
 	}
 
-	(&cinderv1beta1.Cinder{}).Spec.SetupDefaults(cinderDefaults)
+	cinderv1beta1.SetupCinderDefaults(cinderDefaults)
 
 	// Setup webhooks if requested
 	if strings.ToLower(os.Getenv("ENABLE_WEBHOOKS")) != "false" {

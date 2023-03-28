@@ -41,9 +41,15 @@ var cinderDefaults CinderDefaults
 // log is for logging in this package.
 var cinderlog = logf.Log.WithName("cinder-resource")
 
-// SetupDefaults - initialize Cinder spec defaults for use with either internal or external webhooks
+// SetupDefaults - FIXME: remove in followup PR to satisfy CI for this PR
 func (spec *CinderSpec) SetupDefaults(defaults CinderDefaults) {
+	SetupCinderDefaults(defaults)
+}
+
+// SetupCinderDefaults - initialize Cinder spec defaults for use with either internal or external webhooks
+func SetupCinderDefaults(defaults CinderDefaults) {
 	cinderDefaults = defaults
+	cinderlog.Info("Cinder defaults initialized", "defaults", defaults)
 }
 
 // SetupWebhookWithManager sets up the webhook with the Manager
