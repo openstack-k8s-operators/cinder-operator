@@ -30,7 +30,7 @@ type CinderAPISpec struct {
 	ServiceUser string `json:"serviceUser"`
 
 	// +kubebuilder:validation:Required
-	// ContainerImage - Cinder API Container Image URL
+	// ContainerImage - Cinder API Container Image URL (will be set to environmental default if empty)
 	ContainerImage string `json:"containerImage"`
 
 	// +kubebuilder:validation:Optional

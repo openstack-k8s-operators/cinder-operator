@@ -30,7 +30,7 @@ type CinderSchedulerSpec struct {
 	ServiceUser string `json:"serviceUser"`
 
 	// +kubebuilder:validation:Required
-	// ContainerImage - Cinder Scheduler Container Image URL
+	// ContainerImage - Cinder Scheduler Container Image URL (will be set to environmental default if empty)
 	ContainerImage string `json:"containerImage"`
 
 	// +kubebuilder:validation:Optional
