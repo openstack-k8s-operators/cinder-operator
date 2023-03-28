@@ -78,4 +78,4 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/openstack-k8s-operators/lib-common/modules/common => github.com/stuggi/lib-common/modules/common v0.0.0-20230324094302-1d404fbea435
+replace github.com/openstack-k8s-operators/lib-common/modules/common => github.com/stuggi/lib-common/modules/common v0.0.0-20230316150403-b2e51045c184
