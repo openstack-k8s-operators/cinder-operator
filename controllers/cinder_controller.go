@@ -699,6 +699,11 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		instance.Status.Conditions.MarkTrue(cinderv1beta1.CinderVolumeReadyCondition, condition.DeploymentReadyMessage)
 	}
 
+	err = r.volumeCleanupDeployments(ctx, instance)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
@@ -963,4 +968,42 @@ func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(instance *cinderv1beta
 	})
 
 	return deployment, op, err
+}
+
+// volumeCleanupDeployments - Delete volume deployments when the volume no
+// longer appears in the spec. These will be volumes named something like
+// "cinder-volume-X" where "X" is not in the CinderVolumes spec.
+func (r *CinderReconciler) volumeCleanupDeployments(ctx context.Context, instance *cinderv1beta1.Cinder) error {
+	// Generate a list of volume CRs
+	volumes := &cinderv1beta1.CinderVolumeList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(instance.Namespace),
+	}
+	if err := r.Client.List(ctx, volumes, listOpts...); err != nil {
+		r.Log.Error(err, "Unable to retrieve volume CRs %v")
+		return nil
+	}
+
+	prefixLen := len(instance.Name + "-volume-")
+	for _, volume := range volumes.Items {
+		// Skip volumes that we don't own
+		if cinder.GetOwningCinderName(&volume) != instance.Name {
+			continue
+		}
+
+		// specName is the volume's name as it would appear in the CinderVolumes spec
+		specName := volume.Name[prefixLen:]
+
+		// Delete the volume if it's no longer in the spec
+		_, exists := instance.Spec.CinderVolumes[specName]
+		if !exists && volume.DeletionTimestamp.IsZero() {
+			err := r.Client.Delete(ctx, &volume)
+			if err != nil && !k8s_errors.IsNotFound(err) {
+				err = fmt.Errorf("Error cleaning up %s: %v", volume.Name, err)
+				return err
+			}
+		}
+	}
+
+	return nil
 }
