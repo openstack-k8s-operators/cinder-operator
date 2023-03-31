@@ -6,6 +6,36 @@
       "dest": "/etc/cinder/cinder.conf.d",
       "owner": "root:cinder",
       "perm": "0750"
+    },
+    {
+      "source": "/usr/local/bin/container-scripts/run-on-host",
+      "dest": "/usr/sbin/multipath",
+      "owner": "root:root",
+      "perm": "0755"
+    },
+    {
+      "source": "/usr/local/bin/container-scripts/run-on-host",
+      "dest": "/usr/sbin/multipathd",
+      "owner": "root:root",
+      "perm": "0755"
+    },
+    {
+      "source": "/usr/local/bin/container-scripts/run-on-host",
+      "dest": "/usr/sbin/iscsiadm",
+      "owner": "root:root",
+      "perm": "0755"
+    },
+    {
+      "source": "/usr/local/bin/container-scripts/run-on-host",
+      "dest": "/lib/udev/scsi_id",
+      "owner": "root:root",
+      "perm": "0755"
+    },
+    {
+      "source": "/usr/local/bin/container-scripts/run-on-host",
+      "dest": "/usr/sbin/lvm",
+      "owner": "root:root",
+      "perm": "0755"
     }
   ]
 }

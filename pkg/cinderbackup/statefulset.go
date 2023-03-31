@@ -126,6 +126,10 @@ func StatefulSet(
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: cinder.ServiceAccount,
+					// Some commands need to be run on the host using nsenter
+					// (eg: iscsi commands) so we need to share the PID
+					// namespace with the host.
+					HostPID: true,
 					Containers: []corev1.Container{
 						{
 							Name: cinder.ServiceName + "-backup",
