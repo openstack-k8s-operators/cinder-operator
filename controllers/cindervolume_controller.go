@@ -270,7 +270,6 @@ func (r *CinderVolumeReconciler) reconcileInit(
 	ctx context.Context,
 	instance *cinderv1beta1.CinderVolume,
 	helper *helper.Helper,
-	serviceLabels map[string]string,
 ) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
 
@@ -349,10 +348,15 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	// Create ConfigMaps required as input for the Service and calculate an overall hash of hashes
 	//
 
+	serviceLabels := map[string]string{
+		common.AppSelector:       cinder.ServiceName,
+		common.ComponentSelector: cindervolume.Component,
+	}
+
 	//
 	// create custom Configmap for this cinder volume service
 	//
-	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars)
+	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars, serviceLabels)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
@@ -389,11 +393,6 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	// TODO check when/if Init, Update, or Upgrade should/could be skipped
 	//
 
-	serviceLabels := map[string]string{
-		common.AppSelector:       cinder.ServiceName,
-		common.ComponentSelector: cindervolume.Component,
-	}
-
 	// networks to attach to
 	for _, netAtt := range instance.Spec.NetworkAttachments {
 		_, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
@@ -424,7 +423,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	}
 
 	// Handle service init
-	ctrlResult, err = r.reconcileInit(ctx, instance, helper, serviceLabels)
+	ctrlResult, err = r.reconcileInit(ctx, instance, helper)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -580,13 +579,14 @@ func (r *CinderVolumeReconciler) generateServiceConfigMaps(
 	h *helper.Helper,
 	instance *cinderv1beta1.CinderVolume,
 	envVars *map[string]env.Setter,
+	serviceLabels map[string]string,
 ) error {
 	//
 	// create custom Configmap for cinder-volume-specific config input
 	// - %-config-data configmap holding custom config for the service's cinder.conf
 	//
 
-	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(cinder.ServiceName), map[string]string{})
+	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(cinder.ServiceName), serviceLabels)
 
 	// customData hold any customization for the service.
 	// custom.conf is going to be merged into /etc/cinder/conder.conf
