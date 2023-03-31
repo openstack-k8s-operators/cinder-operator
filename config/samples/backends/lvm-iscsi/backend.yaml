@@ -17,7 +17,6 @@ spec:
           customServiceConfig: |
             [lvm]
             image_volume_cache_enabled=false
-            use_multipath_for_image_xfer=true
             volume_driver=cinder.volume.drivers.lvm.LVMVolumeDriver
             volume_group=cinder-volumes
             target_protocol=iscsi
