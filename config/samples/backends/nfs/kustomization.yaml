@@ -1,0 +1,5 @@
+resources:
+  - ./../bases
+  - cinder-volume-nfs-secrets.yaml
+patches:
+  - backend.yaml

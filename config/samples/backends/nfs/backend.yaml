@@ -1,0 +1,20 @@
+# Deploy a cinder NFS backend, with sensitive server settings (the nas_host
+# and nas_share_path) stored in the "cinder-volume-nfs-secrets" Secret.
+apiVersion: core.openstack.org/v1beta1
+kind: OpenStackControlPlane
+metadata:
+  name: openstack
+spec:
+  cinder:
+    template:
+      cinderVolumes:
+        nfs:
+          customServiceConfig: |
+            [nfs]
+            volume_backend_name=nfs
+            volume_driver=cinder.volume.drivers.nfs.NfsDriver
+            nfs_snapshot_support=true
+            nas_secure_file_operations=false
+            nas_secure_file_permissions=false
+          customServiceConfigSecrets:
+          - cinder-volume-nfs-secrets
