@@ -54,8 +54,9 @@ spec:
   - supported: true
     type: AllNamespaces
   keywords:
-  - openstack
-  - cn-openstack
+  - OpenStack
+  - Block Storage
+  - Cinder
   links:
   - name: Cinder Operator
     url: https://github.com/openstack-k8s-operators/cinder-operator
