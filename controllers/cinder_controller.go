@@ -405,6 +405,10 @@ func (r *CinderReconciler) reconcileInit(
 func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinderv1beta1.Cinder, helper *helper.Helper) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s'", instance.Name))
 
+	serviceLabels := map[string]string{
+		common.AppSelector: cinder.ServiceName,
+	}
+
 	// ConfigMap
 	configMapVars := make(map[string]env.Setter)
 
@@ -412,7 +416,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// create RabbitMQ transportURL CR and get the actual URL from the associated secret that is created
 	//
 
-	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance)
+	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels)
 
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
@@ -474,10 +478,6 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	//
 	// Create ConfigMaps and Secrets required as input for the Service and calculate an overall hash of hashes
 	//
-
-	serviceLabels := map[string]string{
-		common.AppSelector: cinder.ServiceName,
-	}
 
 	//
 	// create Configmap required for cinder input
@@ -821,11 +821,16 @@ func (r *CinderReconciler) createHashOfInputHashes(
 	return hash, changed, nil
 }
 
-func (r *CinderReconciler) transportURLCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*rabbitmqv1.TransportURL, controllerutil.OperationResult, error) {
+func (r *CinderReconciler) transportURLCreateOrUpdate(
+	ctx context.Context,
+	instance *cinderv1beta1.Cinder,
+	serviceLabels map[string]string,
+) (*rabbitmqv1.TransportURL, controllerutil.OperationResult, error) {
 	transportURL := &rabbitmqv1.TransportURL{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-cinder-transport", instance.Name),
 			Namespace: instance.Namespace,
+			Labels:    serviceLabels,
 		},
 	}
 
