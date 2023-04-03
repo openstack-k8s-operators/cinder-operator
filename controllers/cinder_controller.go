@@ -412,7 +412,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// create RabbitMQ transportURL CR and get the actual URL from the associated secret that is created
 	//
 
-	transportURL, op, err := r.transportURLCreateOrUpdate(instance)
+	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance)
 
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
@@ -580,7 +580,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	//
 
 	// deploy cinder-api
-	cinderAPI, op, err := r.apiDeploymentCreateOrUpdate(instance)
+	cinderAPI, op, err := r.apiDeploymentCreateOrUpdate(ctx, instance)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			cinderv1beta1.CinderAPIReadyCondition,
@@ -607,7 +607,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 
 	// TODO: These will not work without rabbit yet
 	// deploy cinder-scheduler
-	cinderScheduler, op, err := r.schedulerDeploymentCreateOrUpdate(instance)
+	cinderScheduler, op, err := r.schedulerDeploymentCreateOrUpdate(ctx, instance)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			cinderv1beta1.CinderSchedulerReadyCondition,
@@ -631,7 +631,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	}
 
 	// deploy cinder-backup
-	cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(instance)
+	cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(ctx, instance)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			cinderv1beta1.CinderBackupReadyCondition,
@@ -658,7 +658,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// deploy cinder-volumes
 	var volumeCondition *condition.Condition
 	for name, volume := range instance.Spec.CinderVolumes {
-		cinderVolume, op, err := r.volumeDeploymentCreateOrUpdate(instance, name, volume)
+		cinderVolume, op, err := r.volumeDeploymentCreateOrUpdate(ctx, instance, name, volume)
 		if err != nil {
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				cinderv1beta1.CinderVolumeReadyCondition,
@@ -820,7 +820,7 @@ func (r *CinderReconciler) createHashOfInputHashes(
 	return hash, changed, nil
 }
 
-func (r *CinderReconciler) transportURLCreateOrUpdate(instance *cinderv1beta1.Cinder) (*rabbitmqv1.TransportURL, controllerutil.OperationResult, error) {
+func (r *CinderReconciler) transportURLCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*rabbitmqv1.TransportURL, controllerutil.OperationResult, error) {
 	transportURL := &rabbitmqv1.TransportURL{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-cinder-transport", instance.Name),
@@ -828,7 +828,7 @@ func (r *CinderReconciler) transportURLCreateOrUpdate(instance *cinderv1beta1.Ci
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, transportURL, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, transportURL, func() error {
 		transportURL.Spec.RabbitmqClusterName = instance.Spec.RabbitMqClusterName
 
 		err := controllerutil.SetControllerReference(instance, transportURL, r.Scheme)
@@ -838,7 +838,7 @@ func (r *CinderReconciler) transportURLCreateOrUpdate(instance *cinderv1beta1.Ci
 	return transportURL, op, err
 }
 
-func (r *CinderReconciler) apiDeploymentCreateOrUpdate(instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderAPI, controllerutil.OperationResult, error) {
+func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderAPI, controllerutil.OperationResult, error) {
 	deployment := &cinderv1beta1.CinderAPI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-api", instance.Name),
@@ -846,7 +846,7 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(instance *cinderv1beta1.C
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, deployment, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = instance.Spec.CinderAPI
 		// Add in transfers from umbrella Cinder (this instance) spec
 		// TODO: Add logic to determine when to set/overwrite, etc
@@ -871,7 +871,7 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(instance *cinderv1beta1.C
 	return deployment, op, err
 }
 
-func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderScheduler, controllerutil.OperationResult, error) {
+func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderScheduler, controllerutil.OperationResult, error) {
 	deployment := &cinderv1beta1.CinderScheduler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-scheduler", instance.Name),
@@ -879,7 +879,7 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(instance *cinderv1b
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, deployment, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = instance.Spec.CinderScheduler
 		// Add in transfers from umbrella Cinder CR (this instance) spec
 		// TODO: Add logic to determine when to set/overwrite, etc
@@ -904,7 +904,7 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(instance *cinderv1b
 	return deployment, op, err
 }
 
-func (r *CinderReconciler) backupDeploymentCreateOrUpdate(instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderBackup, controllerutil.OperationResult, error) {
+func (r *CinderReconciler) backupDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderBackup, controllerutil.OperationResult, error) {
 	deployment := &cinderv1beta1.CinderBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-backup", instance.Name),
@@ -912,7 +912,7 @@ func (r *CinderReconciler) backupDeploymentCreateOrUpdate(instance *cinderv1beta
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, deployment, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = instance.Spec.CinderBackup
 		// Add in transfers from umbrella Cinder CR (this instance) spec
 		// TODO: Add logic to determine when to set/overwrite, etc
@@ -937,7 +937,7 @@ func (r *CinderReconciler) backupDeploymentCreateOrUpdate(instance *cinderv1beta
 	return deployment, op, err
 }
 
-func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(instance *cinderv1beta1.Cinder, name string, volume cinderv1beta1.CinderVolumeSpec) (*cinderv1beta1.CinderVolume, controllerutil.OperationResult, error) {
+func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, name string, volume cinderv1beta1.CinderVolumeSpec) (*cinderv1beta1.CinderVolume, controllerutil.OperationResult, error) {
 	deployment := &cinderv1beta1.CinderVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-volume-%s", instance.Name, name),
@@ -945,7 +945,7 @@ func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(instance *cinderv1beta
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(context.TODO(), r.Client, deployment, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = volume
 		// Add in transfers from umbrella Cinder CR (this instance) spec
 		// TODO: Add logic to determine when to set/overwrite, etc
