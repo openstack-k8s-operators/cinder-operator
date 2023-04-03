@@ -67,6 +67,9 @@ password = ${PASSWORD}
 
 [nova]
 password = ${PASSWORD}
+
+[service_user]
+password = ${PASSWORD}
 EOF
 
 if [ -f ${DEFAULT_DIR}/custom.conf ]; then
