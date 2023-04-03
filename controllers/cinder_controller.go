@@ -475,13 +475,17 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// Create ConfigMaps and Secrets required as input for the Service and calculate an overall hash of hashes
 	//
 
+	serviceLabels := map[string]string{
+		common.AppSelector: cinder.ServiceName,
+	}
+
 	//
 	// create Configmap required for cinder input
 	// - %-scripts configmap holding scripts to e.g. bootstrap the service
 	// - %-config configmap holding minimal cinder config required to get the service up, user can add additional files to be added to the service
 	// - parameters which has passwords gets added from the OpenStack secret via the init container
 	//
-	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars)
+	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars, serviceLabels)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
@@ -517,10 +521,6 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	//
 	// TODO check when/if Init, Update, or Upgrade should/could be skipped
 	//
-
-	serviceLabels := map[string]string{
-		common.AppSelector: cinder.ServiceName,
-	}
 
 	// networks to attach to
 	for _, netAtt := range instance.Spec.CinderAPI.NetworkAttachments {
@@ -735,6 +735,7 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 	h *helper.Helper,
 	instance *cinderv1beta1.Cinder,
 	envVars *map[string]env.Setter,
+	serviceLabels map[string]string,
 ) error {
 	//
 	// create Configmap/Secret required for cinder input
@@ -743,7 +744,7 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 	// - parameters which has passwords gets added from the ospSecret via the init container
 	//
 
-	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(cinder.ServiceName), map[string]string{})
+	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(cinder.ServiceName), serviceLabels)
 
 	// customData hold any customization for the service.
 	// custom.conf is going to /etc/<service>/<service>.conf.d
