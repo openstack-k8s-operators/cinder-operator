@@ -1,12 +1,27 @@
 # Cinder Backend Samples
 
-In each directory there is a `backend.yaml` file containing an overlay for the
-`OpenStackControlPlane` with just the storage related information.
+This directory includes a set of Cinder Backend configuration samples that use
+the `kustomize` configuration management tool available through the `oc
+kustomize` command.
 
-Each backend has some prerequirements that will be listed in the `backend.yaml`
-file.  These can range from having to replace the storage system's address and
-credentials in a different yaml file, to having to create secrets, to having to
-deploy the backend like in the `LVM` case.
+These samples are not meant to serve as deployment recommendations, just as
+working examples to serve as reference.
+
+For each backend there will be a `backend.yaml` file containing an overlay for
+the `OpenStackControlPlane` with just the storage related information.
+
+Backend pre-requirements will be listed in that same `backend.yaml` file.
+These can range from having to replace the storage system's address and
+credentials in a different yaml file, to having to create secrets.
+
+Currently available samples are:
+
+- Ceph
+- NFS
+- LVM using iSCSI
+- LVM using NVMe-TCP
+
+## Ceph example
 
 Once the OpenStack operators are running in your OpenShift cluster and
 the secret `osp-secret` is present, one can deploy OpenStack with a
@@ -29,3 +44,20 @@ $ make crc_storage openstack input
 $ cd ../cinder-operator
 $ oc kustomize config/samples/backends/ceph | oc apply -f -
 ```
+
+## Adding new samples
+
+We are open to PRs adding new samples for other backends.
+
+All new backends will need to use the `bases/openstack` as a resource and
+depending on the transport protocol may also require other bases such as
+`bases/iscsid`, `bases/multipathd`, or `bases/nvmeof`.
+
+Most backends will require credentials to access the storage, usually there are
+2 types of credentials:
+
+- Configuration options in `cinder.conf`
+- External files
+
+You can find the right approach to each of them in the `nfs` sample (for
+configuration parameters) and the `ceph` sample (for providing files).

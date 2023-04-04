@@ -1,7 +1,0 @@
-resources:
-  - nvme-fabrics.yaml
-  - lvm.yaml
-  - ./../bases
-patches:
-  - backend.yaml
-
