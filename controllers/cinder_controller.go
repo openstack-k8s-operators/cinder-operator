@@ -845,6 +845,25 @@ func (r *CinderReconciler) transportURLCreateOrUpdate(
 }
 
 func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderAPI, controllerutil.OperationResult, error) {
+
+	svcTemplate := instance.Spec.CinderAPI
+	cinderAPISpec := cinderv1beta1.CinderAPISpec{
+		ContainerImage:             svcTemplate.ContainerImage,
+		Replicas:                   svcTemplate.Replicas,
+		Debug:                      svcTemplate.Debug,
+		CustomServiceConfig:        svcTemplate.CustomServiceConfig,
+		DefaultConfigOverwrite:     svcTemplate.DefaultConfigOverwrite,
+		CustomServiceConfigSecrets: svcTemplate.CustomServiceConfigSecrets,
+		NetworkAttachments:         svcTemplate.NetworkAttachments,
+		ServiceUser:                instance.Spec.ServiceUser,
+		DatabaseHostname:           instance.Status.DatabaseHostname,
+		DatabaseUser:               instance.Spec.DatabaseUser,
+		Secret:                     instance.Spec.Secret,
+		PasswordSelectors:          instance.Spec.PasswordSelectors,
+		ExtraMounts:                instance.Spec.ExtraMounts,
+		TransportURLSecret:         instance.Status.TransportURLSecret,
+	}
+
 	deployment := &cinderv1beta1.CinderAPI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-api", instance.Name),
@@ -853,15 +872,7 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, inst
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		deployment.Spec = instance.Spec.CinderAPI
-		// Add in transfers from umbrella Cinder (this instance) spec
-		// TODO: Add logic to determine when to set/overwrite, etc
-		deployment.Spec.ServiceUser = instance.Spec.ServiceUser
-		deployment.Spec.DatabaseHostname = instance.Status.DatabaseHostname
-		deployment.Spec.DatabaseUser = instance.Spec.DatabaseUser
-		deployment.Spec.Secret = instance.Spec.Secret
-		deployment.Spec.TransportURLSecret = instance.Status.TransportURLSecret
-		deployment.Spec.ExtraMounts = instance.Spec.ExtraMounts
+		deployment.Spec = cinderAPISpec
 		if len(deployment.Spec.NodeSelector) == 0 {
 			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
 		}
@@ -878,6 +889,25 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, inst
 }
 
 func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderScheduler, controllerutil.OperationResult, error) {
+
+	svcTemplate := instance.Spec.CinderScheduler
+	cinderSchedulerSpec := cinderv1beta1.CinderSchedulerSpec{
+		ContainerImage:             svcTemplate.ContainerImage,
+		Replicas:                   svcTemplate.Replicas,
+		Debug:                      svcTemplate.Debug,
+		CustomServiceConfig:        svcTemplate.CustomServiceConfig,
+		CustomServiceConfigSecrets: svcTemplate.CustomServiceConfigSecrets,
+		DefaultConfigOverwrite:     svcTemplate.DefaultConfigOverwrite,
+		NetworkAttachments:         svcTemplate.NetworkAttachments,
+		ServiceUser:                instance.Spec.ServiceUser,
+		DatabaseHostname:           instance.Status.DatabaseHostname,
+		DatabaseUser:               instance.Spec.DatabaseUser,
+		Secret:                     instance.Spec.Secret,
+		ExtraMounts:                instance.Spec.ExtraMounts,
+		TransportURLSecret:         instance.Status.TransportURLSecret,
+		PasswordSelectors:          instance.Spec.PasswordSelectors,
+	}
+
 	deployment := &cinderv1beta1.CinderScheduler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-scheduler", instance.Name),
@@ -886,15 +916,7 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		deployment.Spec = instance.Spec.CinderScheduler
-		// Add in transfers from umbrella Cinder CR (this instance) spec
-		// TODO: Add logic to determine when to set/overwrite, etc
-		deployment.Spec.ServiceUser = instance.Spec.ServiceUser
-		deployment.Spec.DatabaseHostname = instance.Status.DatabaseHostname
-		deployment.Spec.DatabaseUser = instance.Spec.DatabaseUser
-		deployment.Spec.Secret = instance.Spec.Secret
-		deployment.Spec.TransportURLSecret = instance.Status.TransportURLSecret
-		deployment.Spec.ExtraMounts = instance.Spec.ExtraMounts
+		deployment.Spec = cinderSchedulerSpec
 		if len(deployment.Spec.NodeSelector) == 0 {
 			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
 		}
@@ -911,6 +933,24 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context
 }
 
 func (r *CinderReconciler) backupDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderBackup, controllerutil.OperationResult, error) {
+
+	svcTemplate := instance.Spec.CinderBackup
+	cinderBackupSpec := cinderv1beta1.CinderBackupSpec{
+		ContainerImage:             svcTemplate.ContainerImage,
+		Replicas:                   svcTemplate.Replicas,
+		Debug:                      svcTemplate.Debug,
+		CustomServiceConfig:        svcTemplate.CustomServiceConfig,
+		CustomServiceConfigSecrets: svcTemplate.CustomServiceConfigSecrets,
+		DefaultConfigOverwrite:     svcTemplate.DefaultConfigOverwrite,
+		NetworkAttachments:         svcTemplate.NetworkAttachments,
+		ServiceUser:                instance.Spec.ServiceUser,
+		DatabaseHostname:           instance.Status.DatabaseHostname,
+		DatabaseUser:               instance.Spec.DatabaseUser,
+		PasswordSelectors:          instance.Spec.PasswordSelectors,
+		Secret:                     instance.Spec.Secret,
+		ExtraMounts:                instance.Spec.ExtraMounts,
+		TransportURLSecret:         instance.Status.TransportURLSecret,
+	}
 	deployment := &cinderv1beta1.CinderBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-backup", instance.Name),
@@ -919,15 +959,7 @@ func (r *CinderReconciler) backupDeploymentCreateOrUpdate(ctx context.Context, i
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		deployment.Spec = instance.Spec.CinderBackup
-		// Add in transfers from umbrella Cinder CR (this instance) spec
-		// TODO: Add logic to determine when to set/overwrite, etc
-		deployment.Spec.ServiceUser = instance.Spec.ServiceUser
-		deployment.Spec.DatabaseHostname = instance.Status.DatabaseHostname
-		deployment.Spec.DatabaseUser = instance.Spec.DatabaseUser
-		deployment.Spec.Secret = instance.Spec.Secret
-		deployment.Spec.TransportURLSecret = instance.Status.TransportURLSecret
-		deployment.Spec.ExtraMounts = instance.Spec.ExtraMounts
+		deployment.Spec = cinderBackupSpec
 		if len(deployment.Spec.NodeSelector) == 0 {
 			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
 		}
@@ -943,7 +975,25 @@ func (r *CinderReconciler) backupDeploymentCreateOrUpdate(ctx context.Context, i
 	return deployment, op, err
 }
 
-func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, name string, volume cinderv1beta1.CinderVolumeSpec) (*cinderv1beta1.CinderVolume, controllerutil.OperationResult, error) {
+func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, name string, svcTemplate cinderv1beta1.CinderServiceTemplate) (*cinderv1beta1.CinderVolume, controllerutil.OperationResult, error) {
+
+	cinderVolumeSpec := cinderv1beta1.CinderVolumeSpec{
+		ContainerImage:             svcTemplate.ContainerImage,
+		Replicas:                   svcTemplate.Replicas,
+		Debug:                      svcTemplate.Debug,
+		CustomServiceConfig:        svcTemplate.CustomServiceConfig,
+		CustomServiceConfigSecrets: svcTemplate.CustomServiceConfigSecrets,
+		DefaultConfigOverwrite:     svcTemplate.DefaultConfigOverwrite,
+		NetworkAttachments:         svcTemplate.NetworkAttachments,
+		Secret:                     instance.Spec.Secret,
+		ExtraMounts:                instance.Spec.ExtraMounts,
+		DatabaseHostname:           instance.Status.DatabaseHostname,
+		DatabaseUser:               instance.Spec.DatabaseUser,
+		ServiceUser:                instance.Spec.ServiceUser,
+		TransportURLSecret:         instance.Status.TransportURLSecret,
+		PasswordSelectors:          instance.Spec.PasswordSelectors,
+	}
+
 	deployment := &cinderv1beta1.CinderVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-volume-%s", instance.Name, name),
@@ -952,16 +1002,11 @@ func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, i
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		deployment.Spec = volume
-		// Add in transfers from umbrella Cinder CR (this instance) spec
-		// TODO: Add logic to determine when to set/overwrite, etc
-		deployment.Spec.ServiceUser = instance.Spec.ServiceUser
-		deployment.Spec.DatabaseHostname = instance.Status.DatabaseHostname
-		deployment.Spec.DatabaseUser = instance.Spec.DatabaseUser
-		deployment.Spec.Secret = instance.Spec.Secret
-		deployment.Spec.TransportURLSecret = instance.Status.TransportURLSecret
-		deployment.Spec.ExtraMounts = instance.Spec.ExtraMounts
-		if len(deployment.Spec.NodeSelector) == 0 {
+		deployment.Spec = cinderVolumeSpec
+
+		// If NodeSelector is not specified in volumeTemplate, the current
+		// cinder-volume instance inherits the value from the top-level CR
+		if len(svcTemplate.NodeSelector) == 0 {
 			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
 		}
 
