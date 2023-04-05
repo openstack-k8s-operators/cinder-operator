@@ -1,0 +1,27 @@
+#
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: master
+    service: cinder
+  name: 99-master-cinder-load-nvme-fabrics
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+    storage:
+      files:
+        - path: /etc/modules-load.d/nvme_fabrics.conf
+          overwrite: false
+          # Mode must be decimal, this is 0644
+          mode: 420
+          user:
+            name: root
+          group:
+            name: root
+          contents:
+            # Source can be a http, https, tftp, s3, gs, or data as defined in rfc2397.
+            # This is the rfc2397 text/plain string format
+            source: data:,nvme-fabrics
+

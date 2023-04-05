@@ -22,6 +22,15 @@ func GetVolumes(parentName string, name string, secretNames []string, extraVol [
 			},
 		},
 		{
+			Name: "etc-nvme",
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/etc/nvme",
+					Type: &dirOrCreate,
+				},
+			},
+		},
+		{
 			Name: "config-data-custom",
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -56,5 +65,12 @@ func GetInitVolumeMounts(secretNames []string, extraVol []cinderv1beta1.CinderEx
 
 // GetVolumeMounts - Cinder Backup VolumeMounts
 func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
-	return cinder.GetVolumeMounts(true, extraVol, cinder.CinderBackupPropagation)
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "etc-nvme",
+			MountPath: "/etc/nvme",
+		},
+	}
+
+	return append(cinder.GetVolumeMounts(true, extraVol, cinder.CinderBackupPropagation), volumeMounts...)
 }
