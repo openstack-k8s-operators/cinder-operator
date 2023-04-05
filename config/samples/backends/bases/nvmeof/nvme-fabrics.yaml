@@ -24,4 +24,3 @@ spec:
             # Source can be a http, https, tftp, s3, gs, or data as defined in rfc2397.
             # This is the rfc2397 text/plain string format
             source: data:,nvme-fabrics
-

@@ -1,0 +1,7 @@
+resources:
+  - ../../bases/iscsid
+  - ../../bases/multipathd
+  - ../../bases/lvm
+  - ../../bases/openstack
+patches:
+  - backend.yaml
