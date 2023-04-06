@@ -28,7 +28,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cinder
+  name: cinder-api
   namespace: openstack
   ownerReferences:
   - apiVersion: cinder.openstack.org/v1beta1
