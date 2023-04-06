@@ -128,7 +128,7 @@ vet: gowork ## Run go vet against code.
 	go vet ./api/...
 
 .PHONY: tidy
-tidy: fmt
+tidy: ## Run go mod tidy on every mod file in the repo
 	go mod tidy
 	cd ./api && go mod tidy
 
