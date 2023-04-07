@@ -83,7 +83,7 @@ func Deployment(
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cinder.ServiceName,
+			Name:      instance.Name,
 			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
