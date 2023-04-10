@@ -101,19 +101,19 @@ type CinderSpec struct {
 
 	// +kubebuilder:validation:Required
 	// CinderAPI - Spec definition for the API service of this Cinder deployment
-	CinderAPI CinderAPISpec `json:"cinderAPI"`
+	CinderAPI CinderServiceTemplate `json:"cinderAPI"`
 
 	// +kubebuilder:validation:Required
 	// CinderScheduler - Spec definition for the Scheduler service of this Cinder deployment
-	CinderScheduler CinderSchedulerSpec `json:"cinderScheduler"`
+	CinderScheduler CinderServiceTemplate `json:"cinderScheduler"`
 
 	// +kubebuilder:validation:Optional
 	// CinderBackup - Spec definition for the Backup service of this Cinder deployment
-	CinderBackup CinderBackupSpec `json:"cinderBackup"`
+	CinderBackup CinderServiceTemplate `json:"cinderBackup"`
 
 	// +kubebuilder:validation:Optional
 	// CinderVolumes - Map of chosen names to spec definitions for the Volume(s) service(s) of this Cinder deployment
-	CinderVolumes map[string]CinderVolumeSpec `json:"cinderVolumes,omitempty"`
+	CinderVolumes map[string]CinderServiceTemplate `json:"cinderVolumes,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
