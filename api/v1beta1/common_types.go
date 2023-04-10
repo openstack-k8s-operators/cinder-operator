@@ -21,18 +21,35 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// CinderServiceTemplate defines the input parameter that can be defined for a given
-// Cinder service
-type CinderServiceTemplate struct {
-
-	// +kubebuilder:validation:Required
-	// ContainerImage - Cinder API Container Image URL (will be set to environmental default if empty)
-	ContainerImage string `json:"containerImage"`
+// CinderTemplate defines common input parameters used by all Cinder services
+type CinderTemplate struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=cinder
+	// ServiceUser - optional username used for this service to register in cinder
+	ServiceUser string `json:"serviceUser"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=1
-	// Replicas - Cinder API Replicas
-	Replicas int32 `json:"replicas"`
+	// +kubebuilder:default=cinder
+	// DatabaseUser - optional username used for cinder DB, defaults to cinder
+	// TODO: -> implement needs work in mariadb-operator, right now only cinder
+	DatabaseUser string `json:"databaseUser"`
+
+	// +kubebuilder:validation:Required
+	// Secret containing OpenStack password information for CinderDatabasePassword
+	Secret string `json:"secret"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default={database: CinderDatabasePassword, service: CinderPassword}
+	// PasswordSelectors - Selectors to identify the DB and ServiceUser password from the Secret
+	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
+}
+
+// CinderServiceTemplate defines the input parameters that can be defined for a given
+// Cinder service
+type CinderServiceTemplate struct {
+	// +kubebuilder:validation:Required
+	// ContainerImage - Cinder Container Image URL (will be set to environmental default if empty)
+	ContainerImage string `json:"containerImage"`
 
 	// +kubebuilder:validation:Optional
 	// NodeSelector to target subset of worker nodes running this service. Setting here overrides
@@ -70,10 +87,6 @@ type CinderServiceTemplate struct {
 	// +kubebuilder:validation:Optional
 	// NetworkAttachments is a list of NetworkAttachment resource names to expose the services to the given network
 	NetworkAttachments []string `json:"networkAttachments,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// ExternalEndpoints, expose a VIP via MetalLB on the pre-created address pool
-	ExternalEndpoints []MetalLBConfig `json:"externalEndpoints,omitempty"`
 }
 
 // PasswordSelector to identify the DB and AdminUser password from the Secret

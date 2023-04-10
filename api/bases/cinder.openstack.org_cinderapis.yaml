@@ -912,6 +912,7 @@ spec:
                 type: string
             required:
             - containerImage
+            - secret
             type: object
           status:
             properties:

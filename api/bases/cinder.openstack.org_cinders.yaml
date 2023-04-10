@@ -154,32 +154,6 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
-                  externalEndpoints:
-                    items:
-                      properties:
-                        endpoint:
-                          enum:
-                          - internal
-                          - public
-                          type: string
-                        ipAddressPool:
-                          minLength: 1
-                          type: string
-                        loadBalancerIPs:
-                          items:
-                            type: string
-                          type: array
-                        sharedIP:
-                          default: true
-                          type: boolean
-                        sharedIPKey:
-                          default: ""
-                          type: string
-                      required:
-                      - endpoint
-                      - ipAddressPool
-                      type: object
-                    type: array
                   networkAttachments:
                     items:
                       type: string
@@ -249,32 +223,6 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
-                  externalEndpoints:
-                    items:
-                      properties:
-                        endpoint:
-                          enum:
-                          - internal
-                          - public
-                          type: string
-                        ipAddressPool:
-                          minLength: 1
-                          type: string
-                        loadBalancerIPs:
-                          items:
-                            type: string
-                          type: array
-                        sharedIP:
-                          default: true
-                          type: boolean
-                        sharedIPKey:
-                          default: ""
-                          type: string
-                      required:
-                      - endpoint
-                      - ipAddressPool
-                      type: object
-                    type: array
                   networkAttachments:
                     items:
                       type: string
@@ -345,32 +293,6 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
-                    externalEndpoints:
-                      items:
-                        properties:
-                          endpoint:
-                            enum:
-                            - internal
-                            - public
-                            type: string
-                          ipAddressPool:
-                            minLength: 1
-                            type: string
-                          loadBalancerIPs:
-                            items:
-                              type: string
-                            type: array
-                          sharedIP:
-                            default: true
-                            type: boolean
-                          sharedIPKey:
-                            default: ""
-                            type: string
-                        required:
-                        - endpoint
-                        - ipAddressPool
-                        type: object
-                      type: array
                     networkAttachments:
                       items:
                         type: string
@@ -382,6 +304,7 @@ spec:
                     replicas:
                       default: 1
                       format: int32
+                      maximum: 1
                       type: integer
                     resources:
                       properties:
