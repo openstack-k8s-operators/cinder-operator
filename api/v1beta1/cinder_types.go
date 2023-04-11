@@ -32,10 +32,7 @@ const (
 
 // CinderSpec defines the desired state of Cinder
 type CinderSpec struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=cinder
-	// ServiceUser - optional username used for this service to register in cinder
-	ServiceUser string `json:"serviceUser"`
+	CinderTemplate `json:",inline"`
 
 	// +kubebuilder:validation:Required
 	// MariaDB instance name
@@ -43,26 +40,11 @@ type CinderSpec struct {
 	// Might not be required in future
 	DatabaseInstance string `json:"databaseInstance"`
 
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=cinder
-	// DatabaseUser - optional username used for cinder DB, defaults to cinder
-	// TODO: -> implement needs work in mariadb-operator, right now only cinder
-	DatabaseUser string `json:"databaseUser"`
-
 	// +kubebuilder:validation:Required
 	// +kubebuilder:default=rabbitmq
 	// RabbitMQ instance name
 	// Needed to request a transportURL that is created and used in Cinder
 	RabbitMqClusterName string `json:"rabbitMqClusterName"`
-
-	// +kubebuilder:validation:Required
-	// Secret containing OpenStack password information for CinderDatabasePassword, CinderPassword
-	Secret string `json:"secret"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={database: CinderDatabasePassword, service: CinderPassword}
-	// PasswordSelectors - Selectors to identify the DB and ServiceUser password from the Secret
-	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
 
 	// +kubebuilder:validation:Optional
 	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
@@ -101,19 +83,19 @@ type CinderSpec struct {
 
 	// +kubebuilder:validation:Required
 	// CinderAPI - Spec definition for the API service of this Cinder deployment
-	CinderAPI CinderServiceTemplate `json:"cinderAPI"`
+	CinderAPI CinderAPITemplate `json:"cinderAPI"`
 
 	// +kubebuilder:validation:Required
 	// CinderScheduler - Spec definition for the Scheduler service of this Cinder deployment
-	CinderScheduler CinderServiceTemplate `json:"cinderScheduler"`
+	CinderScheduler CinderSchedulerTemplate `json:"cinderScheduler"`
 
 	// +kubebuilder:validation:Optional
 	// CinderBackup - Spec definition for the Backup service of this Cinder deployment
-	CinderBackup CinderServiceTemplate `json:"cinderBackup"`
+	CinderBackup CinderBackupTemplate `json:"cinderBackup"`
 
 	// +kubebuilder:validation:Optional
 	// CinderVolumes - Map of chosen names to spec definitions for the Volume(s) service(s) of this Cinder deployment
-	CinderVolumes map[string]CinderServiceTemplate `json:"cinderVolumes,omitempty"`
+	CinderVolumes map[string]CinderVolumeTemplate `json:"cinderVolumes,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials

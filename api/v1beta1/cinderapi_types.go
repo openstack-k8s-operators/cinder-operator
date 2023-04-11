@@ -18,20 +18,13 @@ package v1beta1
 
 import (
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CinderAPISpec defines the desired state of CinderAPI
-type CinderAPISpec struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=cinder
-	// ServiceUser - optional username used for this service to register in cinder
-	ServiceUser string `json:"serviceUser"`
-
-	// +kubebuilder:validation:Required
-	// ContainerImage - Cinder API Container Image URL (will be set to environmental default if empty)
-	ContainerImage string `json:"containerImage"`
+// CinderAPITemplate defines the input parameters for the Cinder API service
+type CinderAPITemplate struct {
+	// Common input parameters for the Cinder API service
+	CinderServiceTemplate `json:",inline"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=1
@@ -39,72 +32,32 @@ type CinderAPISpec struct {
 	Replicas int32 `json:"replicas"`
 
 	// +kubebuilder:validation:Optional
+	// ExternalEndpoints, expose a VIP via MetalLB on the pre-created address pool
+	ExternalEndpoints []MetalLBConfig `json:"externalEndpoints,omitempty"`
+}
+
+// CinderAPISpec defines the desired state of CinderAPI
+type CinderAPISpec struct {
+	// Common input parameters for all Cinder services
+	CinderTemplate `json:",inline"`
+
+	// Input parameters for the Cinder API service
+	CinderAPITemplate `json:",inline"`
+
+	// +kubebuilder:validation:Optional
 	// DatabaseHostname - Cinder Database Hostname
 	DatabaseHostname string `json:"databaseHostname,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=cinder
-	// DatabaseUser - optional username used for cinder DB, defaults to cinder
-	// TODO: -> implement needs work in mariadb-operator, right now only cinder
-	DatabaseUser string `json:"databaseUser"`
-
-	// +kubebuilder:validation:Optional
-	// Secret containing OpenStack password information for CinderDatabasePassword, AdminPassword
-	Secret string `json:"secret,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// Secret containing RabbitMq transport URL
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={database: CinderDatabasePassword, service: CinderPassword}
-	// PasswordSelectors - Selectors to identify the DB and ServiceUser password from the Secret
-	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
-
-	// +kubebuilder:validation:Optional
-	// NodeSelector to target subset of worker nodes running this service. Setting here overrides
-	// any global NodeSelector settings within the Cinder CR.
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-
-	// +kubebuilder:validation:Optional
 	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
 	// actual action pod gets started with sleep infinity
-	Debug CinderServiceDebug `json:"debug,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// CustomServiceConfig - customize the service config using this parameter to change service defaults,
-	// or overwrite rendered information using raw OpenStack config format. The content gets added to
-	// to /etc/<service>/<service>.conf.d directory as a custom config file.
-	CustomServiceConfig string `json:"customServiceConfig,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// CustomServiceConfigSecrets - customize the service config using this parameter to specify Secrets
-	// that contain sensitive service config data. The content of each Secret gets added to the
-	// /etc/<service>/<service>.conf.d directory as a custom config file.
-	CustomServiceConfigSecrets []string `json:"customServiceConfigSecrets,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// ConfigOverwrite - interface to overwrite default config files like e.g. policy.json.
-	// But can also be used to add additional files. Those get added to the service config dir in /etc/<service> .
-	// TODO: -> implement
-	DefaultConfigOverwrite map[string]string `json:"defaultConfigOverwrite,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// Resources - Compute Resources required by this service (Limits/Requests).
-	// https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
 	ExtraMounts []CinderExtraVolMounts `json:"extraMounts,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// NetworkAttachments is a list of NetworkAttachment resource names to expose the services to the given network
-	NetworkAttachments []string `json:"networkAttachments,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// ExternalEndpoints, expose a VIP via MetalLB on the pre-created address pool
-	ExternalEndpoints []MetalLBConfig `json:"externalEndpoints,omitempty"`
 }
 
 // CinderAPIStatus defines the observed state of CinderAPI
