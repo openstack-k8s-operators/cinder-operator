@@ -354,10 +354,10 @@ operator-lint: $(LOCALBIN) gowork
 # $oc delete -n openstack mutatingwebhookconfiguration/mcinder.kb.io
 SKIP_CERT ?=false
 .PHONY: run-with-webhook
-run-with-webhook: export CINDER_API_IMAGE_URL_DEFAULT=quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
-run-with-webhook: export CINDER_BACKUP_IMAGE_URL_DEFAULT=quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo
-run-with-webhook: export CINDER_SCHEDULER_IMAGE_URL_DEFAULT=quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo
-run-with-webhook: export CINDER_VOLUME_IMAGE_URL_DEFAULT=quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo
+run-with-webhook: export CINDER_API_IMAGE_URL_DEFAULT=quay.io/podified-antelope-centos9/openstack-cinder-api:current-podified
+run-with-webhook: export CINDER_BACKUP_IMAGE_URL_DEFAULT=quay.io/podified-antelope-centos9/openstack-cinder-backup:current-podified
+run-with-webhook: export CINDER_SCHEDULER_IMAGE_URL_DEFAULT=quay.io/podified-antelope-centos9/openstack-cinder-scheduler:current-podified
+run-with-webhook: export CINDER_VOLUME_IMAGE_URL_DEFAULT=quay.io/podified-antelope-centos9/openstack-cinder-volume:current-podified
 run-with-webhook: manifests generate fmt vet ## Run a controller from your host.
 	/bin/bash hack/configure_local_webhook.sh
 	go run ./main.go

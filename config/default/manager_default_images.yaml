@@ -12,10 +12,10 @@ spec:
       - name: manager
         env:
         - name: CINDER_API_IMAGE_URL_DEFAULT
-          value: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
+          value: quay.io/podified-antelope-centos9/openstack-cinder-api:current-podified
         - name: CINDER_BACKUP_IMAGE_URL_DEFAULT
-          value: quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo
+          value: quay.io/podified-antelope-centos9/openstack-cinder-backup:current-podified
         - name: CINDER_SCHEDULER_IMAGE_URL_DEFAULT
-          value: quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo
+          value: quay.io/podified-antelope-centos9/openstack-cinder-scheduler:current-podified
         - name: CINDER_VOLUME_IMAGE_URL_DEFAULT
-          value: quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo
+          value: quay.io/podified-antelope-centos9/openstack-cinder-volume:current-podified
