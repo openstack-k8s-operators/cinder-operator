@@ -13,16 +13,16 @@ spec:
   rabbitMqClusterName: rabbitmq
   cinderAPI:
     replicas: 1
-    containerImage: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
+    containerImage: quay.io/podified-antelope-centos9/openstack-cinder-api:current-podified
   cinderScheduler:
     replicas: 1
-    containerImage: quay.io/tripleozedcentos9/openstack-cinder-scheduler:current-tripleo
+    containerImage: quay.io/podified-antelope-centos9/openstack-cinder-scheduler:current-podified
   cinderBackup:
     replicas: 1
-    containerImage: quay.io/tripleozedcentos9/openstack-cinder-backup:current-tripleo
+    containerImage: quay.io/podified-antelope-centos9/openstack-cinder-backup:current-podified
   cinderVolumes:
     volume1:
-      containerImage: quay.io/tripleozedcentos9/openstack-cinder-volume:current-tripleo
+      containerImage: quay.io/podified-antelope-centos9/openstack-cinder-volume:current-podified
       replicas: 1
 ---
 apiVersion: apps/v1
@@ -72,7 +72,7 @@ spec:
         - /usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start
         command:
         - /bin/bash
-        image: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
+        image: quay.io/podified-antelope-centos9/openstack-cinder-api:current-podified
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -143,7 +143,7 @@ spec:
           value: cinder
         - name: CustomConf
           value: custom.conf
-        image: quay.io/tripleozedcentos9/openstack-cinder-api:current-tripleo
+        image: quay.io/podified-antelope-centos9/openstack-cinder-api:current-podified
         imagePullPolicy: IfNotPresent
         name: init
         resources: {}

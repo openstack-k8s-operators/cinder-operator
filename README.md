@@ -113,13 +113,13 @@ spec:
   databaseUser: cinder
   cinderAPI:
     replicas: 1
-    containerImage: quay.io/tripleowallabycentos9/openstack-cinder-api:current-tripleo
+    containerImage: quay.io/podified-antelopecentos9/openstack-cinder-api:current-podified
   cinderScheduler:
     replicas: 1
-    containerImage: quay.io/tripleowallabycentos9/openstack-cinder-scheduler:current-tripleo
+    containerImage: quay.io/podified-antelopecentos9/openstack-cinder-scheduler:current-podified
   cinderBackup:
     replicas: 1
-    containerImage: quay.io/tripleowallabycentos9/openstack-cinder-backup:current-tripleo
+    containerImage: quay.io/podified-antelopecentos9/openstack-cinder-backup:current-podified
     customServiceConfig: |
       [DEFAULT]
       backup_driver = cinder.backup.drivers.ceph.CephBackupDriver
@@ -128,7 +128,7 @@ spec:
   secret: cinder-secret
   cinderVolumes:
     volume1:
-      containerImage: quay.io/tripleowallabycentos9/openstack-cinder-volume:current-tripleo
+      containerImage: quay.io/podified-antelopecentos9/openstack-cinder-volume:current-podified
       replicas: 1
       customServiceConfig: |
         [DEFAULT]
