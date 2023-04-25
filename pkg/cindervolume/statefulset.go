@@ -126,7 +126,7 @@ func StatefulSet(
 					Labels:      labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: cinder.ServiceAccount,
+					ServiceAccountName: instance.Spec.ServiceAccount,
 					// Some commands need to be run on the host using nsenter
 					// (eg: iscsi commands) so we need to share the PID
 					// namespace with the host.

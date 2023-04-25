@@ -116,7 +116,7 @@ func StatefulSet(
 					Labels:      labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: cinder.ServiceAccount,
+					ServiceAccountName: instance.Spec.ServiceAccount,
 					Containers: []corev1.Container{
 						{
 							Name: cinder.ServiceName + "-scheduler",

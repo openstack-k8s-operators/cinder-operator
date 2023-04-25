@@ -199,3 +199,18 @@ func (c *CinderExtraVolMounts) Propagate(svc []storage.PropagationType) []storag
 
 	return vl
 }
+
+// RbacConditionsSet - set the conditions for the rbac object
+func (instance Cinder) RbacConditionsSet(c *condition.Condition) {
+	instance.Status.Conditions.Set(c)
+}
+
+// RbacNamespace - return the namespace
+func (instance Cinder) RbacNamespace() string {
+	return instance.Namespace
+}
+
+// RbacResourceName - return the name to be used for rbac objects (serviceaccount, role, rolebinding)
+func (instance Cinder) RbacResourceName() string {
+	return "cinder-" + instance.Name
+}

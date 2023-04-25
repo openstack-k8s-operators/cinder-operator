@@ -58,6 +58,10 @@ type CinderAPISpec struct {
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
 	ExtraMounts []CinderExtraVolMounts `json:"extraMounts,omitempty"`
+
+	// +kubebuilder:validation:Required
+	// ServiceAccount - service account name used internally to provide Cinder services the default SA name
+	ServiceAccount string `json:"serviceAccount"`
 }
 
 // CinderAPIStatus defines the observed state of CinderAPI

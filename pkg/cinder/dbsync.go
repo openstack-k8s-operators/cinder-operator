@@ -47,7 +47,7 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string, annotat
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy:      corev1.RestartPolicyOnFailure,
-					ServiceAccountName: ServiceAccount,
+					ServiceAccountName: instance.RbacResourceName(),
 					Containers: []corev1.Container{
 						{
 							Name: instance.Name + "-db-sync",

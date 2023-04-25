@@ -164,8 +164,8 @@ spec:
           name: config-data-custom
           readOnly: true
       restartPolicy: Always
-      serviceAccount: cinder-operator-cinder
-      serviceAccountName: cinder-operator-cinder
+      serviceAccount: cinder-cinder
+      serviceAccountName: cinder-cinder
       volumes:
       - hostPath:
           path: /etc/machine-id
