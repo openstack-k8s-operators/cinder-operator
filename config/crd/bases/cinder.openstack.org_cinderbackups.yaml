@@ -879,6 +879,8 @@ spec:
                 type: object
               secret:
                 type: string
+              serviceAccount:
+                type: string
               serviceUser:
                 default: cinder
                 type: string
@@ -887,6 +889,7 @@ spec:
             required:
             - containerImage
             - secret
+            - serviceAccount
             type: object
           status:
             properties:

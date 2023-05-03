@@ -26,8 +26,6 @@ const (
 	ServiceNameV3 = "cinderv3"
 	// ServiceType -
 	ServiceType = "cinder"
-	// ServiceAccount -
-	ServiceAccount = "cinder-operator-cinder"
 	// ServiceTypeV3 -
 	ServiceTypeV3 = "volumev3"
 	// DatabaseName -
