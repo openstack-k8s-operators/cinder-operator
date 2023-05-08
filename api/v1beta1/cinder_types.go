@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -28,6 +29,17 @@ const (
 
 	// DeploymentHash hash used to detect changes
 	DeploymentHash = "deployment"
+
+	// Container image fall-back defaults
+
+	// CinderAPIContainerImage is the fall-back container image for CinderAPI
+	CinderAPIContainerImage = "quay.io/podified-antelope-centos9/openstack-cinder-api:current-podified"
+	// CinderBackupContainerImage is the fall-back container image for CinderBackup
+	CinderBackupContainerImage = "quay.io/podified-antelope-centos9/openstack-cinder-backup:current-podified"
+	// CinderSchedulerContainerImage is the fall-back container image for CinderScheduler
+	CinderSchedulerContainerImage = "quay.io/podified-antelope-centos9/openstack-cinder-scheduler:current-podified"
+	// CinderVolumeContainerImage is the fall-back container image for CinderVolume
+	CinderVolumeContainerImage = "quay.io/podified-antelope-centos9/openstack-cinder-volume:current-podified"
 )
 
 // CinderSpec defines the desired state of Cinder
@@ -213,4 +225,17 @@ func (instance Cinder) RbacNamespace() string {
 // RbacResourceName - return the name to be used for rbac objects (serviceaccount, role, rolebinding)
 func (instance Cinder) RbacResourceName() string {
 	return "cinder-" + instance.Name
+}
+
+// SetupDefaults - initializes any CRD field defaults based on environment variables (the defaulting mechanism itself is implemented via webhooks)
+func SetupDefaults() {
+	// Acquire environmental defaults and initialize Cinder defaults with them
+	cinderDefaults := CinderDefaults{
+		APIContainerImageURL:       util.GetEnvVar("CINDER_API_IMAGE_URL_DEFAULT", CinderAPIContainerImage),
+		BackupContainerImageURL:    util.GetEnvVar("CINDER_BACKUP_IMAGE_URL_DEFAULT", CinderBackupContainerImage),
+		SchedulerContainerImageURL: util.GetEnvVar("CINDER_SCHEDULER_IMAGE_URL_DEFAULT", CinderSchedulerContainerImage),
+		VolumeContainerImageURL:    util.GetEnvVar("CINDER_VOLUME_IMAGE_URL_DEFAULT", CinderVolumeContainerImage),
+	}
+
+	SetupCinderDefaults(cinderDefaults)
 }

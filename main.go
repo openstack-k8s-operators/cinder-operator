@@ -160,15 +160,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Acquire environmental defaults and initialize Cinder defaults with them
-	cinderDefaults := cinderv1beta1.CinderDefaults{
-		APIContainerImageURL:       os.Getenv("CINDER_API_IMAGE_URL_DEFAULT"),
-		BackupContainerImageURL:    os.Getenv("CINDER_BACKUP_IMAGE_URL_DEFAULT"),
-		SchedulerContainerImageURL: os.Getenv("CINDER_SCHEDULER_IMAGE_URL_DEFAULT"),
-		VolumeContainerImageURL:    os.Getenv("CINDER_VOLUME_IMAGE_URL_DEFAULT"),
-	}
-
-	cinderv1beta1.SetupCinderDefaults(cinderDefaults)
+	// Acquire environmental defaults and initialize operator defaults with them
+	cinderv1beta1.SetupDefaults()
 
 	// Setup webhooks if requested
 	if strings.ToLower(os.Getenv("ENABLE_WEBHOOKS")) != "false" {
