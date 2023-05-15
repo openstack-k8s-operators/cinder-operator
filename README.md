@@ -7,7 +7,7 @@
 ## Getting Started
 You’ll need a Kubernetes cluster to run against.  Our recommendation for the time being is to use
 [OpenShift Local](https://access.redhat.com/documentation/en-us/red_hat_openshift_local/2.2/html/getting_started_guide/installation_gsg) (formerly known as CRC / Code Ready Containers).
-We have [companion development tools](https://github.com/openstack-k8s-operators/install_yamls/blob/master/devsetup/README.md) available that will install OpenShift Local for you.
+We have [companion development tools](https://github.com/openstack-k8s-operators/install_yamls/blob/main/devsetup/README.md) available that will install OpenShift Local for you.
 
 ### Running on the cluster
 1. Install Instances of Custom Resources:
