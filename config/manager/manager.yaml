@@ -5,12 +5,11 @@ metadata:
   namespace: system
   labels:
     control-plane: controller-manager
-    app.kubernetes.io/name: cinder-operator
-    app.kubernetes.io/component: cinder
+    openstack.org/operator-name: cinder
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: cinder-operator
+      openstack.org/operator-name: cinder
   replicas: 1
   template:
     metadata:
@@ -18,8 +17,7 @@ spec:
         kubectl.kubernetes.io/default-container: manager
       labels:
         control-plane: controller-manager
-        app.kubernetes.io/name: cinder-operator
-        app.kubernetes.io/component: cinder
+        openstack.org/operator-name: cinder
     spec:
       securityContext:
         runAsNonRoot: true
