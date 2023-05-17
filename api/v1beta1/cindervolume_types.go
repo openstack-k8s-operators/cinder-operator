@@ -29,6 +29,7 @@ type CinderVolumeTemplate struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Maximum=1
+	// +kubebuilder:validation:Minimum=0
 	// Replicas - Cinder Volume Replicas
 	Replicas int32 `json:"replicas"`
 }
