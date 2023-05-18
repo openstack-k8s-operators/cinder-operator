@@ -31,8 +31,6 @@ const (
 	// DatabaseName -
 	DatabaseName = "cinder"
 
-	// CinderAdminPort -
-	CinderAdminPort int32 = 8776
 	// CinderPublicPort -
 	CinderPublicPort int32 = 8776
 	// CinderInternalPort -
