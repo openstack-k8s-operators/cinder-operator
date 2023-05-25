@@ -107,10 +107,6 @@ type PasswordSelector struct {
 type CinderDebug struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	// dbInitContainer enable debug (waits until /tmp/stop-init-container disappears)
-	DBInitContainer bool `json:"dbInitContainer"`
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
 	// dbSync enable debug
 	DBSync bool `json:"dbSync"`
 }
@@ -118,10 +114,6 @@ type CinderDebug struct {
 // CinderServiceDebug indicates whether certain stages of Cinder service
 // deployment should pause in debug mode
 type CinderServiceDebug struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	// initContainer enable debug (waits until /tmp/stop-init-container disappears)
-	InitContainer bool `json:"initContainer"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// service enable debug

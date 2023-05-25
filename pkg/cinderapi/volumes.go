@@ -25,20 +25,6 @@ func GetVolumes(parentName string, name string, secretNames []string, extraVol [
 	return append(cinder.GetVolumes(parentName, false, extraVol, cinder.CinderAPIPropagation), volumes...)
 }
 
-// GetInitVolumeMounts - Cinder API init task VolumeMounts
-func GetInitVolumeMounts(secretNames []string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
-
-	initVolumeMounts := []corev1.VolumeMount{
-		{
-			Name:      "config-data-custom",
-			MountPath: "/var/lib/config-data/custom",
-			ReadOnly:  true,
-		},
-	}
-
-	return append(cinder.GetInitVolumeMounts(extraVol, cinder.CinderAPIPropagation), initVolumeMounts...)
-}
-
 // GetVolumeMounts - Cinder API VolumeMounts
 func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{

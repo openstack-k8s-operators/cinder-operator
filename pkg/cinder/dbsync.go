@@ -99,18 +99,5 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string, annotat
 		},
 	}
 
-	initContainerDetails := APIDetails{
-		ContainerImage:       instance.Spec.CinderAPI.ContainerImage,
-		DatabaseHost:         instance.Status.DatabaseHostname,
-		DatabaseUser:         instance.Spec.DatabaseUser,
-		DatabaseName:         DatabaseName,
-		OSPSecret:            instance.Spec.Secret,
-		DBPasswordSelector:   instance.Spec.PasswordSelectors.Database,
-		UserPasswordSelector: instance.Spec.PasswordSelectors.Service,
-		VolumeMounts:         GetInitVolumeMounts(dbSyncExtraMounts, DbsyncPropagation),
-		Debug:                instance.Spec.Debug.DBInitContainer,
-	}
-	job.Spec.Template.Spec.InitContainers = InitContainer(initContainerDetails)
-
 	return job
 }

@@ -131,30 +131,7 @@ func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExt
 	return res
 }
 
-// GetInitVolumeMounts - Nova Control Plane init task VolumeMounts
-func GetInitVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts, svc []storage.PropagationType) []corev1.VolumeMount {
-	vm := []corev1.VolumeMount{
-		{
-			Name:      "scripts",
-			MountPath: "/usr/local/bin/container-scripts",
-			ReadOnly:  true,
-		},
-		{
-			Name:      "config-data",
-			MountPath: "/var/lib/config-data/default",
-			ReadOnly:  true,
-		},
-	}
-
-	for _, exv := range extraVol {
-		for _, vol := range exv.Propagate(svc) {
-			vm = append(vm, vol.Mounts...)
-		}
-	}
-	return vm
-}
-
-// GetVolumeMounts - Nova Control Plane VolumeMounts
+// GetVolumeMounts - Cinder Control Plane VolumeMounts
 func GetVolumeMounts(storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMounts, svc []storage.PropagationType) []corev1.VolumeMount {
 	res := []corev1.VolumeMount{
 		{

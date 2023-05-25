@@ -117,53 +117,6 @@ spec:
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
       dnsPolicy: ClusterFirst
-      initContainers:
-      - args:
-        - -c
-        - /usr/local/bin/container-scripts/init.sh
-        command:
-        - /bin/bash
-        env:
-        - name: DatabasePassword
-          valueFrom:
-            secretKeyRef:
-              key: CinderDatabasePassword
-              name: osp-secret
-        - name: CinderPassword
-          valueFrom:
-            secretKeyRef:
-              key: CinderPassword
-              name: osp-secret
-        - name: TransportURL
-          valueFrom:
-            secretKeyRef:
-              key: transport_url
-              name: rabbitmq-transport-url-cinder-cinder-transport
-        - name: DatabaseHost
-          value: openstack
-        - name: DatabaseName
-          value: cinder
-        - name: DatabaseUser
-          value: cinder
-        - name: CustomConf
-          value: custom.conf
-        image: quay.io/podified-antelope-centos9/openstack-cinder-api:current-podified
-        imagePullPolicy: IfNotPresent
-        name: init
-        resources: {}
-        securityContext:
-          runAsUser: 0
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        volumeMounts:
-        - mountPath: /usr/local/bin/container-scripts
-          name: scripts
-          readOnly: true
-        - mountPath: /var/lib/config-data/default
-          name: config-data
-          readOnly: true
-        - mountPath: /var/lib/config-data/custom
-          name: config-data-custom
       restartPolicy: Always
       serviceAccount: cinder-cinder
       serviceAccountName: cinder-cinder
