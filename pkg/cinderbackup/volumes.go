@@ -67,6 +67,10 @@ func GetInitVolumeMounts(secretNames []string, extraVol []cinderv1beta1.CinderEx
 func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{
 		{
+			Name:      "var-lib-cinder",
+			MountPath: "/var/lib/cinder",
+		},
+		{
 			Name:      "etc-nvme",
 			MountPath: "/etc/nvme",
 		},
