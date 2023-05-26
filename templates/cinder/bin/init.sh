@@ -15,6 +15,8 @@
 # under the License.
 set -ex
 
+exit 0
+
 # This script generates cinder.conf.d files and copies the result to the
 # ephemeral /var/lib/config-data/merged volume.
 #

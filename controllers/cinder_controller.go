@@ -39,7 +39,6 @@ import (
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/configmap"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
@@ -781,11 +780,8 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 
 	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(cinder.ServiceName), serviceLabels)
 
-	// customData hold any customization for the service.
-	// custom.conf is going to /etc/<service>/<service>.conf.d
-	// all other files get placed into /etc/<service> to allow overwrite of e.g. policy.json
-	// TODO: make sure custom.conf can not be overwritten
-	customData := map[string]string{common.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig}
+	// customData hold any customization for all cinder services.
+	customData := map[string]string{cinder.CustomConfigFileName: instance.Spec.CustomServiceConfig}
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
 		customData[key] = data
@@ -803,10 +799,28 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 	if err != nil {
 		return err
 	}
+
+	ospSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
+	transportURLSecret, _, err := secret.GetSecret(ctx, h, instance.Status.TransportURLSecret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
 	templateParameters := make(map[string]interface{})
 	templateParameters["ServiceUser"] = instance.Spec.ServiceUser
+	templateParameters["ServicePassword"] = string(ospSecret.Data[instance.Spec.PasswordSelectors.Service])
 	templateParameters["KeystoneInternalURL"] = keystoneInternalURL
 	templateParameters["KeystonePublicURL"] = keystonePublicURL
+	templateParameters["TransportURL"] = string(transportURLSecret.Data["transport_url"])
+	templateParameters["DatabaseConnection"] = fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
+		instance.Spec.DatabaseUser,
+		string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
+		instance.Status.DatabaseHostname,
+		cinder.DatabaseName)
 
 	cms := []util.Template{
 		// ScriptsConfigMap
@@ -830,7 +844,7 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 		},
 	}
 
-	return configmap.EnsureConfigMaps(ctx, h, instance, cms, envVars)
+	return secret.EnsureSecrets(ctx, h, instance, cms, envVars)
 }
 
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart

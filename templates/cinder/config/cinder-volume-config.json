@@ -2,12 +2,6 @@
   "command": "/usr/bin/cinder-volume --config-dir /etc/cinder/cinder.conf.d",
   "config_files": [
     {
-      "source": "/var/lib/config-data/merged/cinder.conf.d",
-      "dest": "/etc/cinder/cinder.conf.d",
-      "owner": "root:cinder",
-      "perm": "0750"
-    },
-    {
       "source": "/usr/local/bin/container-scripts/run-on-host",
       "dest": "/usr/sbin/multipath",
       "owner": "root:root",

@@ -11,13 +11,43 @@ import (
 
 const (
 	// DBSyncCommand -
-	// FIXME?: The old CN-OSP use of bootstrap.sh does not work here, but not using it might be
-	// a problem as it has a few conditionals that should perhaps be considered (and they're not here)
-	DBSyncCommand = "/usr/local/bin/kolla_set_configs && su -s /bin/sh -c \"cinder-manage db sync\""
+	DBSyncCommand = "/usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start"
 )
 
 // DbSyncJob func
 func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string, annotations map[string]string) *batchv1.Job {
+	var config0644AccessMode int32 = 0644
+
+	// Unlike the individual cinder services, the DbSyncJob doesn't need a
+	// secret that contains all of the config snippets required by every
+	// service, The two snippet files that it does need (DefaultsConfigFileName
+	// and CustomConfigFileName) can be extracted from the top-level cinder
+	// config-data secret.
+	dbSyncVolume := corev1.Volume{
+		Name: "db-sync-config-data",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				DefaultMode: &config0644AccessMode,
+				SecretName:  instance.Name + "-config-data",
+				Items: []corev1.KeyToPath{
+					{
+						Key:  DefaultsConfigFileName,
+						Path: DefaultsConfigFileName,
+					},
+					{
+						Key:  CustomConfigFileName,
+						Path: CustomConfigFileName,
+					},
+				},
+			},
+		},
+	}
+
+	dbSyncMount := corev1.VolumeMount{
+		Name:      "db-sync-config-data",
+		MountPath: "/etc/cinder/cinder.conf.d",
+		ReadOnly:  true,
+	}
 
 	dbSyncExtraMounts := []cinderv1beta1.CinderExtraVolMounts{}
 
@@ -60,10 +90,10 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string, annotat
 								RunAsUser: &runAsUser,
 							},
 							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: GetVolumeMounts(false, dbSyncExtraMounts, DbsyncPropagation),
+							VolumeMounts: append(GetVolumeMounts(false, dbSyncExtraMounts, DbsyncPropagation), dbSyncMount),
 						},
 					},
-					Volumes: GetVolumes(instance.Name, false, dbSyncExtraMounts, DbsyncPropagation),
+					Volumes: append(GetVolumes(instance.Name, false, dbSyncExtraMounts, DbsyncPropagation), dbSyncVolume),
 				},
 			},
 		},

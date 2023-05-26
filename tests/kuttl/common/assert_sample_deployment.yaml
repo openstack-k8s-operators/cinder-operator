@@ -42,6 +42,7 @@ spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
+      component: cinder-api
       service: cinder
   strategy:
     rollingUpdate:
@@ -52,6 +53,7 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
+        component: cinder-api
         service: cinder
     spec:
       affinity:
@@ -111,7 +113,9 @@ spec:
           name: scripts
           readOnly: true
         - mountPath: /var/lib/config-data/merged
-          name: config-data-merged
+          name: config-data
+        - mountPath: /etc/cinder/cinder.conf.d
+          name: config-data-custom
       dnsPolicy: ClusterFirst
       initContainers:
       - args:
@@ -158,11 +162,8 @@ spec:
         - mountPath: /var/lib/config-data/default
           name: config-data
           readOnly: true
-        - mountPath: /var/lib/config-data/merged
-          name: config-data-merged
         - mountPath: /var/lib/config-data/custom
           name: config-data-custom
-          readOnly: true
       restartPolicy: Always
       serviceAccount: cinder-cinder
       serviceAccountName: cinder-cinder
@@ -175,19 +176,17 @@ spec:
           path: /etc/localtime
           type: ""
         name: etc-localtime
-      - configMap:
+      - secret:
           defaultMode: 493
-          name: cinder-scripts
+          secretName: cinder-scripts
         name: scripts
-      - configMap:
-          defaultMode: 416
-          name: cinder-config-data
+      - secret:
+          defaultMode: 420
+          secretName: cinder-config-data
         name: config-data
-      - emptyDir: {}
-        name: config-data-merged
-      - configMap:
-          defaultMode: 416
-          name: cinder-api-config-data
+      - secret:
+          defaultMode: 420
+          secretName: cinder-api-config-data
         name: config-data-custom
 status:
   availableReplicas: 1

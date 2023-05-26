@@ -82,13 +82,10 @@ func StatefulSet(
 			Port: intstr.FromInt(8080),
 		}
 		startupProbe.HTTPGet = livenessProbe.HTTPGet
-		// Probe doesn't run kolla_set_configs because it uses the 'cinder' uid
-		// and gid and doesn't have permissions to make files be owned by root,
-		// so cinder.conf is in its original location
 		probeCommand = []string{
 			"/usr/local/bin/container-scripts/healthcheck.py",
 			"scheduler",
-			"/var/lib/config-data/merged/cinder.conf.d",
+			"/etc/cinder/cinder.conf.d",
 		}
 	}
 

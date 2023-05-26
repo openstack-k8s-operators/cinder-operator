@@ -41,7 +41,6 @@ import (
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cindervolume"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/configmap"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
@@ -173,9 +172,9 @@ func (r *CinderVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CinderVolumeReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// Watch for changes to any CustomServiceConfigSecrets. Global secrets
+	// Watch for changes to secrets we don't own. Global secrets
 	// (e.g. TransportURLSecret) are handled by the main cinder controller.
-	svcSecretFn := func(o client.Object) []reconcile.Request {
+	secretFn := func(o client.Object) []reconcile.Request {
 		var namespace string = o.GetNamespace()
 		var secretName string = o.GetName()
 		result := []reconcile.Request{}
@@ -189,6 +188,27 @@ func (r *CinderVolumeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			r.Log.Error(err, "Unable to retrieve volume CRs %v")
 			return nil
 		}
+
+		// Watch for changes to secrets where the owner label AND the
+		// CR.Spec.ManagingCrName label matches
+		label := o.GetLabels()
+		if l, ok := label[labels.GetOwnerNameLabelSelector(labels.GetGroupLabel(cinder.ServiceName))]; ok {
+			for _, cr := range volumes.Items {
+				// return reconcile event for the CR where the owner label AND the parentCinderName matches
+				if l == cinder.GetOwningCinderName(&cr) {
+					// return namespace and Name of CR
+					name := client.ObjectKey{
+						Namespace: o.GetNamespace(),
+						Name:      cr.Name,
+					}
+					r.Log.Info(fmt.Sprintf("Secret %s and CR %s marked with label: %s", o.GetName(), cr.Name, l))
+
+					result = append(result, reconcile.Request{NamespacedName: name})
+				}
+			}
+		}
+
+		// Watch for changes to any CustomServiceConfigSecrets
 		for _, cr := range volumes.Items {
 			for _, v := range cr.Spec.CustomServiceConfigSecrets {
 				if v == secretName {
@@ -207,52 +227,12 @@ func (r *CinderVolumeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return nil
 	}
 
-	// watch for configmap where the CM owner label AND the CR.Spec.ManagingCrName label matches
-	configMapFn := func(o client.Object) []reconcile.Request {
-		result := []reconcile.Request{}
-
-		// get all volume CRs
-		volumes := &cinderv1beta1.CinderVolumeList{}
-		listOpts := []client.ListOption{
-			client.InNamespace(o.GetNamespace()),
-		}
-		if err := r.Client.List(context.Background(), volumes, listOpts...); err != nil {
-			r.Log.Error(err, "Unable to retrieve volume CRs %v")
-			return nil
-		}
-
-		label := o.GetLabels()
-		// TODO: Just trying to verify that the CM is owned by this CR's managing CR
-		if l, ok := label[labels.GetOwnerNameLabelSelector(labels.GetGroupLabel(cinder.ServiceName))]; ok {
-			for _, cr := range volumes.Items {
-				// return reconcil event for the CR where the CM owner label AND the parentCinderName matches
-				if l == cinder.GetOwningCinderName(&cr) {
-					// return namespace and Name of CR
-					name := client.ObjectKey{
-						Namespace: o.GetNamespace(),
-						Name:      cr.Name,
-					}
-					r.Log.Info(fmt.Sprintf("ConfigMap object %s and CR %s marked with label: %s", o.GetName(), cr.Name, l))
-
-					result = append(result, reconcile.Request{NamespacedName: name})
-				}
-			}
-		}
-		if len(result) > 0 {
-			return result
-		}
-		return nil
-	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.CinderVolume{}).
 		Owns(&appsv1.StatefulSet{}).
 		// watch the secrets we don't own
 		Watches(&source.Kind{Type: &corev1.Secret{}},
-			handler.EnqueueRequestsFromMapFunc(svcSecretFn)).
-		// watch the config CMs we don't own
-		Watches(&source.Kind{Type: &corev1.ConfigMap{}},
-			handler.EnqueueRequestsFromMapFunc(configMapFn)).
+			handler.EnqueueRequestsFromMapFunc(secretFn)).
 		Complete(r)
 }
 
@@ -317,29 +297,16 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 
 	parentCinderName := cinder.GetOwningCinderName(instance)
-
-	configMaps := []string{
+	parentSecrets := []string{
 		fmt.Sprintf("%s-scripts", parentCinderName),     //ScriptsConfigMap
 		fmt.Sprintf("%s-config-data", parentCinderName), //ConfigMap
 	}
 
-	_, err = configmap.GetConfigMaps(ctx, helper, instance, configMaps, instance.Namespace, &configMapVars)
-	if err != nil {
-		if k8s_errors.IsNotFound(err) {
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.InputReadyCondition,
-				condition.RequestedReason,
-				condition.SeverityInfo,
-				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("Could not find all config maps for parent Cinder CR %s", parentCinderName)
+	for _, parentSecret := range parentSecrets {
+		ctrlResult, err = r.getSecret(ctx, helper, instance, parentSecret, &configMapVars)
+		if err != nil {
+			return ctrlResult, err
 		}
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.InputReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.InputReadyErrorMessage,
-			err.Error()))
-		return ctrl.Result{}, err
 	}
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 	// run check parent Cinder CR config maps - end
@@ -589,9 +556,7 @@ func (r *CinderVolumeReconciler) generateServiceConfigMaps(
 	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(cinder.ServiceName), serviceLabels)
 
 	// customData hold any customization for the service.
-	// custom.conf is going to be merged into /etc/cinder/conder.conf
-	// TODO: make sure custom.conf can not be overwritten
-	customData := map[string]string{common.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig}
+	customData := map[string]string{cinder.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig}
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
 		customData[key] = data
@@ -599,7 +564,30 @@ func (r *CinderVolumeReconciler) generateServiceConfigMaps(
 
 	customServiceConfig := extendCustomServiceConfig(instance.Spec.CustomServiceConfig)
 
-	customData[common.CustomServiceConfigFileName] = customServiceConfig
+	customData[cinder.CustomServiceConfigFileName] = customServiceConfig
+
+	// Fetch the two service config snippets (DefaultsConfigFileName and
+	// CustomConfigFileName) from the Secret generated by the top level
+	// cinder controller, and add them to this service specific Secret.
+	cinderSecretName := cinder.GetOwningCinderName(instance) + "-config-data"
+	cinderSecret, _, err := secret.GetSecret(ctx, h, cinderSecretName, instance.Namespace)
+	if err != nil {
+		return err
+	}
+	customData[cinder.DefaultsConfigFileName] = string(cinderSecret.Data[cinder.DefaultsConfigFileName])
+	customData[cinder.CustomConfigFileName] = string(cinderSecret.Data[cinder.CustomConfigFileName])
+
+	customSecrets := ""
+	for _, secretName := range instance.Spec.CustomServiceConfigSecrets {
+		secret, _, err := secret.GetSecret(ctx, h, secretName, instance.Namespace)
+		if err != nil {
+			return err
+		}
+		for _, data := range secret.Data {
+			customSecrets += string(data) + "\n"
+		}
+	}
+	customData[cinder.CustomServiceConfigSecretsFileName] = customSecrets
 
 	cms := []util.Template{
 		// Custom ConfigMap
@@ -613,7 +601,7 @@ func (r *CinderVolumeReconciler) generateServiceConfigMaps(
 		},
 	}
 
-	return configmap.EnsureConfigMaps(ctx, h, instance, cms, envVars)
+	return secret.EnsureSecrets(ctx, h, instance, cms, envVars)
 }
 
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart
