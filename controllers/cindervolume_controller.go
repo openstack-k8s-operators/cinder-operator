@@ -81,7 +81,6 @@ type CinderVolumeReconciler struct {
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cindervolumes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cindervolumes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cindervolumes/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;create;update;patch;delete;watch
@@ -260,61 +259,54 @@ func (r *CinderVolumeReconciler) reconcileInit(
 func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *cinderv1beta1.CinderVolume, helper *helper.Helper) (ctrl.Result, error) {
 	r.Log.Info(fmt.Sprintf("Reconciling Service '%s'", instance.Name))
 
-	// ConfigMap
-	configMapVars := make(map[string]env.Setter)
+	configVars := make(map[string]env.Setter)
 
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configMapVars)
+	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
-	// run check OpenStack secret - end
 
 	//
 	// check for required TransportURL secret holding transport URL string
 	//
-	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, &configMapVars)
+	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, &configVars)
 	if err != nil {
 		return ctrlResult, err
 	}
-	// run check TransportURL secret - end
 
 	//
 	// check for required service secrets
 	//
 	for _, secretName := range instance.Spec.CustomServiceConfigSecrets {
-		ctrlResult, err = r.getSecret(ctx, helper, instance, secretName, &configMapVars)
+		ctrlResult, err = r.getSecret(ctx, helper, instance, secretName, &configVars)
 		if err != nil {
 			return ctrlResult, err
 		}
 	}
-	// run check service secrets - end
 
 	//
-	// check for required Cinder config maps that should have been created by parent Cinder CR
+	// check for required Cinder secrets that should have been created by parent Cinder CR
 	//
-
 	parentCinderName := cinder.GetOwningCinderName(instance)
 	parentSecrets := []string{
-		fmt.Sprintf("%s-scripts", parentCinderName),     //ScriptsConfigMap
-		fmt.Sprintf("%s-config-data", parentCinderName), //ConfigMap
+		fmt.Sprintf("%s-scripts", parentCinderName),
+		fmt.Sprintf("%s-config-data", parentCinderName),
 	}
 
 	for _, parentSecret := range parentSecrets {
-		ctrlResult, err = r.getSecret(ctx, helper, instance, parentSecret, &configMapVars)
+		ctrlResult, err = r.getSecret(ctx, helper, instance, parentSecret, &configVars)
 		if err != nil {
 			return ctrlResult, err
 		}
 	}
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
-	// run check parent Cinder CR config maps - end
 
 	//
-	// Create ConfigMaps required as input for the Service and calculate an overall hash of hashes
+	// Create secrets required as input for the Service and calculate an overall hash of hashes
 	//
-
 	serviceLabels := map[string]string{
 		common.AppSelector:       cinder.ServiceName,
 		common.ComponentSelector: cindervolume.Component,
@@ -323,7 +315,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 	// create custom Configmap for this cinder volume service
 	//
-	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars, serviceLabels)
+	err = r.generateServiceConfigs(ctx, helper, instance, &configVars, serviceLabels)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
@@ -333,13 +325,12 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 			err.Error()))
 		return ctrl.Result{}, err
 	}
-	// Create ConfigMaps - end
 
 	//
 	// create hash over all the different input resources to identify if any those changed
 	// and a restart/recreate is required.
 	//
-	inputHash, hashChanged, err := r.createHashOfInputHashes(ctx, instance, configMapVars)
+	inputHash, hashChanged, err := r.createHashOfInputHashes(ctx, instance, configVars)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
@@ -354,7 +345,6 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 		return ctrl.Result{}, nil
 	}
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
-	// Create ConfigMaps and Secrets - end
 
 	//
 	// TODO check when/if Init, Update, or Upgrade should/could be skipped
@@ -539,9 +529,9 @@ func (r *CinderVolumeReconciler) getSecret(
 	return ctrl.Result{}, nil
 }
 
-// generateServiceConfigMaps - create custom configmap to hold service-specific config
+// generateServiceConfigs - create Secret which holds the service configuration
 // TODO add DefaultConfigOverwrite
-func (r *CinderVolumeReconciler) generateServiceConfigMaps(
+func (r *CinderVolumeReconciler) generateServiceConfigs(
 	ctx context.Context,
 	h *helper.Helper,
 	instance *cinderv1beta1.CinderVolume,
@@ -549,11 +539,11 @@ func (r *CinderVolumeReconciler) generateServiceConfigMaps(
 	serviceLabels map[string]string,
 ) error {
 	//
-	// create custom Configmap for cinder-volume-specific config input
-	// - %-config-data configmap holding custom config for the service's cinder.conf
+	// create custom Secret for cinder service-specific config input
+	// - %-config-data holds custom config for the service
 	//
 
-	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(cinder.ServiceName), serviceLabels)
+	labels := labels.GetLabels(instance, labels.GetGroupLabel(cinder.ServiceName), serviceLabels)
 
 	// customData hold any customization for the service.
 	customData := map[string]string{cinder.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig}
@@ -589,19 +579,18 @@ func (r *CinderVolumeReconciler) generateServiceConfigMaps(
 	}
 	customData[cinder.CustomServiceConfigSecretsFileName] = customSecrets
 
-	cms := []util.Template{
-		// Custom ConfigMap
+	configTemplates := []util.Template{
 		{
 			Name:         fmt.Sprintf("%s-config-data", instance.Name),
 			Namespace:    instance.Namespace,
 			Type:         util.TemplateTypeConfig,
 			InstanceType: instance.Kind,
 			CustomData:   customData,
-			Labels:       cmLabels,
+			Labels:       labels,
 		},
 	}
 
-	return secret.EnsureSecrets(ctx, h, instance, cms, envVars)
+	return secret.EnsureSecrets(ctx, h, instance, configTemplates, envVars)
 }
 
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart
