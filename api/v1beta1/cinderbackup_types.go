@@ -100,7 +100,7 @@ func init() {
 	SchemeBuilder.Register(&CinderBackup{}, &CinderBackupList{})
 }
 
-// IsReady - returns true if service is ready to serve requests
+// IsReady - returns true if CinderBackup is reconciled successfully
 func (instance CinderBackup) IsReady() bool {
-	return instance.Status.ReadyCount == instance.Spec.Replicas
+	return instance.Status.Conditions.IsTrue(condition.ReadyCondition)
 }

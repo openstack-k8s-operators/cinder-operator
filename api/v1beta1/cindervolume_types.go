@@ -101,7 +101,7 @@ func init() {
 	SchemeBuilder.Register(&CinderVolume{}, &CinderVolumeList{})
 }
 
-// IsReady - returns true if service is ready to serve requests
+// IsReady - returns true if CinderVolume is reconciled successfully
 func (instance CinderVolume) IsReady() bool {
-	return instance.Status.ReadyCount == instance.Spec.Replicas
+	return instance.Status.Conditions.IsTrue(condition.ReadyCondition)
 }

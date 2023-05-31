@@ -180,12 +180,9 @@ func init() {
 	SchemeBuilder.Register(&Cinder{}, &CinderList{})
 }
 
-// IsReady - returns true if all subresources Ready condition is true
+// IsReady - returns true if Cinder is reconciled successfully
 func (instance Cinder) IsReady() bool {
-	return instance.Status.Conditions.IsTrue(CinderAPIReadyCondition) &&
-		instance.Status.Conditions.IsTrue(CinderBackupReadyCondition) &&
-		instance.Status.Conditions.IsTrue(CinderSchedulerReadyCondition) &&
-		instance.Status.Conditions.IsTrue(CinderVolumeReadyCondition)
+	return instance.Status.Conditions.IsTrue(condition.ReadyCondition)
 }
 
 // CinderExtraVolMounts exposes additional parameters processed by the cinder-operator
