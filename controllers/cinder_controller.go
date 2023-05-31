@@ -640,7 +640,6 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		instance.Status.Conditions.Set(c)
 	}
 
-	// TODO: These will not work without rabbit yet
 	// deploy cinder-scheduler
 	cinderScheduler, op, err := r.schedulerDeploymentCreateOrUpdate(ctx, instance)
 	if err != nil {
@@ -665,31 +664,50 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		instance.Status.Conditions.Set(c)
 	}
 
-	// deploy cinder-backup
-	cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(ctx, instance)
-	if err != nil {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			cinderv1beta1.CinderBackupReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			cinderv1beta1.CinderBackupReadyErrorMessage,
-			err.Error()))
-		return ctrl.Result{}, err
-	}
-	if op != controllerutil.OperationResultNone {
-		r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+	// deploy cinder-backup, but only if necessary
+	//
+	// Many OpenStack deployments don't use the cinder-backup service (it's optional),
+	// so there's no need to deploy it unless it's required.
+	var backupCondition *condition.Condition
+	if instance.Spec.CinderBackup.Replicas > 0 {
+		cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(ctx, instance)
+		if err != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				cinderv1beta1.CinderBackupReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				cinderv1beta1.CinderBackupReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
+		if op != controllerutil.OperationResultNone {
+			r.Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+		}
+
+		// Mirror CinderBackup status' ReadyCount to this parent CR
+		instance.Status.CinderBackupReadyCount = cinderBackup.Status.ReadyCount
+
+		// Mirror CinderBackup's condition status
+		backupCondition = cinderBackup.Status.Conditions.Mirror(cinderv1beta1.CinderBackupReadyCondition)
+
+	} else {
+		// Clean up cinder-backup if there are no replicas
+		err = r.backupCleanupDeployment(ctx, instance)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
-	// Mirror CinderBackup status' ReadyCount to this parent CR
-	instance.Status.CinderBackupReadyCount = cinderBackup.Status.ReadyCount
-
-	// Mirror CinderBackup's condition status
-	c = cinderBackup.Status.Conditions.Mirror(cinderv1beta1.CinderBackupReadyCondition)
-	if c != nil {
-		instance.Status.Conditions.Set(c)
+	if backupCondition != nil {
+		// If there's a backupCondition then set that as the CinderBackupReadyCondition
+		instance.Status.Conditions.Set(backupCondition)
+	} else {
+		// The CinderBackup is ready, even if the service wasn't deployed.
+		// Using "condition.DeploymentReadyMessage" here because that is what gets mirrored
+		// as the message for the other Cinder children when they are successfully-deployed
+		instance.Status.Conditions.MarkTrue(cinderv1beta1.CinderBackupReadyCondition, condition.DeploymentReadyMessage)
 	}
 
-	// TODO: This requires some sort of backend and rabbit, and will not work without them
 	// deploy cinder-volumes
 	var volumeCondition *condition.Condition
 	for name, volume := range instance.Spec.CinderVolumes {
@@ -981,6 +999,33 @@ func (r *CinderReconciler) backupDeploymentCreateOrUpdate(ctx context.Context, i
 	})
 
 	return deployment, op, err
+}
+
+func (r *CinderReconciler) backupCleanupDeployment(ctx context.Context, instance *cinderv1beta1.Cinder) error {
+	deployment := &cinderv1beta1.CinderBackup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-backup", instance.Name),
+			Namespace: instance.Namespace,
+		},
+	}
+	key := client.ObjectKeyFromObject(deployment)
+	err := r.Client.Get(ctx, key, deployment)
+
+	if k8s_errors.IsNotFound(err) {
+		// Nothing to clean up
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("Error looking for '%s' deployment in '%s' namespace: %w", deployment.Name, instance.Namespace, err)
+	}
+
+	err = r.Client.Delete(ctx, deployment)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return fmt.Errorf("Error cleaning up %s: %w", deployment.Name, err)
+	}
+
+	return nil
 }
 
 func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, name string, volTemplate cinderv1beta1.CinderVolumeTemplate) (*cinderv1beta1.CinderVolume, controllerutil.OperationResult, error) {
