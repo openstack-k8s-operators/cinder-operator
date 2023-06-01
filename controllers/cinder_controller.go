@@ -181,7 +181,6 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 			condition.UnknownCondition(cinderv1beta1.CinderSchedulerReadyCondition, condition.InitReason, cinderv1beta1.CinderSchedulerReadyInitMessage),
 			condition.UnknownCondition(cinderv1beta1.CinderBackupReadyCondition, condition.InitReason, cinderv1beta1.CinderBackupReadyInitMessage),
 			condition.UnknownCondition(cinderv1beta1.CinderVolumeReadyCondition, condition.InitReason, cinderv1beta1.CinderVolumeReadyInitMessage),
-			condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),
 			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 			// service account, role, rolebinding conditions
 			condition.UnknownCondition(condition.ServiceAccountReadyCondition, condition.InitReason, condition.ServiceAccountReadyInitMessage),
