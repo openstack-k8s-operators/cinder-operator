@@ -104,9 +104,6 @@ spec:
         - mountPath: /etc/machine-id
           name: etc-machine-id
           readOnly: true
-        - mountPath: /etc/localtime
-          name: etc-localtime
-          readOnly: true
         - mountPath: /usr/local/bin/container-scripts
           name: scripts
           readOnly: true
@@ -171,10 +168,6 @@ spec:
           path: /etc/machine-id
           type: ""
         name: etc-machine-id
-      - hostPath:
-          path: /etc/localtime
-          type: ""
-        name: etc-localtime
       - configMap:
           defaultMode: 493
           name: cinder-scripts

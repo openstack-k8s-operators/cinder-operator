@@ -24,14 +24,6 @@ func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExt
 			},
 		},
 		{
-			Name: "etc-localtime",
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/etc/localtime",
-				},
-			},
-		},
-		{
 			Name: "scripts",
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -177,11 +169,6 @@ func GetVolumeMounts(storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMou
 		{
 			Name:      "etc-machine-id",
 			MountPath: "/etc/machine-id",
-			ReadOnly:  true,
-		},
-		{
-			Name:      "etc-localtime",
-			MountPath: "/etc/localtime",
 			ReadOnly:  true,
 		},
 		{
