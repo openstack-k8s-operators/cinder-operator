@@ -38,7 +38,6 @@ spec:
         replicas: 1
       cinderScheduler:
         replicas: 1
-      # Can omit the cinderBackup section. Making it explicit for reference.
       cinderBackup:
         replicas: 0
   manila:
@@ -60,8 +59,10 @@ spec:
     enabled: false
   ovn:
     enabled: false
-  ovs:
-    enabled: false
+    template:
+      ovnController:
+        external-ids:
+          ovn-encap-type: "geneve"
   neutron:
     enabled: false
   nova:
