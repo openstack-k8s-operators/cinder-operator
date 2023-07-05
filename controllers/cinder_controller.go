@@ -39,7 +39,6 @@ import (
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/configmap"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
@@ -101,7 +100,6 @@ type CinderReconciler struct {
 // +kubebuilder:rbac:groups=cinder.openstack.org,resources=cindervolumes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cinder.openstack.org,resources=cindervolumes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cinder.openstack.org,resources=cindervolumes/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;create;update;patch;delete;watch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;create;update;patch;delete;watch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;create;update;patch;delete;watch
 // +kubebuilder:rbac:groups=mariadb.openstack.org,resources=mariadbdatabases,verbs=get;list;watch;create;update;patch;delete
@@ -269,7 +267,7 @@ func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&cinderv1beta1.CinderVolume{}).
 		Owns(&rabbitmqv1.TransportURL{}).
 		Owns(&batchv1.Job{}).
-		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Secret{}).
 		// Watch for TransportURL Secrets which belong to any TransportURLs created by Cinder CRs
 		Watches(&source.Kind{Type: &corev1.Secret{}},
 			handler.EnqueueRequestsFromMapFunc(transportURLSecretFn)).
@@ -444,8 +442,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		common.AppSelector: cinder.ServiceName,
 	}
 
-	// ConfigMap
-	configMapVars := make(map[string]env.Setter)
+	configVars := make(map[string]env.Setter)
 
 	//
 	// create RabbitMQ transportURL CR and get the actual URL from the associated secret that is created
@@ -505,22 +502,15 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		return ctrl.Result{}, err
 	}
 	// Add a prefix to the var name to avoid accidental collision with other non-secret vars.
-	configMapVars["secret-"+ospSecret.Name] = env.SetValue(hash)
+	configVars["secret-"+ospSecret.Name] = env.SetValue(hash)
 
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 	// run check OpenStack secret - end
 
 	//
-	// Create ConfigMaps and Secrets required as input for the Service and calculate an overall hash of hashes
+	// Create Secrets required as input for the Service and calculate an overall hash of hashes
 	//
-
-	//
-	// create Configmap required for cinder input
-	// - %-scripts configmap holding scripts to e.g. bootstrap the service
-	// - %-config configmap holding minimal cinder config required to get the service up, user can add additional files to be added to the service
-	// - parameters which has passwords gets added from the OpenStack secret via the init container
-	//
-	err = r.generateServiceConfigMaps(ctx, helper, instance, &configMapVars, serviceLabels)
+	err = r.generateServiceConfigs(ctx, helper, instance, &configVars, serviceLabels)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
@@ -535,7 +525,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// create hash over all the different input resources to identify if any those changed
 	// and a restart/recreate is required.
 	//
-	_, hashChanged, err := r.createHashOfInputHashes(ctx, instance, configMapVars)
+	_, hashChanged, err := r.createHashOfInputHashes(ctx, instance, configVars)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
@@ -549,7 +539,6 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		// so we need to return and reconcile again
 		return ctrl.Result{}, nil
 	}
-	// Create ConfigMaps and Secrets - end
 
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
@@ -781,9 +770,9 @@ func (r *CinderReconciler) reconcileUpgrade(ctx context.Context, instance *cinde
 	return ctrl.Result{}, nil
 }
 
-// generateServiceConfigMaps - create create configmaps which hold scripts and service configuration
+// generateServiceConfigs - create Secret which hold scripts and service configuration
 // TODO add DefaultConfigOverwrite
-func (r *CinderReconciler) generateServiceConfigMaps(
+func (r *CinderReconciler) generateServiceConfigs(
 	ctx context.Context,
 	h *helper.Helper,
 	instance *cinderv1beta1.Cinder,
@@ -791,19 +780,15 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 	serviceLabels map[string]string,
 ) error {
 	//
-	// create Configmap/Secret required for cinder input
-	// - %-scripts configmap holding scripts to e.g. bootstrap the service
-	// - %-config configmap holding minimal cinder config required to get the service up, user can add additional files to be added to the service
-	// - parameters which has passwords gets added from the ospSecret via the init container
+	// create Secret required for cinder input
+	// - %-scripts holds scripts to e.g. bootstrap the service
+	// - %-config holds minimal cinder config required to get the service up
 	//
 
-	cmLabels := labels.GetLabels(instance, labels.GetGroupLabel(cinder.ServiceName), serviceLabels)
+	labels := labels.GetLabels(instance, labels.GetGroupLabel(cinder.ServiceName), serviceLabels)
 
-	// customData hold any customization for the service.
-	// custom.conf is going to /etc/<service>/<service>.conf.d
-	// all other files get placed into /etc/<service> to allow overwrite of e.g. policy.json
-	// TODO: make sure custom.conf can not be overwritten
-	customData := map[string]string{common.CustomServiceConfigFileName: instance.Spec.CustomServiceConfig}
+	// customData hold any customization for all cinder services.
+	customData := map[string]string{cinder.CustomConfigFileName: instance.Spec.CustomServiceConfig}
 
 	for key, data := range instance.Spec.DefaultConfigOverwrite {
 		customData[key] = data
@@ -821,22 +806,37 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 	if err != nil {
 		return err
 	}
+
+	ospSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
+	transportURLSecret, _, err := secret.GetSecret(ctx, h, instance.Status.TransportURLSecret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
 	templateParameters := make(map[string]interface{})
 	templateParameters["ServiceUser"] = instance.Spec.ServiceUser
+	templateParameters["ServicePassword"] = string(ospSecret.Data[instance.Spec.PasswordSelectors.Service])
 	templateParameters["KeystoneInternalURL"] = keystoneInternalURL
 	templateParameters["KeystonePublicURL"] = keystonePublicURL
+	templateParameters["TransportURL"] = string(transportURLSecret.Data["transport_url"])
+	templateParameters["DatabaseConnection"] = fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
+		instance.Spec.DatabaseUser,
+		string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
+		instance.Status.DatabaseHostname,
+		cinder.DatabaseName)
 
-	cms := []util.Template{
-		// ScriptsConfigMap
+	configTemplates := []util.Template{
 		{
-			Name:               fmt.Sprintf("%s-scripts", instance.Name),
-			Namespace:          instance.Namespace,
-			Type:               util.TemplateTypeScripts,
-			InstanceType:       instance.Kind,
-			AdditionalTemplate: map[string]string{"common.sh": "/common/common.sh"},
-			Labels:             cmLabels,
+			Name:         fmt.Sprintf("%s-scripts", instance.Name),
+			Namespace:    instance.Namespace,
+			Type:         util.TemplateTypeScripts,
+			InstanceType: instance.Kind,
+			Labels:       labels,
 		},
-		// ConfigMap
 		{
 			Name:          fmt.Sprintf("%s-config-data", instance.Name),
 			Namespace:     instance.Namespace,
@@ -844,11 +844,11 @@ func (r *CinderReconciler) generateServiceConfigMaps(
 			InstanceType:  instance.Kind,
 			CustomData:    customData,
 			ConfigOptions: templateParameters,
-			Labels:        cmLabels,
+			Labels:        labels,
 		},
 	}
 
-	return configmap.EnsureConfigMaps(ctx, h, instance, cms, envVars)
+	return secret.EnsureSecrets(ctx, h, instance, configTemplates, envVars)
 }
 
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart

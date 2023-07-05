@@ -2,12 +2,6 @@
   "command": "/usr/sbin/httpd -DFOREGROUND",
   "config_files": [
     {
-      "source": "/var/lib/config-data/merged/cinder.conf.d",
-      "dest": "/etc/cinder/cinder.conf.d",
-      "owner": "root:cinder",
-      "perm": "0755"
-    },
-    {
       "source": "/var/lib/config-data/merged/httpd.conf",
       "dest": "/etc/httpd/conf/httpd.conf",
       "owner": "root",

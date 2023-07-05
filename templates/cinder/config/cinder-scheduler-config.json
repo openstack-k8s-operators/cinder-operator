@@ -1,11 +1,3 @@
 {
-  "command": "/usr/bin/cinder-scheduler --config-dir /etc/cinder/cinder.conf.d",
-  "config_files": [
-    {
-      "source": "/var/lib/config-data/merged/cinder.conf.d",
-      "dest": "/etc/cinder/cinder.conf.d",
-      "owner": "root:cinder",
-      "perm": "0750"
-    }
-  ]
+  "command": "/usr/bin/cinder-scheduler --config-dir /etc/cinder/cinder.conf.d"
 }

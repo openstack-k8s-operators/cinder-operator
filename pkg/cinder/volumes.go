@@ -1,8 +1,6 @@
 package cinder
 
 import (
-	"strconv"
-
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	corev1 "k8s.io/api/core/v1"
@@ -11,7 +9,7 @@ import (
 // GetVolumes -
 func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMounts, svc []storage.PropagationType) []corev1.Volume {
 	var scriptsVolumeDefaultMode int32 = 0755
-	var config0640AccessMode int32 = 0640
+	var config0644AccessMode int32 = 0644
 	var dirOrCreate = corev1.HostPathDirectoryOrCreate
 
 	res := []corev1.Volume{
@@ -34,29 +32,19 @@ func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExt
 		{
 			Name: "scripts",
 			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
+				Secret: &corev1.SecretVolumeSource{
 					DefaultMode: &scriptsVolumeDefaultMode,
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name + "-scripts",
-					},
+					SecretName:  name + "-scripts",
 				},
 			},
 		},
 		{
 			Name: "config-data",
 			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					DefaultMode: &config0640AccessMode,
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: name + "-config-data",
-					},
+				Secret: &corev1.SecretVolumeSource{
+					DefaultMode: &config0644AccessMode,
+					SecretName:  name + "-config-data",
 				},
-			},
-		},
-		{
-			Name: "config-data-merged",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{Medium: ""},
 			},
 		},
 	}
@@ -143,35 +131,7 @@ func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExt
 	return res
 }
 
-// GetInitVolumeMounts - Nova Control Plane init task VolumeMounts
-func GetInitVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts, svc []storage.PropagationType) []corev1.VolumeMount {
-	vm := []corev1.VolumeMount{
-		{
-			Name:      "scripts",
-			MountPath: "/usr/local/bin/container-scripts",
-			ReadOnly:  true,
-		},
-		{
-			Name:      "config-data",
-			MountPath: "/var/lib/config-data/default",
-			ReadOnly:  true,
-		},
-		{
-			Name:      "config-data-merged",
-			MountPath: "/var/lib/config-data/merged",
-			ReadOnly:  false,
-		},
-	}
-
-	for _, exv := range extraVol {
-		for _, vol := range exv.Propagate(svc) {
-			vm = append(vm, vol.Mounts...)
-		}
-	}
-	return vm
-}
-
-// GetVolumeMounts - Nova Control Plane VolumeMounts
+// GetVolumeMounts - Cinder Control Plane VolumeMounts
 func GetVolumeMounts(storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMounts, svc []storage.PropagationType) []corev1.VolumeMount {
 	res := []corev1.VolumeMount{
 		{
@@ -190,9 +150,9 @@ func GetVolumeMounts(storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMou
 			ReadOnly:  true,
 		},
 		{
-			Name:      "config-data-merged",
+			Name:      "config-data",
 			MountPath: "/var/lib/config-data/merged",
-			ReadOnly:  false,
+			ReadOnly:  true,
 		},
 	}
 
@@ -241,40 +201,4 @@ func GetVolumeMounts(storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMou
 		}
 	}
 	return res
-}
-
-// GetSecretVolumes - Returns a list of volumes associated with a list of Secret names
-func GetSecretVolumes(secretNames []string) []corev1.Volume {
-	var config0640AccessMode int32 = 0640
-	secretVolumes := []corev1.Volume{}
-
-	for _, secretName := range secretNames {
-		secretVol := corev1.Volume{
-			Name: secretName,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  secretName,
-					DefaultMode: &config0640AccessMode,
-				},
-			},
-		}
-		secretVolumes = append(secretVolumes, secretVol)
-	}
-	return secretVolumes
-}
-
-// GetSecretVolumeMounts - Returns a list of volume mounts associated with a list of Secret names
-func GetSecretVolumeMounts(secretNames []string) []corev1.VolumeMount {
-	secretMounts := []corev1.VolumeMount{}
-
-	for idx, secretName := range secretNames {
-		secretMount := corev1.VolumeMount{
-			Name: secretName,
-			// Each secret needs its own MountPath
-			MountPath: "/var/lib/config-data/secret-" + strconv.Itoa(idx),
-			ReadOnly:  true,
-		}
-		secretMounts = append(secretMounts, secretMount)
-	}
-	return secretMounts
 }

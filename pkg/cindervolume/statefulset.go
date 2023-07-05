@@ -84,13 +84,10 @@ func StatefulSet(
 			Port: intstr.FromInt(8080),
 		}
 		startupProbe.HTTPGet = livenessProbe.HTTPGet
-		// Probe doesn't run kolla_set_configs because it uses the 'cinder' uid
-		// and gid and doesn't have permissions to make files be owned by root,
-		// so cinder.conf is in its original location
 		probeCommand = []string{
 			"/usr/local/bin/container-scripts/healthcheck.py",
 			"volume",
-			"/var/lib/config-data/merged/cinder.conf.d",
+			"/etc/cinder/cinder.conf.d",
 		}
 	}
 
@@ -184,27 +181,6 @@ func StatefulSet(
 	if instance.Spec.NodeSelector != nil && len(instance.Spec.NodeSelector) > 0 {
 		statefulset.Spec.Template.Spec.NodeSelector = instance.Spec.NodeSelector
 	}
-
-	initContainerDetails := cinder.APIDetails{
-		ContainerImage:       instance.Spec.ContainerImage,
-		DatabaseHost:         instance.Spec.DatabaseHostname,
-		DatabaseUser:         instance.Spec.DatabaseUser,
-		DatabaseName:         cinder.DatabaseName,
-		OSPSecret:            instance.Spec.Secret,
-		TransportURLSecret:   instance.Spec.TransportURLSecret,
-		DBPasswordSelector:   instance.Spec.PasswordSelectors.Database,
-		UserPasswordSelector: instance.Spec.PasswordSelectors.Service,
-		VolumeMounts:         GetInitVolumeMounts(instance.Name, instance.Spec.CustomServiceConfigSecrets, instance.Spec.ExtraMounts),
-		Debug:                instance.Spec.Debug.InitContainer,
-	}
-
-	statefulset.Spec.Template.Spec.InitContainers = cinder.InitContainer(initContainerDetails)
-
-	// TODO: Clean up this hack
-	// Add custom config for the Volume Service
-	envVars = map[string]env.Setter{}
-	envVars["CustomConf"] = env.SetValue(common.CustomServiceConfigFileName)
-	statefulset.Spec.Template.Spec.InitContainers[0].Env = env.MergeEnvs(statefulset.Spec.Template.Spec.InitContainers[0].Env, envVars)
 
 	return statefulset
 }
