@@ -23,7 +23,7 @@ spec:
           contents:
             # Source can be a http, https, tftp, s3, gs, or data as defined in rfc2397.
             # This is the rfc2397 text/plain string format
-            source: data:,defaults%20%7B%0A%20%20user_friendly_names%20no%0A%20%20skip_kpartx%20yes%0A%20%20find_multipaths%20yes%0A%7D%0A%0Ablacklist%20%7B%0A%7D
+            source: data:,defaults%20%7B%0A%20%20user_friendly_names%20no%0A%20%20recheck_wwid%20yes%0A%20%20skip_kpartx%20yes%0A%20%20find_multipaths%20yes%0A%7D%0A%0Ablacklist%20%7B%0A%7D
     systemd:
       units:
       - enabled: true
