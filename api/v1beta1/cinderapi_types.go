@@ -28,8 +28,9 @@ type CinderAPITemplate struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=1
+	// +kubebuilder:validation:Minimum=0
 	// Replicas - Cinder API Replicas
-	Replicas int32 `json:"replicas"`
+	Replicas *int32 `json:"replicas"`
 
 	// +kubebuilder:validation:Optional
 	// ExternalEndpoints, expose a VIP via MetalLB on the pre-created address pool
@@ -115,5 +116,5 @@ func init() {
 
 // IsReady - returns true if service is ready to serve requests
 func (instance CinderAPI) IsReady() bool {
-	return instance.Status.ReadyCount == instance.Spec.Replicas
+	return instance.Status.ReadyCount == *instance.Spec.Replicas
 }

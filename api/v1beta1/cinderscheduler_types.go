@@ -28,8 +28,9 @@ type CinderSchedulerTemplate struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=1
+	// +kubebuilder:validation:Minimum=0
 	// Replicas - Cinder Scheduler Replicas
-	Replicas int32 `json:"replicas"`
+	Replicas *int32 `json:"replicas"`
 }
 
 // CinderSchedulerSpec defines the desired state of CinderScheduler
@@ -102,5 +103,5 @@ func init() {
 
 // IsReady - returns true if service is ready to serve requests
 func (instance CinderScheduler) IsReady() bool {
-	return instance.Status.ReadyCount == instance.Spec.Replicas
+	return instance.Status.ReadyCount == *instance.Spec.Replicas
 }

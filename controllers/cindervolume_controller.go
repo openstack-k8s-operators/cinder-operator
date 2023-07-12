@@ -436,7 +436,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	// verify if network attachment matches expectations
 	networkReady := false
 	networkAttachmentStatus := map[string][]string{}
-	if instance.Spec.Replicas > 0 {
+	if *instance.Spec.Replicas > 0 {
 		networkReady, networkAttachmentStatus, err = nad.VerifyNetworkStatusFromAnnotation(
 			ctx,
 			helper,

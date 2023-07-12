@@ -12,16 +12,12 @@ spec:
   databaseUser: cinder
   rabbitMqClusterName: rabbitmq
   cinderAPI:
-    replicas: 1
     containerImage: quay.io/podified-antelope-centos9/openstack-cinder-api:current-podified
   cinderScheduler:
-    replicas: 1
     containerImage: quay.io/podified-antelope-centos9/openstack-cinder-scheduler:current-podified
   cinderBackup:
-    replicas: 1
     containerImage: quay.io/podified-antelope-centos9/openstack-cinder-backup:current-podified
   secret: cinder-secret
   cinderVolumes:
     volume1:
       containerImage: quay.io/podified-antelope-centos9/openstack-cinder-volume:current-podified
-      replicas: 1

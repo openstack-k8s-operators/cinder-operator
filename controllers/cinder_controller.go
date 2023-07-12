@@ -661,7 +661,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// Many OpenStack deployments don't use the cinder-backup service (it's optional),
 	// so there's no need to deploy it unless it's required.
 	var backupCondition *condition.Condition
-	if instance.Spec.CinderBackup.Replicas > 0 {
+	if *instance.Spec.CinderBackup.Replicas > 0 {
 		cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(ctx, instance)
 		if err != nil {
 			instance.Status.Conditions.Set(condition.FalseCondition(
