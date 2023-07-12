@@ -11,13 +11,9 @@ spec:
   databaseInstance: openstack
   databaseUser: cinder
   rabbitMqClusterName: rabbitmq
-  cinderAPI:
-    containerImage: quay.io/podified-antelope-centos9/openstack-cinder-api:current-podified
-  cinderScheduler:
-    containerImage: quay.io/podified-antelope-centos9/openstack-cinder-scheduler:current-podified
-  cinderBackup:
-    containerImage: quay.io/podified-antelope-centos9/openstack-cinder-backup:current-podified
-  secret: cinder-secret
+  cinderAPI: {}
+  cinderScheduler: {}
+  cinderBackup: {}
   cinderVolumes:
-    volume1:
-      containerImage: quay.io/podified-antelope-centos9/openstack-cinder-volume:current-podified
+    volume1: {}
+  secret: cinder-secret
