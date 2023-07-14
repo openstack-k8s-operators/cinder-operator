@@ -2,7 +2,6 @@ apiVersion: cinder.openstack.org/v1beta1
 kind: Cinder
 metadata:
   name: cinder
-  namespace: openstack
 spec:
   serviceUser: cinder
   customServiceConfig: |
@@ -29,7 +28,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cinder-api
-  namespace: openstack
   ownerReferences:
   - apiVersion: cinder.openstack.org/v1beta1
     blockOwnerDeletion: true
