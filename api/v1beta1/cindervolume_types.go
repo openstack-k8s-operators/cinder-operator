@@ -28,9 +28,10 @@ type CinderVolumeTemplate struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=1
+	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1
 	// Replicas - Cinder Volume Replicas
-	Replicas int32 `json:"replicas"`
+	Replicas *int32 `json:"replicas"`
 }
 
 // CinderVolumeSpec defines the desired state of CinderVolume
@@ -103,5 +104,5 @@ func init() {
 
 // IsReady - returns true if service is ready to serve requests
 func (instance CinderVolume) IsReady() bool {
-	return instance.Status.ReadyCount == instance.Spec.Replicas
+	return instance.Status.ReadyCount == *instance.Spec.Replicas
 }
