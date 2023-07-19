@@ -11,10 +11,8 @@ apiVersion: cinder.openstack.org/v1beta1
 kind: Cinder
 metadata:
   name: cinder
-  namespace: openstack
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cinder
-  namespace: openstack

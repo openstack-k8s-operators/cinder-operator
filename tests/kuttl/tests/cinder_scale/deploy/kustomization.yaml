@@ -7,5 +7,7 @@ patches:
     - op: replace
       path: /spec/secret
       value: osp-secret
+    - op: replace
+      path: /metadata/namespace
   target:
     kind: Cinder
