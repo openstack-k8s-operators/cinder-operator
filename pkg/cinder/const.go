@@ -65,6 +65,11 @@ const (
 	// Cinder is the global ServiceType that refers to all the components deployed
 	// by the cinder operator
 	Cinder storage.PropagationType = "Cinder"
+	//LogSnippet -
+	LogSnippet = "[DEFAULT]\n" +
+		"log_file="
+	//DefaultLogPath -
+	DefaultLogPath = "/dev/stdout"
 )
 
 // DbsyncPropagation keeps track of the DBSync Service Propagation Type

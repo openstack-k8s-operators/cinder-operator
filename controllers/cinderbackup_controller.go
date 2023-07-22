@@ -576,6 +576,10 @@ func (r *CinderBackupReconciler) generateServiceConfigs(
 	}
 	customData[cinder.CustomServiceConfigSecretsFileName] = customSecrets
 
+	// Inject Default logging
+	customData[cinder.CustomServiceConfigFileName] = fmt.Sprintf("%s%s%s\n",
+		string(cinderSecret.Data[cinder.CustomServiceConfigFileName]), cinder.LogSnippet, cinder.DefaultLogPath)
+
 	configTemplates := []util.Template{
 		{
 			Name:         fmt.Sprintf("%s-config-data", instance.Name),
