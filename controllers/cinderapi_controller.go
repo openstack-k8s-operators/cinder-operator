@@ -779,6 +779,13 @@ func (r *CinderAPIReconciler) generateServiceConfigs(
 	}
 	customData[cinder.CustomServiceConfigSecretsFileName] = customSecrets
 
+	// Inject Default logging: /dev/stdout doesn't work for cinder-api and a
+	// sidecar container is used to stream the logs to the defined LogPath.
+	// The following line makes the cinder-operator responsible to append to the
+	// ServiceConfig the logging line by default.
+	customData[cinder.CustomServiceConfigFileName] = fmt.Sprintf("%s\n%s%s\n",
+		string(cinderSecret.Data[cinder.CustomServiceConfigFileName]), cinder.LogSnippet, cinderapi.LogPath)
+
 	configTemplates := []util.Template{
 		{
 			Name:         fmt.Sprintf("%s-config-data", instance.Name),

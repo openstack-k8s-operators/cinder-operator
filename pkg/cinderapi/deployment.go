@@ -100,6 +100,22 @@ func Deployment(
 				Spec: corev1.PodSpec{
 					ServiceAccountName: instance.Spec.ServiceAccount,
 					Containers: []corev1.Container{
+						// the first container in a pod is the default selected
+						// by oc log so define the log stream container first.
+						{
+							Name: instance.Name + "-log",
+							Command: []string{
+								"/bin/bash",
+							},
+							Args:  []string{"-c", "tail -n+1 -F " + LogPath},
+							Image: instance.Spec.ContainerImage,
+							SecurityContext: &corev1.SecurityContext{
+								RunAsUser: &runAsUser,
+							},
+							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts: []corev1.VolumeMount{GetLogVolumeMount()},
+							Resources:    instance.Spec.Resources,
+						},
 						{
 							Name: cinder.ServiceName + "-api",
 							Command: []string{
@@ -110,8 +126,9 @@ func Deployment(
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: &runAsUser,
 							},
-							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:   GetVolumeMounts(instance.Spec.ExtraMounts),
+							Env: env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts: append(GetVolumeMounts(instance.Spec.ExtraMounts),
+								[]corev1.VolumeMount{GetLogVolumeMount()}...),
 							Resources:      instance.Spec.Resources,
 							ReadinessProbe: readinessProbe,
 							LivenessProbe:  livenessProbe,
@@ -122,11 +139,11 @@ func Deployment(
 			},
 		},
 	}
-	deployment.Spec.Template.Spec.Volumes = GetVolumes(
+	deployment.Spec.Template.Spec.Volumes = append(GetVolumes(
 		cinder.GetOwningCinderName(instance),
 		instance.Name,
 		instance.Spec.CustomServiceConfigSecrets,
-		instance.Spec.ExtraMounts)
+		instance.Spec.ExtraMounts), GetLogVolume())
 
 	// If possible two pods of the same service should not
 	// run on the same worker node. If this is not possible

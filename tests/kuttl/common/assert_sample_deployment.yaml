@@ -69,6 +69,21 @@ spec:
       containers:
       - args:
         - -c
+        - tail -n+1 -F /var/log/cinder/cinder-api.log
+        command:
+        - /bin/bash
+        image: quay.io/podified-antelope-centos9/openstack-cinder-api:current-podified
+        imagePullPolicy: IfNotPresent
+        resources: {}
+        securityContext:
+          runAsUser: 0
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/log/cinder
+          name: logs
+      - args:
+        - -c
         - /usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start
         command:
         - /bin/bash
@@ -114,6 +129,8 @@ spec:
           name: config-data
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
+        - mountPath: /var/log/cinder
+          name: logs
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       serviceAccount: cinder-cinder
@@ -139,6 +156,8 @@ spec:
           defaultMode: 420
           secretName: cinder-api-config-data
         name: config-data-custom
+      - emptyDir: {}
+        name: logs
 status:
   availableReplicas: 1
   replicas: 1
