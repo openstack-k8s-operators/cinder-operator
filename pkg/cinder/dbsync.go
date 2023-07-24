@@ -11,6 +11,13 @@ import (
 
 const (
 	// DBSyncCommand -
+	// TODO: Once we work on update/upgrades revisit the command in the
+	//       the db-sync-config.json file.
+	//       If we stop all services during the update/upgrade then we can keep
+	//       the --bump-versions flag.
+	//       If we are doing rolling upgrades we'll need to use the flag
+	//       conditionally (only for adoption) and do the restart cycle of
+	//       services as described in the upstream rolling upgrades process.
 	DBSyncCommand = "/usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start"
 )
 
