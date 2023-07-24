@@ -21,4 +21,10 @@ const (
 
 	// Component -
 	Component = "cinder-api"
+
+	//LogPath -
+	LogPath = "/var/log/cinder/cinder-api.log"
+
+	// logVolume -
+	logVolume = "logs"
 )

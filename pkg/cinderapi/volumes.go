@@ -37,3 +37,22 @@ func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Vol
 
 	return append(cinder.GetVolumeMounts(false, extraVol, cinder.CinderAPIPropagation), volumeMounts...)
 }
+
+// GetLogVolumeMount - Cinder API LogVolumeMount
+func GetLogVolumeMount() corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      logVolume,
+		MountPath: "/var/log/cinder",
+		ReadOnly:  false,
+	}
+}
+
+// GetLogVolume - Cinder API LogVolume
+func GetLogVolume() corev1.Volume {
+	return corev1.Volume{
+		Name: logVolume,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{Medium: ""},
+		},
+	}
+}
