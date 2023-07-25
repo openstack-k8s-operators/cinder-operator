@@ -8,7 +8,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
 	github.com/openshift/api v3.9.0+incompatible
-	github.com/openstack-k8s-operators/cinder-operator/api v0.0.0-20230622154402-4aa26ed745b4
+	github.com/openstack-k8s-operators/cinder-operator/api v0.1.0
 	github.com/openstack-k8s-operators/infra-operator/apis v0.1.0
 	github.com/openstack-k8s-operators/keystone-operator/api v0.1.0
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.1.0
