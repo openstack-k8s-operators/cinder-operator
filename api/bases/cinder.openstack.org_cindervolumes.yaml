@@ -887,8 +887,10 @@ spec:
                 type: string
             required:
             - containerImage
+            - databaseHostname
             - secret
             - serviceAccount
+            - transportURLSecret
             type: object
           status:
             properties:

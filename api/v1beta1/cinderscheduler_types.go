@@ -41,13 +41,13 @@ type CinderSchedulerSpec struct {
 	// Input parameters for the Cinder Scheduler service
 	CinderSchedulerTemplate `json:",inline"`
 
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Required
 	// DatabaseHostname - Cinder Database Hostname
-	DatabaseHostname string `json:"databaseHostname,omitempty"`
+	DatabaseHostname string `json:"databaseHostname"`
 
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Required
 	// Secret containing RabbitMq transport URL
-	TransportURLSecret string `json:"transportURLSecret,omitempty"`
+	TransportURLSecret string `json:"transportURLSecret"`
 
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
