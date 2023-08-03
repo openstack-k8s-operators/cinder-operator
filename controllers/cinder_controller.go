@@ -820,38 +820,21 @@ func (r *CinderReconciler) generateServiceConfigs(
 		return err
 	}
 
-	templateParameters := make(map[string]interface{})
-	templateParameters["ServiceUser"] = instance.Spec.ServiceUser
-	templateParameters["ServicePassword"] = string(ospSecret.Data[instance.Spec.PasswordSelectors.Service])
-	templateParameters["KeystoneInternalURL"] = keystoneInternalURL
-	templateParameters["KeystonePublicURL"] = keystonePublicURL
-	templateParameters["TransportURL"] = string(transportURLSecret.Data["transport_url"])
-	templateParameters["DatabaseConnection"] = fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
-		instance.Spec.DatabaseUser,
-		string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
-		instance.Status.DatabaseHostname,
-		cinder.DatabaseName)
-
-	configTemplates := []util.Template{
-		{
-			Name:         fmt.Sprintf("%s-scripts", instance.Name),
-			Namespace:    instance.Namespace,
-			Type:         util.TemplateTypeScripts,
-			InstanceType: instance.Kind,
-			Labels:       labels,
-		},
-		{
-			Name:          fmt.Sprintf("%s-config-data", instance.Name),
-			Namespace:     instance.Namespace,
-			Type:          util.TemplateTypeConfig,
-			InstanceType:  instance.Kind,
-			CustomData:    customData,
-			ConfigOptions: templateParameters,
-			Labels:        labels,
-		},
+	templateParameters := map[string]interface{}{
+		"ServiceUser":         instance.Spec.ServiceUser,
+		"ServicePassword":     string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
+		"KeystoneInternalURL": keystoneInternalURL,
+		"KeystonePublicURL":   keystonePublicURL,
+		"TransportURL":        string(transportURLSecret.Data["transport_url"]),
+		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
+			instance.Spec.DatabaseUser,
+			string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
+			instance.Status.DatabaseHostname,
+			cinder.DatabaseName,
+		),
+		"LogPath": cinder.LogPath,
 	}
-
-	return secret.EnsureSecrets(ctx, h, instance, configTemplates, envVars)
+	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, true)
 }
 
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart

@@ -495,7 +495,6 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	parentCinderName := cinder.GetOwningCinderName(instance)
 	parentSecrets := []string{
 		fmt.Sprintf("%s-scripts", parentCinderName),
-		fmt.Sprintf("%s-config-data", parentCinderName),
 	}
 
 	for _, parentSecret := range parentSecrets {
@@ -764,7 +763,6 @@ func (r *CinderAPIReconciler) generateServiceConfigs(
 	if err != nil {
 		return err
 	}
-	customData[cinder.DefaultsConfigFileName] = string(cinderSecret.Data[cinder.DefaultsConfigFileName])
 	customData[cinder.CustomConfigFileName] = string(cinderSecret.Data[cinder.CustomConfigFileName])
 
 	customSecrets := ""
@@ -779,25 +777,48 @@ func (r *CinderAPIReconciler) generateServiceConfigs(
 	}
 	customData[cinder.CustomServiceConfigSecretsFileName] = customSecrets
 
-	// Inject Default logging: /dev/stdout doesn't work for cinder-api and a
-	// sidecar container is used to stream the logs to the defined LogPath.
-	// The following line makes the cinder-operator responsible to append to the
-	// ServiceConfig the logging line by default.
-	customData[cinder.CustomServiceConfigFileName] = fmt.Sprintf("%s\n%s%s\n",
-		string(cinderSecret.Data[cinder.CustomServiceConfigFileName]), cinder.LogSnippet, cinderapi.LogPath)
-
-	configTemplates := []util.Template{
-		{
-			Name:         fmt.Sprintf("%s-config-data", instance.Name),
-			Namespace:    instance.Namespace,
-			Type:         util.TemplateTypeConfig,
-			InstanceType: instance.Kind,
-			CustomData:   customData,
-			Labels:       labels,
-		},
+	keystoneAPI, err := keystonev1.GetKeystoneAPI(ctx, h, instance.Namespace, map[string]string{})
+	if err != nil {
+		return err
+	}
+	keystoneInternalURL, err := keystoneAPI.GetEndpoint(endpoint.EndpointInternal)
+	if err != nil {
+		return err
+	}
+	keystonePublicURL, err := keystoneAPI.GetEndpoint(endpoint.EndpointPublic)
+	if err != nil {
+		return err
 	}
 
-	return secret.EnsureSecrets(ctx, h, instance, configTemplates, envVars)
+	ospSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.Secret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
+	transportURLSecret, _, err := secret.GetSecret(ctx, h, instance.Spec.TransportURLSecret, instance.Namespace)
+	if err != nil {
+		return err
+	}
+
+	// cinder-api inherits from the top level CR both CustomServiceConfig and
+	// CustomServiceConfigSecrets snippets; 00-default.conf, instead, is
+	// customized as it diverges from the default one (e.g., logging uses a
+	// sidecar container and the resulting path is different.
+	templateParameters := map[string]interface{}{
+		"ServiceUser":         instance.Spec.ServiceUser,
+		"ServicePassword":     string(ospSecret.Data[instance.Spec.PasswordSelectors.Service]),
+		"KeystoneInternalURL": keystoneInternalURL,
+		"KeystonePublicURL":   keystonePublicURL,
+		"TransportURL":        string(transportURLSecret.Data["transport_url"]),
+		"DatabaseConnection": fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s",
+			instance.Spec.DatabaseUser,
+			string(ospSecret.Data[instance.Spec.PasswordSelectors.Database]),
+			instance.Spec.DatabaseHostname,
+			cinder.DatabaseName,
+		),
+		"LogPath": cinderapi.LogPath,
+	}
+	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
 }
 
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart

@@ -576,18 +576,10 @@ func (r *CinderBackupReconciler) generateServiceConfigs(
 	}
 	customData[cinder.CustomServiceConfigSecretsFileName] = customSecrets
 
-	configTemplates := []util.Template{
-		{
-			Name:         fmt.Sprintf("%s-config-data", instance.Name),
-			Namespace:    instance.Namespace,
-			Type:         util.TemplateTypeConfig,
-			InstanceType: instance.Kind,
-			CustomData:   customData,
-			Labels:       labels,
-		},
-	}
-
-	return secret.EnsureSecrets(ctx, h, instance, configTemplates, envVars)
+	// cinder-backup inherits the same 00-default.conf provided by the top
+	// level CR, templateParameters is empty and no overrides are applied
+	templateParameters := make(map[string]interface{})
+	return GenerateConfigsGeneric(ctx, h, instance, envVars, templateParameters, customData, labels, false)
 }
 
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart
