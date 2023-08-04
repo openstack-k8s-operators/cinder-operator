@@ -286,13 +286,16 @@ spec:
   ...
   cinderAPI:
     ...
-    externalEndpoints:
-      - endpoint: internal
-        ipAddressPool: osp-internalapi
-        loadBalancerIPs:
-        - 172.17.0.202
-        sharedIP: true
-        sharedIPKey: ""
+    override:
+      service:
+        internal:
+          metadata:
+            annotations:
+              metallb.universe.tf/address-pool: osp-internalapi
+              metallb.universe.tf/allow-shared-ip: internalapi
+              metallb.universe.tf/loadBalancerIPs: 172.17.0.202
+          spec:
+            type: LoadBalancer
     ...
 ...
 ```
