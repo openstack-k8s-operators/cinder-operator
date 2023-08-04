@@ -231,10 +231,10 @@ func (instance Cinder) RbacResourceName() string {
 func SetupDefaults() {
 	// Acquire environmental defaults and initialize Cinder defaults with them
 	cinderDefaults := CinderDefaults{
-		APIContainerImageURL:       util.GetEnvVar("CINDER_API_IMAGE_URL_DEFAULT", CinderAPIContainerImage),
-		BackupContainerImageURL:    util.GetEnvVar("CINDER_BACKUP_IMAGE_URL_DEFAULT", CinderBackupContainerImage),
-		SchedulerContainerImageURL: util.GetEnvVar("CINDER_SCHEDULER_IMAGE_URL_DEFAULT", CinderSchedulerContainerImage),
-		VolumeContainerImageURL:    util.GetEnvVar("CINDER_VOLUME_IMAGE_URL_DEFAULT", CinderVolumeContainerImage),
+		APIContainerImageURL:       util.GetEnvVar("RELATED_IMAGE_CINDER_API_IMAGE_URL_DEFAULT", CinderAPIContainerImage),
+		BackupContainerImageURL:    util.GetEnvVar("RELATED_IMAGE_CINDER_BACKUP_IMAGE_URL_DEFAULT", CinderBackupContainerImage),
+		SchedulerContainerImageURL: util.GetEnvVar("RELATED_IMAGE_CINDER_SCHEDULER_IMAGE_URL_DEFAULT", CinderSchedulerContainerImage),
+		VolumeContainerImageURL:    util.GetEnvVar("RELATED_IMAGE_CINDER_VOLUME_IMAGE_URL_DEFAULT", CinderVolumeContainerImage),
 	}
 
 	SetupCinderDefaults(cinderDefaults)
