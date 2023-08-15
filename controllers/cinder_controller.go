@@ -172,7 +172,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		cl := condition.CreateList(
 			condition.UnknownCondition(condition.DBReadyCondition, condition.InitReason, condition.DBReadyInitMessage),
 			condition.UnknownCondition(condition.DBSyncReadyCondition, condition.InitReason, condition.DBSyncReadyInitMessage),
-			condition.UnknownCondition(cinderv1beta1.CinderRabbitMqTransportURLReadyCondition, condition.InitReason, cinderv1beta1.CinderRabbitMqTransportURLReadyInitMessage),
+			condition.UnknownCondition(condition.RabbitMqTransportURLReadyCondition, condition.InitReason, condition.RabbitMqTransportURLReadyInitMessage),
 			condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
 			condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
 			condition.UnknownCondition(cinderv1beta1.CinderAPIReadyCondition, condition.InitReason, cinderv1beta1.CinderAPIReadyInitMessage),
@@ -455,10 +455,10 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
-			cinderv1beta1.CinderRabbitMqTransportURLReadyCondition,
+			condition.RabbitMqTransportURLReadyCondition,
 			condition.ErrorReason,
 			condition.SeverityWarning,
-			cinderv1beta1.CinderRabbitMqTransportURLReadyErrorMessage,
+			condition.RabbitMqTransportURLReadyErrorMessage,
 			err.Error()))
 		return ctrl.Result{}, err
 	}
@@ -472,14 +472,14 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	if instance.Status.TransportURLSecret == "" {
 		r.Log.Info(fmt.Sprintf("Waiting for TransportURL %s secret to be created", transportURL.Name))
 		instance.Status.Conditions.Set(condition.FalseCondition(
-			cinderv1beta1.CinderRabbitMqTransportURLReadyCondition,
+			condition.RabbitMqTransportURLReadyCondition,
 			condition.RequestedReason,
 			condition.SeverityInfo,
-			cinderv1beta1.CinderRabbitMqTransportURLReadyRunningMessage))
+			condition.RabbitMqTransportURLReadyRunningMessage))
 		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
 	}
 
-	instance.Status.Conditions.MarkTrue(cinderv1beta1.CinderRabbitMqTransportURLReadyCondition, cinderv1beta1.CinderRabbitMqTransportURLReadyMessage)
+	instance.Status.Conditions.MarkTrue(condition.RabbitMqTransportURLReadyCondition, condition.RabbitMqTransportURLReadyMessage)
 
 	// end transportURL
 

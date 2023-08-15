@@ -21,9 +21,6 @@ import (
 
 // Cinder Condition Types used by API objects.
 const (
-	// CinderRabbitMqTransportURLReadyCondition Status=True condition which indicates if the RabbitMQ TransportURLUrl is ready
-	CinderRabbitMqTransportURLReadyCondition condition.Type = "CinderRabbitMqTransportURLReady"
-
 	// CinderAPIReadyCondition Status=True condition which indicates if the CinderAPI is configured and operational
 	CinderAPIReadyCondition condition.Type = "CinderAPIReady"
 
@@ -42,21 +39,6 @@ const ()
 
 // Common Messages used by API objects.
 const (
-	//
-	// CinderRabbitMqTransportURLReady condition messages
-	//
-	// CinderRabbitMqTransportURLReadyInitMessage
-	CinderRabbitMqTransportURLReadyInitMessage = "CinderRabbitMqTransportURL not started"
-
-	// CinderRabbitMqTransportURLReadyRunningMessage
-	CinderRabbitMqTransportURLReadyRunningMessage = "CinderRabbitMqTransportURL creation in progress"
-
-	// CinderRabbitMqTransportURLReadyMessage
-	CinderRabbitMqTransportURLReadyMessage = "CinderRabbitMqTransportURL successfully created"
-
-	// CinderRabbitMqTransportURLReadyErrorMessage
-	CinderRabbitMqTransportURLReadyErrorMessage = "CinderRabbitMqTransportURL error occured %s"
-
 	//
 	// CinderAPIReady condition messages
 	//
