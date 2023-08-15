@@ -16,9 +16,6 @@ limitations under the License.
 package cinderscheduler
 
 const (
-	// KollaConfig -
-	KollaConfig = "/var/lib/config-data/merged/cinder-scheduler-config.json"
-
 	// Component -
 	Component = "cinder-scheduler"
 )

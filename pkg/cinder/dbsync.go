@@ -50,10 +50,18 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string, annotat
 		},
 	}
 
-	dbSyncMount := corev1.VolumeMount{
-		Name:      "db-sync-config-data",
-		MountPath: "/etc/cinder/cinder.conf.d",
-		ReadOnly:  true,
+	dbSyncMounts := []corev1.VolumeMount{
+		{
+			Name:      "db-sync-config-data",
+			MountPath: "/etc/cinder/cinder.conf.d",
+			ReadOnly:  true,
+		},
+		{
+			Name:      "config-data",
+			MountPath: "/var/lib/kolla/config_files/config.json",
+			SubPath:   "db-sync-config.json",
+			ReadOnly:  true,
+		},
 	}
 
 	dbSyncExtraMounts := []cinderv1beta1.CinderExtraVolMounts{}
@@ -67,7 +75,6 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string, annotat
 
 	runAsUser := int64(0)
 	envVars := map[string]env.Setter{}
-	envVars["KOLLA_CONFIG_FILE"] = env.SetValue(KollaConfigDbSync)
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["KOLLA_BOOTSTRAP"] = env.SetValue("TRUE")
 
@@ -97,7 +104,7 @@ func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string, annotat
 								RunAsUser: &runAsUser,
 							},
 							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: append(GetVolumeMounts(false, dbSyncExtraMounts, DbsyncPropagation), dbSyncMount),
+							VolumeMounts: append(GetVolumeMounts(false, dbSyncExtraMounts, DbsyncPropagation), dbSyncMounts...),
 						},
 					},
 					Volumes: append(GetVolumes(instance.Name, false, dbSyncExtraMounts, DbsyncPropagation), dbSyncVolume),

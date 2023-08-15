@@ -60,6 +60,12 @@ func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Vol
 			MountPath: "/etc/cinder/cinder.conf.d",
 			ReadOnly:  true,
 		},
+		{
+			Name:      "config-data",
+			MountPath: "/var/lib/kolla/config_files/config.json",
+			SubPath:   "cinder-backup-config.json",
+			ReadOnly:  true,
+		},
 	}
 
 	return append(cinder.GetVolumeMounts(true, extraVol, cinder.CinderBackupPropagation), volumeMounts...)
