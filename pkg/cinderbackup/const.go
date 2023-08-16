@@ -16,9 +16,6 @@ limitations under the License.
 package cinderbackup
 
 const (
-	// KollaConfig -
-	KollaConfig = "/var/lib/config-data/merged/cinder-backup-config.json"
-
 	// Component -
 	Component = "cinder-backup"
 )

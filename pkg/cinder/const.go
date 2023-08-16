@@ -45,9 +45,6 @@ const (
 	// CinderInternalPort -
 	CinderInternalPort int32 = 8776
 
-	// KollaConfigDbSync -
-	KollaConfigDbSync = "/var/lib/config-data/merged/db-sync-config.json"
-
 	// CinderExtraVolTypeUndefined can be used to label an extraMount which
 	// is not associated with a specific backend
 	CinderExtraVolTypeUndefined storage.ExtraVolType = "Undefined"

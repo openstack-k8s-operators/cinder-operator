@@ -16,9 +16,6 @@ limitations under the License.
 package cinderapi
 
 const (
-	// KollaConfig -
-	KollaConfig = "/var/lib/config-data/merged/cinder-api-config.json"
-
 	// Component -
 	Component = "cinder-api"
 

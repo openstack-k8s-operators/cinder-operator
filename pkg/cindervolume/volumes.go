@@ -58,6 +58,12 @@ func GetVolumeMounts(name string, extraVol []cinderv1beta1.CinderExtraVolMounts)
 			ReadOnly:  true,
 		},
 		{
+			Name:      "config-data",
+			MountPath: "/var/lib/kolla/config_files/config.json",
+			SubPath:   "cinder-volume-config.json",
+			ReadOnly:  true,
+		},
+		{
 			Name:      "var-lib-cinder",
 			MountPath: "/var/lib/cinder",
 		},

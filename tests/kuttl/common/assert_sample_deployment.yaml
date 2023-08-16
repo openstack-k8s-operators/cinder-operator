@@ -121,8 +121,14 @@ spec:
           readOnly: true
         - mountPath: /var/lib/config-data/merged
           name: config-data
+          readOnly: true
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
+          readOnly: true
+        - mountPath: /var/lib/kolla/config_files/config.json
+          name: config-data
+          readOnly: true
+          subPath: cinder-api-config.json
         - mountPath: /var/log/cinder
           name: logs
       dnsPolicy: ClusterFirst
