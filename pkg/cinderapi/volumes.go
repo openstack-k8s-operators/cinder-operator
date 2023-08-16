@@ -7,7 +7,7 @@ import (
 )
 
 // GetVolumes -
-func GetVolumes(parentName string, name string, secretNames []string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
+func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
 	var config0644AccessMode int32 = 0644
 
 	volumes := []corev1.Volume{

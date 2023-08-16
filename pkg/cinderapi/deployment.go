@@ -141,7 +141,6 @@ func Deployment(
 	deployment.Spec.Template.Spec.Volumes = append(GetVolumes(
 		cinder.GetOwningCinderName(instance),
 		instance.Name,
-		instance.Spec.CustomServiceConfigSecrets,
 		instance.Spec.ExtraMounts), GetLogVolume())
 
 	// If possible two pods of the same service should not

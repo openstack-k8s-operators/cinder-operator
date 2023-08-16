@@ -52,6 +52,24 @@ func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExt
 	// Volume and backup services require extra directories
 	if storageSvc {
 		storageVolumes := []corev1.Volume{
+			{
+				Name: "var-lib-cinder",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/var/lib/cinder",
+						Type: &dirOrCreate,
+					},
+				},
+			},
+			{
+				Name: "etc-nvme",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: "/etc/nvme",
+						Type: &dirOrCreate,
+					},
+				},
+			},
 			// os-brick reads the initiatorname.iscsi from theere
 			{
 				Name: "etc-iscsi",
@@ -159,6 +177,14 @@ func GetVolumeMounts(storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMou
 	// Volume and backup services require extra directories
 	if storageSvc {
 		storageVolumeMounts := []corev1.VolumeMount{
+			{
+				Name:      "var-lib-cinder",
+				MountPath: "/var/lib/cinder",
+			},
+			{
+				Name:      "etc-nvme",
+				MountPath: "/etc/nvme",
+			},
 			{
 				Name:      "etc-iscsi",
 				MountPath: "/etc/iscsi",
