@@ -20,6 +20,12 @@ func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderE
 				},
 			},
 		},
+		{
+			Name: "logs",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{Medium: ""},
+			},
+		},
 	}
 
 	return append(cinder.GetVolumes(parentName, false, extraVol, cinder.CinderAPIPropagation), volumes...)
@@ -39,6 +45,7 @@ func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Vol
 			SubPath:   "cinder-api-config.json",
 			ReadOnly:  true,
 		},
+		GetLogVolumeMount(),
 	}
 
 	return append(cinder.GetVolumeMounts(false, extraVol, cinder.CinderAPIPropagation), volumeMounts...)
@@ -47,18 +54,8 @@ func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Vol
 // GetLogVolumeMount - Cinder API LogVolumeMount
 func GetLogVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
-		Name:      logVolume,
+		Name:      "logs",
 		MountPath: "/var/log/cinder",
 		ReadOnly:  false,
-	}
-}
-
-// GetLogVolume - Cinder API LogVolume
-func GetLogVolume() corev1.Volume {
-	return corev1.Volume{
-		Name: logVolume,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{Medium: ""},
-		},
 	}
 }

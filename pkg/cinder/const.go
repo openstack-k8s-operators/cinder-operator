@@ -33,12 +33,14 @@ const (
 
 	// DefaultsConfigFileName -
 	DefaultsConfigFileName = "00-config.conf"
+	// ServiceConfigFileName -
+	ServiceConfigFileName = "01-config.conf"
 	// CustomConfigFileName -
-	CustomConfigFileName = "01-config.conf"
+	CustomConfigFileName = "02-config.conf"
 	// CustomServiceConfigFileName -
-	CustomServiceConfigFileName = "02-config.conf"
+	CustomServiceConfigFileName = "03-config.conf"
 	// CustomServiceConfigSecretsFileName -
-	CustomServiceConfigSecretsFileName = "03-config.conf"
+	CustomServiceConfigSecretsFileName = "04-config.conf"
 
 	// CinderPublicPort -
 	CinderPublicPort int32 = 8776
@@ -62,8 +64,6 @@ const (
 	// Cinder is the global ServiceType that refers to all the components deployed
 	// by the cinder operator
 	Cinder storage.PropagationType = "Cinder"
-	//LogSnippet -
-	LogSnippet = "[DEFAULT]\nlog_file="
 )
 
 // DbsyncPropagation keeps track of the DBSync Service Propagation Type

@@ -106,7 +106,7 @@ func Deployment(
 							Command: []string{
 								"/bin/bash",
 							},
-							Args:  []string{"-c", "tail -n+1 -F " + LogPath},
+							Args:  []string{"-c", "tail -n+1 -F " + LogFile},
 							Image: instance.Spec.ContainerImage,
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: &runAsUser,
@@ -125,9 +125,8 @@ func Deployment(
 							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: &runAsUser,
 							},
-							Env: env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: append(GetVolumeMounts(instance.Spec.ExtraMounts),
-								[]corev1.VolumeMount{GetLogVolumeMount()}...),
+							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:   GetVolumeMounts(instance.Spec.ExtraMounts),
 							Resources:      instance.Spec.Resources,
 							ReadinessProbe: readinessProbe,
 							LivenessProbe:  livenessProbe,
@@ -138,10 +137,10 @@ func Deployment(
 			},
 		},
 	}
-	deployment.Spec.Template.Spec.Volumes = append(GetVolumes(
+	deployment.Spec.Template.Spec.Volumes = GetVolumes(
 		cinder.GetOwningCinderName(instance),
 		instance.Name,
-		instance.Spec.ExtraMounts), GetLogVolume())
+		instance.Spec.ExtraMounts)
 
 	// If possible two pods of the same service should not
 	// run on the same worker node. If this is not possible
