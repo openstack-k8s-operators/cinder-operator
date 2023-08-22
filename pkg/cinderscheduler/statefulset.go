@@ -149,7 +149,6 @@ func StatefulSet(
 	statefulset.Spec.Template.Spec.Volumes = GetVolumes(
 		cinder.GetOwningCinderName(instance),
 		instance.Name,
-		instance.Spec.CustomServiceConfigSecrets,
 		instance.Spec.ExtraMounts)
 
 	// If possible two pods of the same service should not
