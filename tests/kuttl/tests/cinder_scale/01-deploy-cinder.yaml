@@ -2,5 +2,5 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - script: |
-      cp ../../../../config/samples/cinder_v1beta1_cinder.yaml deploy
+      cp ../../../../config/samples/cinder_v1beta1_cinder.*yaml deploy
       oc kustomize deploy | oc apply -n $NAMESPACE -f -
