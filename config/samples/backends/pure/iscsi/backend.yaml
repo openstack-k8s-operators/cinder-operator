@@ -1,0 +1,32 @@
+# To be able to use this sample it is necessary to:
+# - Have a Pure backend with iSCSI support
+# - Have the Pure storage credentials in cinder-volume-pure-secrets.yaml
+# - Having iscsid and multpathd running on the host (done by this sample)
+# - Build a cinder-volume container with the pure cinder driver dependency, make it available in a registry accessible by OpenShift, and set its location in this file's containerImage
+#
+# There is a sample Dockerfile in the parent directory showing how the cinder-volume container in this containerImage was created.
+# The correct way to configure and run the daemons is using `MachineConfig` as shown in `iscsid.yaml` and `multipathd.yaml`, like this samle does.
+#
+# ATTENTION: After applying this OpenShift nodes will reboot, because of the `MachineConfig` changes and will take a while to recover.
+
+apiVersion: core.openstack.org/v1beta1
+kind: OpenStackControlPlane
+metadata:
+  name: openstack
+spec:
+  cinder:
+    template:
+      cinderVolumes:
+        pure-iscsi:
+          networkAttachments:
+          - storage
+          # This image exists and was built using the Dockerfile available in the parent directory
+          containerImage: quay.io/geguileo/podified-antelope-openstack-cinder-volume-pure:current-podified
+          # Configuration details available at
+          # https://pure-storage-openstack-docs.readthedocs.io/en/latest/cinder/ch_cinder-configuration.html
+          customServiceConfigSecrets:
+            - cinder-volume-pure-secrets
+          customServiceConfig: |
+            [pure]
+            volume_backend_name=pure
+            volume_driver=cinder.volume.drivers.pure.PureISCSIDriver
