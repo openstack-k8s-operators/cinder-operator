@@ -24,6 +24,8 @@ Currently available samples are:
 - NFS
 - LVM using iSCSI
 - LVM using NVMe-TCP
+- HPE 3PAR iSCSI
+- HPE 3PAR FC
 
 **NOTE**: These examples are designed to be applied one at time. If you attempt
 to add a second backend by applying a second example it will result in the
@@ -62,6 +64,16 @@ we can do everything ourselves.
 If we already have a deployment working we can always use
 `oc kustomize lvm/iscsi | oc apply -f -`. from this directory to make the
 changes.
+
+Some backends, like 3PAR, require a custom container because they have external
+dependencies. So there is a need to build a specific container. In RHOSP
+vendors will provide certified containers through Red Hat's container image
+registry. For illustration and development purposes this repository provides
+samples of what a `Dockerfile` would look like for each of the vendor's. This
+`Dockerfile` will be present in the vendor's directory (e.g. `hpe/Dockerfile`),
+so we would need to build a container, make it available in a registry, and
+then provide it to the cinder operator via the `containerImage` as seen in the
+samples.
 
 ## Ceph example
 
