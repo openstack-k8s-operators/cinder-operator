@@ -1,0 +1,29 @@
+# To be able to use this sample it is necessary to:
+# - Have a NetApp ONTAP backend with FC support
+# - Have the NetApp storage credentials in cinder-volume-netapp-secrets.yaml
+# - Having multpathd running on the host (automatically done by this sample)
+#
+# The correct way to configure and run the daemons is using `MachineConfig` as shown in `iscsid.yaml` and `multipathd.yaml`, like this sample does.
+#
+# ATTENTION: After applying this OpenShift nodes will reboot, because of the `MachineConfig` changes and will take a while to recover.
+
+apiVersion: core.openstack.org/v1beta1
+kind: OpenStackControlPlane
+metadata:
+  name: openstack
+spec:
+  cinder:
+    template:
+      cinderVolumes:
+        ontap-fc:
+          networkAttachments:
+          - storage
+          customServiceConfigSecrets:
+            - cinder-volume-ontap-secrets
+          customServiceConfig: |
+            [ontap]
+            volume_backend_name=ontap
+            volume_driver=cinder.volume.drivers.netapp.common.NetAppDriver
+            netapp_storage_protocol=fc
+            netapp_storage_family=ontap_cluster
+            consistencygroup_support = True

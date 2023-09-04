@@ -26,6 +26,9 @@ Currently available samples are:
 - LVM using NVMe-TCP
 - HPE 3PAR iSCSI
 - HPE 3PAR FC
+- NetApp ONTAP iSCSI
+- NetApp ONTAP FC
+- NetApp ONTAP NFS
 
 **NOTE**: These examples are designed to be applied one at time. If you attempt
 to add a second backend by applying a second example it will result in the

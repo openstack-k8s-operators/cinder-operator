@@ -1,0 +1,50 @@
+# To be able to use this sample it is necessary to:
+# - Have a NetApp ONTAP backend with NFS support
+# - Have the NetApp storage credentials and NFS configuration in cinder-volume-netapp-secrets.yaml
+
+apiVersion: core.openstack.org/v1beta1
+kind: OpenStackControlPlane
+metadata:
+  name: openstack
+spec:
+  # We need to "drop" the "nfs_shares_config" file into the volume service.
+  # The contents come from a secret that we are creating in the
+  # "cinder-volume-ontap-secrets.yaml" file. This drops the secret in
+  # /etc/cinder/nfs_shares.d directory, and then the key in the secret defines
+  # the name of the file, in our case shares-config. That's why the
+  # configuration option defines that the location is
+  # /etc/cinder/nfs_shares.d/shares-config.
+  extraMounts:
+    - name: v1
+      region: r1
+      extraVol:
+        - propagation:
+          - CinderVolume
+          extraVolType: Undefined
+          volumes:
+          - name: nfs-shares
+            projected:
+              sources:
+              - secret:
+                  name: cinder-volume-ontap-shares-secrets
+          mounts:
+          - name: nfs-shares
+            mountPath: /etc/cinder/nfs_shares.d
+            readOnly: true
+  cinder:
+    template:
+      cinderVolumes:
+        ontap-iscsi:
+          networkAttachments:
+          - storage
+          customServiceConfigSecrets:
+            - cinder-volume-ontap-secrets
+          customServiceConfig: |
+            [ontap]
+            volume_backend_name=ontap
+            volume_driver=cinder.volume.drivers.netapp.common.NetAppDriver
+            netapp_server_hostname=hostname
+            netapp_server_port=80
+            netapp_storage_protocol=nfs
+            netapp_storage_family=ontap_cluster
+            nfs_shares_config=/etc/cinder/nfs_shares.d/shares-config
