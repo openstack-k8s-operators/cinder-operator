@@ -45,17 +45,14 @@ type CinderAPISpec struct {
 	// Input parameters for the Cinder API service
 	CinderAPITemplate `json:",inline"`
 
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Required
 	// DatabaseHostname - Cinder Database Hostname
-	DatabaseHostname string `json:"databaseHostname,omitempty"`
+	DatabaseHostname string `json:"databaseHostname"`
 
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Required
 	// Secret containing RabbitMq transport URL
-	TransportURLSecret string `json:"transportURLSecret,omitempty"`
+	TransportURLSecret string `json:"transportURLSecret"`
 
-	// +kubebuilder:validation:Optional
-	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
-	// actual action pod gets started with sleep infinity
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
 	ExtraMounts []CinderExtraVolMounts `json:"extraMounts,omitempty"`
