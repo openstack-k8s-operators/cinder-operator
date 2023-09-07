@@ -430,7 +430,7 @@ spec:
 ```
 
 We get the cinder credentials (\<user>:\<password>) for RabbmitMQ by looking at
-the `/etc/cinder/cinder.conf.d/00-config.conf` file in one of the cinder
+the `/etc/cinder/cinder.conf.d/00-global-defaults.conf` file in one of the cinder
 containers and looking at the `transport_url` part, and we store it into an
 environmental variable:
 
