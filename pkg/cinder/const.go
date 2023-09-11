@@ -32,15 +32,15 @@ const (
 	DatabaseName = "cinder"
 
 	// DefaultsConfigFileName -
-	DefaultsConfigFileName = "00-config.conf"
+	DefaultsConfigFileName = "00-global-defaults.conf"
 	// ServiceConfigFileName -
-	ServiceConfigFileName = "01-config.conf"
+	ServiceConfigFileName = "01-service-defaults.conf"
 	// CustomConfigFileName -
-	CustomConfigFileName = "02-config.conf"
+	CustomConfigFileName = "02-global-custom.conf"
 	// CustomServiceConfigFileName -
-	CustomServiceConfigFileName = "03-config.conf"
+	CustomServiceConfigFileName = "03-service-custom.conf"
 	// CustomServiceConfigSecretsFileName -
-	CustomServiceConfigSecretsFileName = "04-config.conf"
+	CustomServiceConfigSecretsFileName = "04-service-custom-secrets.conf"
 
 	// CinderPublicPort -
 	CinderPublicPort int32 = 8776
