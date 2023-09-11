@@ -5,14 +5,14 @@ metadata:
   labels:
     machineconfiguration.openshift.io/role: master
     service: cinder
-  name: 99-master-cinder-load-nvme-fabrics
+  name: 99-master-cinder-load-nvmeof
 spec:
   config:
     ignition:
       version: 3.2.0
     storage:
       files:
-        - path: /etc/modules-load.d/nvme_fabrics.conf
+        - path: /etc/modules-load.d/nvmeof.conf
           overwrite: false
           # Mode must be decimal, this is 0644
           mode: 420
@@ -23,4 +23,5 @@ spec:
           contents:
             # Source can be a http, https, tftp, s3, gs, or data as defined in rfc2397.
             # This is the rfc2397 text/plain string format
-            source: data:,nvme-fabrics
+            # nvme-fabrics should load other modules automatically, but load them to be sure
+            source: data:,nvme-fabrics%0Anvme-tcp%0Anvme-rdma
