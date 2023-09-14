@@ -15,7 +15,7 @@ require (
 
 require (
 	github.com/go-logr/zapr v1.2.3 // indirect
-	go.uber.org/zap v1.25.0 // indirect
+	go.uber.org/zap v1.26.0 // indirect
 )
 
 require (
