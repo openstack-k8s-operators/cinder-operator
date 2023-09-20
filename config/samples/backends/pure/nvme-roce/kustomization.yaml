@@ -1,0 +1,7 @@
+resources:
+  - ../../bases/nvmeof
+  - ../../bases/multipathd
+  - ../../bases/openstack
+  - cinder-volume-pure-secrets.yaml
+patches:
+  - backend.yaml

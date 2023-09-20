@@ -13,6 +13,8 @@ spec:
     template:
       cinderVolumes:
         lvm-nvme-tcp:
+          networkAttachments:
+          - storage
           customServiceConfig: |
             [lvm]
             volume_backend_name=lvm_nvme_tcp

@@ -29,8 +29,8 @@ spec:
     template:
       cinderVolumes:
         ceph:
-          # Once nova is enabled we need to either manually define the
-          # rbd_secret_uuid configuration option or use Antelope release.
+          networkAttachments:
+          - storage
           customServiceConfig: |
             [ceph]
             volume_backend_name=ceph

@@ -1,0 +1,5 @@
+resources:
+  - ../../../bases/openstack
+  - cinder-volume-ontap-secrets.yaml
+patches:
+  - backend.yaml

@@ -14,6 +14,8 @@ spec:
     template:
       cinderVolumes:
         lvm-iscsi:
+          networkAttachments:
+          - storage
           customServiceConfig: |
             [lvm]
             image_volume_cache_enabled=false

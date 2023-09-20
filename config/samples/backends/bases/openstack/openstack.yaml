@@ -1,69 +1,28 @@
-#  Modified version from https://github.com/openstack-k8s-operators/openstack-operator/blob/master/config/samples/core_v1beta1_openstackcontrolplane.yaml
+#  Changes to the openstack-operator base YAML
+#  Changes:
+#  - Disable Manila
+#  - Enable debug logs for Cinder
+#  - Enable Cinder backup using swift
 apiVersion: core.openstack.org/v1beta1
 kind: OpenStackControlPlane
 metadata:
   name: openstack
 spec:
-  secret: osp-secret
-  storageClass: local-storage
-  keystone:
-    template:
-      databaseInstance: openstack
-      secret: osp-secret
-  mariadb:
-    templates:
-      openstack:
-        storageRequest: 500M
-  rabbitmq:
-    templates:
-      rabbitmq:
-        replicas: 1
-      rabbitmq-cell1:
-        replicas: 1
-  glance:
-    template:
-      databaseInstance: openstack
-      storageClass: ""
-      storageRequest: 2G
-      glanceAPIInternal:
-        replicas: 1
-      glanceAPIExternal:
-        replicas: 1
+  manila:
+    enabled: false
   cinder:
     template:
       customServiceConfig: |
         [DEFAULT]
         debug = true
-      cinderAPI:
-        replicas: 1
-      cinderScheduler:
-        replicas: 1
       cinderBackup:
-        replicas: 0
-  manila:
-    enabled: false
-    template:
-      manilaShares:
-        share1:
-          replicas: 0
-  ironic:
-    enabled: false
-    template:
-      ironicConductors:
-        - replicas: 0
-  memcached:
-    enabled: false
-  galera:
-    enabled: false
-  placement:
-    enabled: false
-  ovn:
-    enabled: false
-    template:
-      ovnController:
-        external-ids:
-          ovn-encap-type: "geneve"
-  neutron:
-    enabled: false
-  nova:
-    enabled: false
+        networkAttachments:
+        - storage
+        replicas: 1
+        customServiceConfig: |
+          [DEFAULT]
+          backup_driver = cinder.backup.drivers.swift.SwiftBackupDriver
+          # Below are defaults, explicit for illustration purposes
+          backup_swift_auth = per_user
+          keystone_catalog_info = identity:Identity Service:publicURL
+          swift_catalog_info = object-store:swift:publicURL
