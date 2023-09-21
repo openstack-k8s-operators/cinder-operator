@@ -5,7 +5,6 @@
 # No Deployment for CinderAPI CR
 # No Pods in cinder Deployment
 # No Cinder Services
-# No Cinder Routes
 #
 apiVersion: cinder.openstack.org/v1beta1
 kind: Cinder
