@@ -1131,6 +1131,9 @@ spec:
                   - extraVol
                   type: object
                 type: array
+              memcachedInstance:
+                default: memcached
+                type: string
               nodeSelector:
                 additionalProperties:
                   type: string
@@ -1162,6 +1165,7 @@ spec:
             - cinderAPI
             - cinderScheduler
             - databaseInstance
+            - memcachedInstance
             - rabbitMqClusterName
             - secret
             type: object
