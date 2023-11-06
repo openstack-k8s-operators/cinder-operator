@@ -22,24 +22,34 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const (
+	// MemcachedInstance - name of the memcached instance
+	MemcachedInstance = "memcached"
+)
+
 // CinderTestData is the data structure used to provide input data to envTest
 type CinderTestData struct {
 	RabbitmqClusterName    string
 	RabbitmqSecretName     string
+	MemcachedInstance      string
 	CinderDataBaseUser     string
 	CinderPassword         string
 	CinderServiceUser      string
+	DatabaseHostname       string
 	Instance               types.NamespacedName
 	CinderRole             types.NamespacedName
 	CinderRoleBinding      types.NamespacedName
 	CinderTransportURL     types.NamespacedName
+	CinderMemcached        types.NamespacedName
 	CinderSA               types.NamespacedName
 	CinderDBSync           types.NamespacedName
+	CinderKeystoneService  types.NamespacedName
 	CinderKeystoneEndpoint types.NamespacedName
 	CinderServicePublic    types.NamespacedName
 	CinderServiceInternal  types.NamespacedName
 	CinderConfigSecret     types.NamespacedName
 	CinderConfigScripts    types.NamespacedName
+	Cinder                 types.NamespacedName
 	CinderAPI              types.NamespacedName
 	CinderScheduler        types.NamespacedName
 	CinderVolumes          []types.NamespacedName
@@ -55,6 +65,10 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 	return CinderTestData{
 		Instance: m,
 
+		Cinder: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      cinderName.Name,
+		},
 		CinderDBSync: types.NamespacedName{
 			Namespace: cinderName.Namespace,
 			Name:      fmt.Sprintf("%s-db-sync", cinderName.Name),
@@ -93,6 +107,10 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 			Namespace: cinderName.Namespace,
 			Name:      fmt.Sprintf("cinder-%s-transport", cinderName.Name),
 		},
+		CinderMemcached: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      MemcachedInstance,
+		},
 		CinderConfigSecret: types.NamespacedName{
 			Namespace: cinderName.Namespace,
 			Name:      fmt.Sprintf("%s-%s", cinderName.Name, "config-data"),
@@ -106,10 +124,13 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 			Namespace: cinderName.Namespace,
 			Name:      fmt.Sprintf("%s-public", cinderName.Name),
 		},
-		// Also used to identify CinderKeystoneService
 		CinderServiceInternal: types.NamespacedName{
 			Namespace: cinderName.Namespace,
 			Name:      fmt.Sprintf("%s-internal", cinderName.Name),
+		},
+		CinderKeystoneService: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      fmt.Sprintf("%sv3", cinderName.Name),
 		},
 		CinderKeystoneEndpoint: types.NamespacedName{
 			Namespace: cinderName.Namespace,
@@ -121,10 +142,12 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		},
 		RabbitmqClusterName: "rabbitmq",
 		RabbitmqSecretName:  "rabbitmq-secret",
+		MemcachedInstance:   MemcachedInstance,
 		CinderDataBaseUser:  "cinder",
 		// Password used for both db and service
 		CinderPassword:    "12345678",
 		CinderServiceUser: "cinder",
 		ContainerImage:    "test://cinder",
+		DatabaseHostname:  "database-hostname",
 	}
 }

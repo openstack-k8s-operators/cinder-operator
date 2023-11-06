@@ -77,28 +77,34 @@ func GetDefaultCinderSpec() map[string]interface{} {
 
 func GetDefaultCinderAPISpec() map[string]interface{} {
 	return map[string]interface{}{
-		"secret":         SecretName,
-		"replicas":       1,
-		"containerImage": cinderTest.ContainerImage,
-		"serviceAccount": cinderTest.CinderSA.Name,
+		"secret":             SecretName,
+		"replicas":           1,
+		"containerImage":     cinderTest.ContainerImage,
+		"serviceAccount":     cinderTest.CinderSA.Name,
+		"databaseHostname":   cinderTest.DatabaseHostname,
+		"transportURLSecret": cinderTest.RabbitmqSecretName,
 	}
 }
 
 func GetDefaultCinderSchedulerSpec() map[string]interface{} {
 	return map[string]interface{}{
-		"secret":         SecretName,
-		"replicas":       1,
-		"containerImage": cinderTest.ContainerImage,
-		"serviceAccount": cinderTest.CinderSA.Name,
+		"secret":             SecretName,
+		"replicas":           1,
+		"containerImage":     cinderTest.ContainerImage,
+		"serviceAccount":     cinderTest.CinderSA.Name,
+		"databaseHostname":   cinderTest.DatabaseHostname,
+		"transportURLSecret": cinderTest.RabbitmqSecretName,
 	}
 }
 
 func GetDefaultCinderVolumeSpec() map[string]interface{} {
 	return map[string]interface{}{
-		"secret":         SecretName,
-		"replicas":       1,
-		"containerImage": cinderTest.ContainerImage,
-		"serviceAccount": cinderTest.CinderSA.Name,
+		"secret":             SecretName,
+		"replicas":           1,
+		"containerImage":     cinderTest.ContainerImage,
+		"serviceAccount":     cinderTest.CinderSA.Name,
+		"databaseHostname":   cinderTest.DatabaseHostname,
+		"transportURLSecret": cinderTest.RabbitmqSecretName,
 	}
 }
 
