@@ -59,11 +59,6 @@ func (r *CinderSchedulerReconciler) GetKClient() kubernetes.Interface {
 	return r.Kclient
 }
 
-// GetLogger -
-func (r *CinderSchedulerReconciler) GetLogger() logr.Logger {
-	return r.Log
-}
-
 // GetScheme -
 func (r *CinderSchedulerReconciler) GetScheme() *runtime.Scheme {
 	return r.Scheme
@@ -73,8 +68,12 @@ func (r *CinderSchedulerReconciler) GetScheme() *runtime.Scheme {
 type CinderSchedulerReconciler struct {
 	client.Client
 	Kclient kubernetes.Interface
-	Log     logr.Logger
 	Scheme  *runtime.Scheme
+}
+
+// GetLogger returns a logger object with a logging prefix of "controller.name" and additional controller context fields
+func (r *CinderSchedulerReconciler) GetLogger(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx).WithName("Controllers").WithName("CinderScheduler")
 }
 
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cinderschedulers,verbs=get;list;watch;create;update;patch;delete
@@ -87,7 +86,7 @@ type CinderSchedulerReconciler struct {
 
 // Reconcile -
 func (r *CinderSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
-	_ = log.FromContext(ctx)
+	Log := r.GetLogger(ctx)
 
 	// Fetch the CinderScheduler instance
 	instance := &cinderv1beta1.CinderScheduler{}
@@ -108,7 +107,7 @@ func (r *CinderSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		r.Client,
 		r.Kclient,
 		r.Scheme,
-		r.Log,
+		Log,
 	)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -168,7 +167,9 @@ func (r *CinderSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CinderSchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CinderSchedulerReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+	Log := r.GetLogger(ctx)
+
 	// Watch for changes to secrets we don't own. Global secrets
 	// (e.g. TransportURLSecret) are handled by the main cinder controller.
 	secretFn := func(o client.Object) []reconcile.Request {
@@ -182,7 +183,7 @@ func (r *CinderSchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			client.InNamespace(namespace),
 		}
 		if err := r.Client.List(context.Background(), schedulers, listOpts...); err != nil {
-			r.Log.Error(err, "Unable to retrieve scheduler CRs %v")
+			Log.Error(err, "Unable to retrieve scheduler CRs %v")
 			return nil
 		}
 
@@ -198,7 +199,7 @@ func (r *CinderSchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						Namespace: o.GetNamespace(),
 						Name:      cr.Name,
 					}
-					r.Log.Info(fmt.Sprintf("Secret %s and CR %s marked with label: %s", o.GetName(), cr.Name, l))
+					Log.Info(fmt.Sprintf("Secret %s and CR %s marked with label: %s", o.GetName(), cr.Name, l))
 
 					result = append(result, reconcile.Request{NamespacedName: name})
 				}
@@ -213,7 +214,7 @@ func (r *CinderSchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						Namespace: namespace,
 						Name:      cr.Name,
 					}
-					r.Log.Info(fmt.Sprintf("Secret %s is used by Cinder CR %s", secretName, cr.Name))
+					Log.Info(fmt.Sprintf("Secret %s is used by Cinder CR %s", secretName, cr.Name))
 					result = append(result, reconcile.Request{NamespacedName: name})
 				}
 			}
@@ -234,11 +235,13 @@ func (r *CinderSchedulerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *CinderSchedulerReconciler) reconcileDelete(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
 
 	return ctrl.Result{}, nil
 }
@@ -248,14 +251,18 @@ func (r *CinderSchedulerReconciler) reconcileInit(
 	instance *cinderv1beta1.CinderScheduler,
 	helper *helper.Helper,
 ) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
+	Log := r.GetLogger(ctx)
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
+
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s'", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s'", instance.Name))
 
 	configVars := make(map[string]env.Setter)
 
@@ -469,27 +476,31 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	}
 	// create StatefulSet - end
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderSchedulerReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
 
 	// TODO: should have minor update tasks if required
 	// - delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderSchedulerReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
 
 	// TODO: should have major version upgrade tasks
 	// -delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
@@ -591,6 +602,7 @@ func (r *CinderSchedulerReconciler) createHashOfInputHashes(
 	instance *cinderv1beta1.CinderScheduler,
 	envVars map[string]env.Setter,
 ) (string, bool, error) {
+	Log := r.GetLogger(ctx)
 	var hashMap map[string]string
 	changed := false
 	mergedMapVars := env.MergeEnvs([]corev1.EnvVar{}, envVars)
@@ -600,7 +612,7 @@ func (r *CinderSchedulerReconciler) createHashOfInputHashes(
 	}
 	if hashMap, changed = util.SetHash(instance.Status.Hash, common.InputHashName, hash); changed {
 		instance.Status.Hash = hashMap
-		r.Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
+		Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
 	}
 	return hash, changed, nil
 }
