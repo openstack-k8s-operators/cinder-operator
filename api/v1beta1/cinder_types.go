@@ -79,25 +79,6 @@ type CinderSpec struct {
 	// to /etc/<service>/<service>.conf.d directory as a custom config file.
 	CustomServiceConfig string `json:"customServiceConfig,omitempty"`
 
-	// +kubebuilder:validation:Optional
-	// ConfigOverwrite - interface to overwrite default config files like e.g. policy.json.
-	// But can also be used to add additional files. Those get added to the service config dir in /etc/<service> .
-	// TODO: -> implement
-	DefaultConfigOverwrite map[string]string `json:"defaultConfigOverwrite,omitempty"`
-
-	// TODO: We will need to decide which fields within the specs below we want to
-	// be required or optional.  We probably also want to use webhooks and/or kubebuilder
-	// defaults to set the fields when they are not provided by the user
-	// TODO: As we flesh out functionality in the operator, we will need
-	// to address these fields' optional/required/default considerations given
-	// that CinderAPI, CinderBackup, CinderScheduler and CinderVolume are
-	// intended to have their Specs embedded within this parent Cinder CRD.
-	// Becuse we are embedding their specs, all admission field verification will
-	// fire (as if an actual CR of one of the types had been applied/created).
-	// We have to find the right balance between what we would expect users
-	// to provide in the Cinder CR for the childrens' Specs versus what we
-	// provide via inheriting from the Cinder CR or through webhooks, defaults, etc
-
 	// +kubebuilder:validation:Required
 	// CinderAPI - Spec definition for the API service of this Cinder deployment
 	CinderAPI CinderAPITemplate `json:"cinderAPI"`

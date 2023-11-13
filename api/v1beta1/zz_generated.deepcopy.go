@@ -661,13 +661,6 @@ func (in *CinderServiceTemplate) DeepCopyInto(out *CinderServiceTemplate) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.DefaultConfigOverwrite != nil {
-		in, out := &in.DefaultConfigOverwrite, &out.DefaultConfigOverwrite
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
 	in.Resources.DeepCopyInto(&out.Resources)
 	if in.NetworkAttachments != nil {
 		in, out := &in.NetworkAttachments, &out.NetworkAttachments
@@ -691,13 +684,6 @@ func (in *CinderSpec) DeepCopyInto(out *CinderSpec) {
 	*out = *in
 	out.CinderTemplate = in.CinderTemplate
 	out.Debug = in.Debug
-	if in.DefaultConfigOverwrite != nil {
-		in, out := &in.DefaultConfigOverwrite, &out.DefaultConfigOverwrite
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
 	in.CinderAPI.DeepCopyInto(&out.CinderAPI)
 	in.CinderScheduler.DeepCopyInto(&out.CinderScheduler)
 	in.CinderBackup.DeepCopyInto(&out.CinderBackup)

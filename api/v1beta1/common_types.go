@@ -73,12 +73,6 @@ type CinderServiceTemplate struct {
 	CustomServiceConfigSecrets []string `json:"customServiceConfigSecrets,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// ConfigOverwrite - interface to overwrite default config files like e.g. policy.json.
-	// But can also be used to add additional files. Those get added to the service config dir in /etc/<service> .
-	// TODO: -> implement
-	DefaultConfigOverwrite map[string]string `json:"defaultConfigOverwrite,omitempty"`
-
-	// +kubebuilder:validation:Optional
 	// Resources - Compute Resources required by this service (Limits/Requests).
 	// https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`

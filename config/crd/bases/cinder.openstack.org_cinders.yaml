@@ -52,10 +52,6 @@ spec:
                         default: false
                         type: boolean
                     type: object
-                  defaultConfigOverwrite:
-                    additionalProperties:
-                      type: string
-                    type: object
                   networkAttachments:
                     items:
                       type: string
@@ -170,10 +166,6 @@ spec:
                         default: false
                         type: boolean
                     type: object
-                  defaultConfigOverwrite:
-                    additionalProperties:
-                      type: string
-                    type: object
                   networkAttachments:
                     items:
                       type: string
@@ -236,10 +228,6 @@ spec:
                       service:
                         default: false
                         type: boolean
-                    type: object
-                  defaultConfigOverwrite:
-                    additionalProperties:
-                      type: string
                     type: object
                   networkAttachments:
                     items:
@@ -305,10 +293,6 @@ spec:
                           default: false
                           type: boolean
                       type: object
-                    defaultConfigOverwrite:
-                      additionalProperties:
-                        type: string
-                      type: object
                     networkAttachments:
                       items:
                         type: string
@@ -370,10 +354,6 @@ spec:
                   dbSync:
                     default: false
                     type: boolean
-                type: object
-              defaultConfigOverwrite:
-                additionalProperties:
-                  type: string
                 type: object
               extraMounts:
                 items:
