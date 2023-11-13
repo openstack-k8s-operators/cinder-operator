@@ -19,9 +19,9 @@ func GetNetworkAttachmentAddrs(namespace string, networkAttachments []string, ne
 	networkAttachmentAddrs := []string{}
 
 	for _, network := range networkAttachments {
-		network_name := namespace + "/" + network
-		if network_addrs, ok := networkAttachmentStatus[network_name]; ok {
-			networkAttachmentAddrs = append(networkAttachmentAddrs, network_addrs...)
+		networkName := namespace + "/" + network
+		if networkAddrs, ok := networkAttachmentStatus[networkName]; ok {
+			networkAttachmentAddrs = append(networkAttachmentAddrs, networkAddrs...)
 		}
 	}
 
