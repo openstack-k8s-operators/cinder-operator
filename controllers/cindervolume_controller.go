@@ -676,7 +676,7 @@ func processCustomServiceConfig(customServiceConfig string) (bool, string) {
 			backendNames = append(backendNames, sectionName)
 
 		} else if token == "volume_driver" {
-			numDrivers += 1
+			numDrivers++
 			if strings.HasSuffix(line, ".LVMVolumeDriver") {
 				usesLVM = true
 			}
