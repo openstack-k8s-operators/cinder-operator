@@ -16,7 +16,7 @@ limitations under the License.
 package cindervolume
 
 import (
-	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
+	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	cinder "github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	common "github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/affinity"
@@ -35,17 +35,15 @@ const (
 
 // StatefulSet func
 func StatefulSet(
-	instance *cinderv1beta1.CinderVolume,
+	instance *cinderv1.CinderVolume,
 	configHash string,
 	labels map[string]string,
 	annotations map[string]string,
 ) *appsv1.StatefulSet {
 	trueVar := true
 	rootUser := int64(0)
-	// Cinder's uid and gid magic numbers come from the 'cinder-user' in
-	// https://github.com/openstack/kolla/blob/master/kolla/common/users.py
-	cinderUser := int64(42407)
-	cinderGroup := int64(42407)
+	cinderUser := int64(cinderv1.CinderUserID)
+	cinderGroup := int64(cinderv1.CinderGroupID)
 
 	// TODO until we determine how to properly query for these
 	livenessProbe := &corev1.Probe{

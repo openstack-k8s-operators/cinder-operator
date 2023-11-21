@@ -42,6 +42,7 @@ import (
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
+	cronjob "github.com/openstack-k8s-operators/lib-common/modules/common/cronjob"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/endpoint"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
@@ -109,6 +110,7 @@ type CinderReconciler struct {
 // +kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapis,verbs=get;list;watch
 // +kubebuilder:rbac:groups=rabbitmq.openstack.org,resources=transporturls,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=k8s.cni.cncf.io,resources=network-attachment-definitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;patch;delete;
 
 // service account, role, rolebinding
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update
@@ -183,6 +185,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 			condition.UnknownCondition(cinderv1beta1.CinderSchedulerReadyCondition, condition.InitReason, cinderv1beta1.CinderSchedulerReadyInitMessage),
 			condition.UnknownCondition(cinderv1beta1.CinderBackupReadyCondition, condition.InitReason, cinderv1beta1.CinderBackupReadyInitMessage),
 			condition.UnknownCondition(cinderv1beta1.CinderVolumeReadyCondition, condition.InitReason, cinderv1beta1.CinderVolumeReadyInitMessage),
+			condition.UnknownCondition(condition.CronJobReadyCondition, condition.InitReason, condition.CronJobReadyInitMessage),
 			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
 			// service account, role, rolebinding conditions
 			condition.UnknownCondition(condition.ServiceAccountReadyCondition, condition.InitReason, condition.ServiceAccountReadyInitMessage),
@@ -299,6 +302,7 @@ func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&cinderv1beta1.CinderVolume{}).
 		Owns(&rabbitmqv1.TransportURL{}).
 		Owns(&batchv1.Job{}).
+		Owns(&batchv1.CronJob{}).
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.Role{}).
@@ -817,6 +821,27 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// create CronJob
+	cronjobDef := cinder.CronJob(instance, serviceLabels, serviceAnnotations)
+	cronjob := cronjob.NewCronJob(
+		cronjobDef,
+		5*time.Second,
+	)
+
+	ctrlResult, err = cronjob.CreateOrPatch(ctx, helper)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.CronJobReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.CronJobReadyErrorMessage,
+			err.Error()))
+		return ctrlResult, err
+	}
+
+	instance.Status.Conditions.MarkTrue(condition.CronJobReadyCondition, condition.CronJobReadyMessage)
+	// create CronJob - end
 
 	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
 	return ctrl.Result{}, nil
