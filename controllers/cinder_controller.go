@@ -843,7 +843,6 @@ func (r *CinderReconciler) reconcileUpgrade(ctx context.Context, instance *cinde
 }
 
 // generateServiceConfigs - create Secret which hold scripts and service configuration
-// TODO add DefaultConfigOverwrite
 func (r *CinderReconciler) generateServiceConfigs(
 	ctx context.Context,
 	h *helper.Helper,
@@ -862,10 +861,6 @@ func (r *CinderReconciler) generateServiceConfigs(
 
 	// customData hold any customization for all cinder services.
 	customData := map[string]string{cinder.CustomConfigFileName: instance.Spec.CustomServiceConfig}
-
-	for key, data := range instance.Spec.DefaultConfigOverwrite {
-		customData[key] = data
-	}
 
 	keystoneAPI, err := keystonev1.GetKeystoneAPI(ctx, h, instance.Namespace, map[string]string{})
 	if err != nil {
