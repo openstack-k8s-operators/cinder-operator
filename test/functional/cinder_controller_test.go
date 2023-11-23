@@ -16,6 +16,8 @@ limitations under the License.
 package functional
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
@@ -430,6 +432,156 @@ var _ = Describe("Cinder controller", func() {
 			endpoints := keystoneEndpoint.Spec.Endpoints
 			Expect(endpoints).To(HaveKeyWithValue("public", "http://cinder-public."+cinder.Namespace+".svc:8776/v3"))
 			Expect(endpoints).To(HaveKeyWithValue("internal", "http://cinder-internal."+cinder.Namespace+".svc:8776/v3"))
+		})
+	})
+	When("A Cinder with TLS is created", func() {
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, GetTLSCinderSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(th.DeleteInstance, CreateCinderAPI(cinderTest.Instance, GetDefaultCinderAPISpec()))
+			DeferCleanup(th.DeleteInstance, CreateCinderScheduler(cinderTest.Instance, GetDefaultCinderSchedulerSpec()))
+			DeferCleanup(th.DeleteInstance, CreateCinderVolume(cinderTest.Instance, GetDefaultCinderVolumeSpec()))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderName).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+		})
+
+		It("reports that the CA secret is missing", func() {
+			th.ExpectConditionWithDetails(
+				cinderTest.CinderAPI,
+				ConditionGetterFunc(CinderAPIConditionGetter),
+				condition.TLSInputReadyCondition,
+				corev1.ConditionFalse,
+				condition.ErrorReason,
+				fmt.Sprintf("TLSInput error occured in TLS sources Secret %s/combined-ca-bundle not found", namespace),
+			)
+
+			th.ExpectConditionWithDetails(
+				cinderTest.CinderScheduler,
+				ConditionGetterFunc(CinderSchedulerConditionGetter),
+				condition.TLSInputReadyCondition,
+				corev1.ConditionFalse,
+				condition.ErrorReason,
+				fmt.Sprintf("TLSInput error occured in TLS sources Secret %s/combined-ca-bundle not found", namespace),
+			)
+		})
+
+		It("reports that the internal cert secret is missing", func() {
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
+			th.ExpectConditionWithDetails(
+				cinderTest.CinderAPI,
+				ConditionGetterFunc(CinderAPIConditionGetter),
+				condition.TLSInputReadyCondition,
+				corev1.ConditionFalse,
+				condition.ErrorReason,
+				fmt.Sprintf("TLSInput error occured in TLS sources Secret %s/internal-tls-certs not found", namespace),
+			)
+		})
+
+		It("reports that the public cert secret is missing", func() {
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.InternalCertSecret))
+			th.ExpectConditionWithDetails(
+				cinderTest.CinderAPI,
+				ConditionGetterFunc(CinderAPIConditionGetter),
+				condition.TLSInputReadyCondition,
+				corev1.ConditionFalse,
+				condition.ErrorReason,
+				fmt.Sprintf("TLSInput error occured in TLS sources Secret %s/public-tls-certs not found", namespace),
+			)
+		})
+
+		It("Creates CinderAPI", func() {
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.InternalCertSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.PublicCertSecret))
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			CinderAPIExists(cinderTest.Instance)
+
+			d := th.GetStatefulSet(cinderTest.CinderAPI)
+			// Check the resulting deployment fields
+			Expect(int(*d.Spec.Replicas)).To(Equal(1))
+			Expect(d.Spec.Template.Spec.Volumes).To(HaveLen(9))
+			Expect(d.Spec.Template.Spec.Containers).To(HaveLen(2))
+
+			// cert deployment volumes
+			th.AssertVolumeExists(cinderTest.CABundleSecret.Name, d.Spec.Template.Spec.Volumes)
+			th.AssertVolumeExists(cinderTest.InternalCertSecret.Name, d.Spec.Template.Spec.Volumes)
+			th.AssertVolumeExists(cinderTest.PublicCertSecret.Name, d.Spec.Template.Spec.Volumes)
+
+			// cert volumeMounts
+			container := d.Spec.Template.Spec.Containers[1]
+			th.AssertVolumeMountExists(cinderTest.InternalCertSecret.Name, "tls.key", container.VolumeMounts)
+			th.AssertVolumeMountExists(cinderTest.InternalCertSecret.Name, "tls.crt", container.VolumeMounts)
+			th.AssertVolumeMountExists(cinderTest.PublicCertSecret.Name, "tls.key", container.VolumeMounts)
+			th.AssertVolumeMountExists(cinderTest.PublicCertSecret.Name, "tls.crt", container.VolumeMounts)
+			th.AssertVolumeMountExists(cinderTest.CABundleSecret.Name, "tls-ca-bundle.pem", container.VolumeMounts)
+
+			Expect(container.ReadinessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))
+			Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))
+		})
+		It("Creates CinderScheduler", func() {
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.InternalCertSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.PublicCertSecret))
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			CinderSchedulerExists(cinderTest.Instance)
+
+			ss := th.GetStatefulSet(cinderTest.CinderScheduler)
+			// Check the resulting deployment fields
+			Expect(int(*ss.Spec.Replicas)).To(Equal(1))
+			Expect(ss.Spec.Template.Spec.Volumes).To(HaveLen(6))
+			Expect(ss.Spec.Template.Spec.Containers).To(HaveLen(2))
+
+			// cert deployment volumes
+			th.AssertVolumeExists(cinderTest.CABundleSecret.Name, ss.Spec.Template.Spec.Volumes)
+
+			// cert volumeMounts
+			container := ss.Spec.Template.Spec.Containers[1]
+			th.AssertVolumeMountExists(cinderTest.CABundleSecret.Name, "tls-ca-bundle.pem", container.VolumeMounts)
+		})
+		It("Creates CinderVolume", func() {
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.InternalCertSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.PublicCertSecret))
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			CinderVolumeExists(cinderTest.Instance)
+			// follow up to check CA cert moun on c-v when fully integrated in functional tests
+		})
+		It("Assert Services are created", func() {
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.InternalCertSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.PublicCertSecret))
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			th.AssertServiceExists(cinderTest.CinderServicePublic)
+			th.AssertServiceExists(cinderTest.CinderServiceInternal)
+
+			// check keystone endpoints
+			keystoneEndpoint := keystone.GetKeystoneEndpoint(cinderTest.CinderKeystoneEndpoint)
+			endpoints := keystoneEndpoint.Spec.Endpoints
+			Expect(endpoints).To(HaveKeyWithValue("public", "https://cinder-public."+namespace+".svc:8776/v3"))
+			Expect(endpoints).To(HaveKeyWithValue("internal", "https://cinder-internal."+namespace+".svc:8776/v3"))
 		})
 	})
 })
