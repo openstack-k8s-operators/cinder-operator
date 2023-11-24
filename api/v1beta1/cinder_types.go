@@ -18,12 +18,17 @@ package v1beta1
 
 import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
+	// CinderUserID - Kolla's cinder UID comes from the 'cinder-user' in
+	// https://github.com/openstack/kolla/blob/master/kolla/common/users.py
+	CinderUserID = 42407
+	// CinderGroupID - Kolla's cinder GID
+	CinderGroupID = 42407
+
 	// DbSyncHash hash
 	DbSyncHash = "dbsync"
 
@@ -40,6 +45,11 @@ const (
 	CinderSchedulerContainerImage = "quay.io/podified-antelope-centos9/openstack-cinder-scheduler:current-podified"
 	// CinderVolumeContainerImage is the fall-back container image for CinderVolume
 	CinderVolumeContainerImage = "quay.io/podified-antelope-centos9/openstack-cinder-volume:current-podified"
+
+	// DBPurgeDefaultAge - Default age, in days, for purging deleted DB records
+	DBPurgeDefaultAge = 30
+	// DBPurgeDefaultSchedule - Default cron schedule for purging the DB
+	DBPurgeDefaultSchedule = "1 0 * * *"
 )
 
 // CinderSpec defines the desired state of Cinder
@@ -104,6 +114,10 @@ type CinderSpec struct {
 	// NodeSelector here acts as a default value and can be overridden by service
 	// specific NodeSelector Settings.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// DBPurge parameters -
+	DBPurge DBPurge `json:"dbPurge,omitempty"`
 }
 
 // CinderStatus defines the observed state of Cinder
@@ -151,6 +165,32 @@ type Cinder struct {
 
 	Spec   CinderSpec   `json:"spec,omitempty"`
 	Status CinderStatus `json:"status,omitempty"`
+}
+
+// DBPurge struct is used to model the parameters exposed to the Cinder cronJob
+type DBPurge struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=30
+	// +kubebuilder:validation:Minimum=1
+	// Age is the DBPurgeAge parameter and indicates the number of days of purging DB records
+	Age int `json:"age"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="1 0 * * *"
+	// Schedule defines the crontab format string to schedule the DBPurge cronJob
+	Schedule string `json:"schedule"`
+}
+
+// CinderDebug contains flags related to multiple debug activities. See the
+// individual comments for what this means for each flag.
+type CinderDebug struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// DBSync pauses the dbSync container instead of executing the db_sync command.
+	DBSync bool `json:"dbSync"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// DBPurge increases log verbosity by executing the db_purge command with "--debug".
+	DBPurge bool `json:"dbPurge"`
 }
 
 //+kubebuilder:object:root=true
@@ -211,17 +251,4 @@ func (instance Cinder) RbacNamespace() string {
 // RbacResourceName - return the name to be used for rbac objects (serviceaccount, role, rolebinding)
 func (instance Cinder) RbacResourceName() string {
 	return "cinder-" + instance.Name
-}
-
-// SetupDefaults - initializes any CRD field defaults based on environment variables (the defaulting mechanism itself is implemented via webhooks)
-func SetupDefaults() {
-	// Acquire environmental defaults and initialize Cinder defaults with them
-	cinderDefaults := CinderDefaults{
-		APIContainerImageURL:       util.GetEnvVar("RELATED_IMAGE_CINDER_API_IMAGE_URL_DEFAULT", CinderAPIContainerImage),
-		BackupContainerImageURL:    util.GetEnvVar("RELATED_IMAGE_CINDER_BACKUP_IMAGE_URL_DEFAULT", CinderBackupContainerImage),
-		SchedulerContainerImageURL: util.GetEnvVar("RELATED_IMAGE_CINDER_SCHEDULER_IMAGE_URL_DEFAULT", CinderSchedulerContainerImage),
-		VolumeContainerImageURL:    util.GetEnvVar("RELATED_IMAGE_CINDER_VOLUME_IMAGE_URL_DEFAULT", CinderVolumeContainerImage),
-	}
-
-	SetupCinderDefaults(cinderDefaults)
 }

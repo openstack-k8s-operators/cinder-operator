@@ -26,6 +26,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 )
 
 // CinderDefaults -
@@ -34,6 +35,8 @@ type CinderDefaults struct {
 	BackupContainerImageURL    string
 	SchedulerContainerImageURL string
 	VolumeContainerImageURL    string
+	DBPurgeAge                 int
+	DBPurgeSchedule            string
 }
 
 var cinderDefaults CinderDefaults
@@ -41,10 +44,18 @@ var cinderDefaults CinderDefaults
 // log is for logging in this package.
 var cinderlog = logf.Log.WithName("cinder-resource")
 
-// SetupCinderDefaults - initialize Cinder spec defaults for use with either internal or external webhooks
-func SetupCinderDefaults(defaults CinderDefaults) {
-	cinderDefaults = defaults
-	cinderlog.Info("Cinder defaults initialized", "defaults", defaults)
+// SetupDefaults - initialize Cinder spec defaults for use with either internal or external webhooks
+func SetupDefaults() {
+	cinderDefaults = CinderDefaults{
+		APIContainerImageURL:       util.GetEnvVar("RELATED_IMAGE_CINDER_API_IMAGE_URL_DEFAULT", CinderAPIContainerImage),
+		BackupContainerImageURL:    util.GetEnvVar("RELATED_IMAGE_CINDER_BACKUP_IMAGE_URL_DEFAULT", CinderBackupContainerImage),
+		SchedulerContainerImageURL: util.GetEnvVar("RELATED_IMAGE_CINDER_SCHEDULER_IMAGE_URL_DEFAULT", CinderSchedulerContainerImage),
+		VolumeContainerImageURL:    util.GetEnvVar("RELATED_IMAGE_CINDER_VOLUME_IMAGE_URL_DEFAULT", CinderVolumeContainerImage),
+		DBPurgeAge:                 DBPurgeDefaultAge,
+		DBPurgeSchedule:            DBPurgeDefaultSchedule,
+	}
+
+	cinderlog.Info("Cinder defaults initialized", "defaults", cinderDefaults)
 }
 
 // SetupWebhookWithManager sets up the webhook with the Manager
@@ -85,6 +96,13 @@ func (spec *CinderSpec) Default() {
 		}
 		// This is required, as the loop variable is a by-value copy
 		spec.CinderVolumes[index] = cinderVolume
+	}
+
+	if spec.DBPurge.Age == 0 {
+		spec.DBPurge.Age = cinderDefaults.DBPurgeAge
+	}
+	if spec.DBPurge.Schedule == "" {
+		spec.DBPurge.Schedule = cinderDefaults.DBPurgeSchedule
 	}
 }
 

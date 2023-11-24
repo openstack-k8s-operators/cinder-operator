@@ -95,15 +95,6 @@ type PasswordSelector struct {
 	Service string `json:"service"`
 }
 
-// CinderDebug indicates whether certain stages of Cinder deployment should
-// pause in debug mode
-type CinderDebug struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	// dbSync enable debug
-	DBSync bool `json:"dbSync"`
-}
-
 // CinderServiceDebug indicates whether certain stages of Cinder service
 // deployment should pause in debug mode
 type CinderServiceDebug struct {

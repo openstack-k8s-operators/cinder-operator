@@ -44,7 +44,7 @@ var _ = Describe("Cinder controller", func() {
 		It("initializes the status fields", func() {
 			Eventually(func(g Gomega) {
 				cinder := GetCinder(cinderName)
-				g.Expect(cinder.Status.Conditions).To(HaveLen(15))
+				g.Expect(cinder.Status.Conditions).To(HaveLen(16))
 
 				g.Expect(cinder.Status.DatabaseHostname).To(Equal(""))
 			}, timeout*2, interval).Should(Succeed())
@@ -78,6 +78,7 @@ var _ = Describe("Cinder controller", func() {
 		})
 		It("should have Unknown Conditions initialized", func() {
 			for _, cond := range []condition.Type{
+				condition.CronJobReadyCondition,
 				condition.DBReadyCondition,
 				condition.DBSyncReadyCondition,
 				condition.InputReadyCondition,
