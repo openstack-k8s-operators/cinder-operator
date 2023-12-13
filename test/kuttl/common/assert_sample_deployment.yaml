@@ -64,10 +64,14 @@ spec:
             weight: 1
       containers:
       - args:
-        - -c
-        - tail -n+1 -F /var/log/cinder/cinder-api.log
+        - --single-child
+        - --
+        - /usr/bin/tail
+        - -n+1
+        - -F
+        - /var/log/cinder/cinder-api.log
         command:
-        - /bin/bash
+        - /usr/bin/dumb-init
         imagePullPolicy: IfNotPresent
         resources: {}
         securityContext:
