@@ -4,4 +4,4 @@ resources:
   - ../../bases/lvm
   - ../../bases/openstack
 patches:
-  - backend.yaml
+  - path: backend.yaml
