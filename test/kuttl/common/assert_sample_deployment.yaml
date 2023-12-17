@@ -21,7 +21,7 @@ spec:
       replicas: 1
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: cinder-api
   ownerReferences:
@@ -31,18 +31,13 @@ metadata:
     kind: CinderAPI
     name: cinder-api
 spec:
-  progressDeadlineSeconds: 600
+  podManagementPolicy: OrderedReady
   replicas: 1
   revisionHistoryLimit: 10
   selector:
     matchLabels:
       component: cinder-api
       service: cinder
-  strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
   template:
     metadata:
       creationTimestamp: null
@@ -162,6 +157,10 @@ spec:
         name: config-data-custom
       - emptyDir: {}
         name: logs
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
 status:
   availableReplicas: 1
   replicas: 1

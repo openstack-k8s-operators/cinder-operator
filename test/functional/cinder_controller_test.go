@@ -385,7 +385,7 @@ var _ = Describe("Cinder controller", func() {
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 		})
 		It("Check the resulting endpoints of the generated sub-CRs", func() {
-			th.SimulateDeploymentReadyWithPods(
+			th.SimulateStatefulSetReplicaReadyWithPods(
 				cinderTest.CinderAPI,
 				map[string][]string{cinderName.Namespace + "/internalapi": {"10.0.0.1"}},
 			)
