@@ -2,4 +2,4 @@ resources:
   - cinder-volume-nfs-secrets.yaml
   - ../bases/openstack
 patches:
-  - backend.yaml
+  - path: backend.yaml

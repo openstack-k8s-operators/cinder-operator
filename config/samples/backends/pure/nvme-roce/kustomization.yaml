@@ -4,4 +4,4 @@ resources:
   - ../../bases/openstack
   - cinder-volume-pure-secrets.yaml
 patches:
-  - backend.yaml
+  - path: backend.yaml
