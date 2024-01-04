@@ -60,11 +60,6 @@ func (r *CinderVolumeReconciler) GetKClient() kubernetes.Interface {
 	return r.Kclient
 }
 
-// GetLogger -
-func (r *CinderVolumeReconciler) GetLogger() logr.Logger {
-	return r.Log
-}
-
 // GetScheme -
 func (r *CinderVolumeReconciler) GetScheme() *runtime.Scheme {
 	return r.Scheme
@@ -74,8 +69,12 @@ func (r *CinderVolumeReconciler) GetScheme() *runtime.Scheme {
 type CinderVolumeReconciler struct {
 	client.Client
 	Kclient kubernetes.Interface
-	Log     logr.Logger
 	Scheme  *runtime.Scheme
+}
+
+// GetLogger returns a logger object with a logging prefix of "controller.name" and additional controller context fields
+func (r *CinderVolumeReconciler) GetLogger(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx).WithName("Controllers").WithName("CinderVolume")
 }
 
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cindervolumes,verbs=get;list;watch;create;update;patch;delete
@@ -89,7 +88,7 @@ type CinderVolumeReconciler struct {
 
 // Reconcile -
 func (r *CinderVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
-	_ = log.FromContext(ctx)
+	Log := r.GetLogger(ctx)
 
 	// Fetch the CinderVolume instance
 	instance := &cinderv1beta1.CinderVolume{}
@@ -110,7 +109,7 @@ func (r *CinderVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		r.Client,
 		r.Kclient,
 		r.Scheme,
-		r.Log,
+		Log,
 	)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -170,9 +169,11 @@ func (r *CinderVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CinderVolumeReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CinderVolumeReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	// Watch for changes to secrets we don't own. Global secrets
 	// (e.g. TransportURLSecret) are handled by the main cinder controller.
+	Log := r.GetLogger(ctx)
+
 	secretFn := func(o client.Object) []reconcile.Request {
 		var namespace string = o.GetNamespace()
 		var secretName string = o.GetName()
@@ -184,7 +185,7 @@ func (r *CinderVolumeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			client.InNamespace(namespace),
 		}
 		if err := r.Client.List(context.Background(), volumes, listOpts...); err != nil {
-			r.Log.Error(err, "Unable to retrieve volume CRs %v")
+			Log.Error(err, "Unable to retrieve volume CRs %v")
 			return nil
 		}
 
@@ -200,7 +201,7 @@ func (r *CinderVolumeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						Namespace: o.GetNamespace(),
 						Name:      cr.Name,
 					}
-					r.Log.Info(fmt.Sprintf("Secret %s and CR %s marked with label: %s", o.GetName(), cr.Name, l))
+					Log.Info(fmt.Sprintf("Secret %s and CR %s marked with label: %s", o.GetName(), cr.Name, l))
 
 					result = append(result, reconcile.Request{NamespacedName: name})
 				}
@@ -215,7 +216,7 @@ func (r *CinderVolumeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						Namespace: namespace,
 						Name:      cr.Name,
 					}
-					r.Log.Info(fmt.Sprintf("Secret %s is used by Cinder CR %s", secretName, cr.Name))
+					Log.Info(fmt.Sprintf("Secret %s is used by Cinder CR %s", secretName, cr.Name))
 					result = append(result, reconcile.Request{NamespacedName: name})
 				}
 			}
@@ -236,11 +237,13 @@ func (r *CinderVolumeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *CinderVolumeReconciler) reconcileDelete(ctx context.Context, instance *cinderv1beta1.CinderVolume, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
 
 	return ctrl.Result{}, nil
 }
@@ -250,14 +253,18 @@ func (r *CinderVolumeReconciler) reconcileInit(
 	instance *cinderv1beta1.CinderVolume,
 	helper *helper.Helper,
 ) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
+	Log := r.GetLogger(ctx)
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
+
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *cinderv1beta1.CinderVolume, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s'", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s'", instance.Name))
 
 	configVars := make(map[string]env.Setter)
 
@@ -472,27 +479,31 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	}
 	// create StatefulSet - end
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderVolumeReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderVolume, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
 
 	// TODO: should have minor update tasks if required
 	// - delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *CinderVolumeReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderVolume, helper *helper.Helper) (ctrl.Result, error) {
-	r.Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
+	Log := r.GetLogger(ctx)
+
+	Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
 
 	// TODO: should have major version upgrade tasks
 	// -delete dbsync hash from status to rerun it?
 
-	r.Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
+	Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
@@ -614,6 +625,8 @@ func (r *CinderVolumeReconciler) createHashOfInputHashes(
 	instance *cinderv1beta1.CinderVolume,
 	envVars map[string]env.Setter,
 ) (string, bool, error) {
+	Log := r.GetLogger(ctx)
+
 	var hashMap map[string]string
 	changed := false
 	mergedMapVars := env.MergeEnvs([]corev1.EnvVar{}, envVars)
@@ -623,7 +636,7 @@ func (r *CinderVolumeReconciler) createHashOfInputHashes(
 	}
 	if hashMap, changed = util.SetHash(instance.Status.Hash, common.InputHashName, hash); changed {
 		instance.Status.Hash = hashMap
-		r.Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
+		Log.Info(fmt.Sprintf("Input maps hash %s - %s", common.InputHashName, hash))
 	}
 	return hash, changed, nil
 }
