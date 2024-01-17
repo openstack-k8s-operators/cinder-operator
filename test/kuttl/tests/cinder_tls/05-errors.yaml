@@ -1,0 +1,17 @@
+#
+# Check for:
+#
+# No CinderAPI CR
+# No Deployment for CinderAPI CR
+# No Pods in cinder Deployment
+# No Cinder Services
+#
+apiVersion: cinder.openstack.org/v1beta1
+kind: Cinder
+metadata:
+  name: cinder
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cinder

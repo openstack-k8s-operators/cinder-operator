@@ -1,0 +1,26 @@
+apiVersion: cinder.openstack.org/v1beta1
+kind: Cinder
+metadata:
+  name: cinder
+  namespace: openstack
+spec:
+  serviceUser: cinder
+  customServiceConfig: |
+    [DEFAULT]
+    debug = true
+  databaseInstance: openstack
+  databaseUser: cinder
+  rabbitMqClusterName: rabbitmq
+  cinderAPI:
+    tls:
+      api:
+        internal:
+          secretName: cert-cinder-internal-svc
+        public:
+          secretName: cert-cinder-public-svc
+      caBundleSecretName: combined-ca-bundle
+  cinderScheduler: {}
+  cinderBackup: {}
+  cinderVolumes:
+    volume1: {}
+  secret: cinder-secret
