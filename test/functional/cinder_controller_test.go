@@ -583,5 +583,42 @@ var _ = Describe("Cinder controller", func() {
 			Expect(endpoints).To(HaveKeyWithValue("public", "https://cinder-public."+namespace+".svc:8776/v3"))
 			Expect(endpoints).To(HaveKeyWithValue("internal", "https://cinder-internal."+namespace+".svc:8776/v3"))
 		})
+
+		It("reconfigures the cinder pods when CA changes", func() {
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.InternalCertSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.PublicCertSecret))
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			CinderAPIExists(cinderTest.Instance)
+			CinderSchedulerExists(cinderTest.Instance)
+			CinderVolumeExists(cinderTest.Instance)
+
+			// Grab the current config hash
+			apiOriginalHash := GetEnvVarValue(
+				th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.Containers[0].Env, "CONFIG_HASH", "")
+			Expect(apiOriginalHash).NotTo(BeEmpty())
+			schedulerOriginalHash := GetEnvVarValue(
+				th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.Containers[0].Env, "CONFIG_HASH", "")
+			Expect(schedulerOriginalHash).NotTo(BeEmpty())
+
+			// Change the content of the CA secret
+			th.UpdateSecret(cinderTest.CABundleSecret, "tls-ca-bundle.pem", []byte("DifferentCAData"))
+
+			// Assert that the deployment is updated
+			Eventually(func(g Gomega) {
+				newHash := GetEnvVarValue(
+					th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.Containers[0].Env, "CONFIG_HASH", "")
+				g.Expect(newHash).NotTo(BeEmpty())
+				g.Expect(newHash).NotTo(Equal(apiOriginalHash))
+			}, timeout, interval).Should(Succeed())
+			Eventually(func(g Gomega) {
+				newHash := GetEnvVarValue(
+					th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.Containers[0].Env, "CONFIG_HASH", "")
+				g.Expect(newHash).NotTo(BeEmpty())
+				g.Expect(newHash).NotTo(Equal(schedulerOriginalHash))
+			}, timeout, interval).Should(Succeed())
+		})
 	})
 })
