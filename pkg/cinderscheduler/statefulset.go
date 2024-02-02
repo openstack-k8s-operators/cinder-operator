@@ -18,7 +18,6 @@ package cinderscheduler
 import (
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	cinder "github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
-	common "github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -58,32 +57,16 @@ func StatefulSet(
 		InitialDelaySeconds: 5,
 	}
 
-	args := []string{"-c"}
+	args := []string{"-c", ServiceCommand}
 	var probeCommand []string
-	// When debugging the service container will run kolla_set_configs and
-	// sleep forever and the probe container will just sleep forever.
-	if instance.Spec.Debug.Service {
-		args = append(args, common.DebugCommand)
-		livenessProbe.Exec = &corev1.ExecAction{
-			Command: []string{
-				"/bin/true",
-			},
-		}
-		startupProbe.Exec = livenessProbe.Exec
-		probeCommand = []string{
-			"/bin/sleep", "infinity",
-		}
-	} else {
-		args = append(args, ServiceCommand)
-		livenessProbe.HTTPGet = &corev1.HTTPGetAction{
-			Port: intstr.FromInt(8080),
-		}
-		startupProbe.HTTPGet = livenessProbe.HTTPGet
-		probeCommand = []string{
-			"/usr/local/bin/container-scripts/healthcheck.py",
-			"scheduler",
-			"/etc/cinder/cinder.conf.d",
-		}
+	livenessProbe.HTTPGet = &corev1.HTTPGetAction{
+		Port: intstr.FromInt(8080),
+	}
+	startupProbe.HTTPGet = livenessProbe.HTTPGet
+	probeCommand = []string{
+		"/usr/local/bin/container-scripts/healthcheck.py",
+		"scheduler",
+		"/etc/cinder/cinder.conf.d",
 	}
 
 	envVars := map[string]env.Setter{}

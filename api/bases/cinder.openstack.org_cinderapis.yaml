@@ -53,12 +53,6 @@ spec:
               databaseUser:
                 default: cinder
                 type: string
-              debug:
-                properties:
-                  service:
-                    default: false
-                    type: boolean
-                type: object
               extraMounts:
                 items:
                   properties:
