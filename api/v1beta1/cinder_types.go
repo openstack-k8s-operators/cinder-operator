@@ -73,11 +73,6 @@ type CinderSpecBase struct {
 	MemcachedInstance string `json:"memcachedInstance"`
 
 	// +kubebuilder:validation:Optional
-	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
-	// actual action pod gets started with sleep infinity
-	Debug CinderDebug `json:"debug,omitempty"`
-
-	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
 	// PreserveJobs - do not delete jobs after they finished e.g. to check logs
 	PreserveJobs bool `json:"preserveJobs"`
@@ -202,15 +197,6 @@ type DBPurge struct {
 	// +kubebuilder:default="1 0 * * *"
 	// Schedule defines the crontab format string to schedule the DBPurge cronJob
 	Schedule string `json:"schedule"`
-}
-
-// CinderDebug contains flags related to multiple debug activities. See the
-// individual comments for what this means for each flag.
-type CinderDebug struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	// DBPurge increases log verbosity by executing the db_purge command with "--debug".
-	DBPurge bool `json:"dbPurge"`
 }
 
 //+kubebuilder:object:root=true

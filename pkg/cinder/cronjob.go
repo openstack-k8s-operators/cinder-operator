@@ -37,14 +37,8 @@ func CronJob(
 	cinderGroup := int64(cinderv1.CinderGroupID)
 	config0644AccessMode := int32(0644)
 
-	debugArg := ""
-	if instance.Spec.Debug.DBPurge {
-		debugArg = " --debug"
-	}
-
 	dbPurgeCommand := fmt.Sprintf(
-		"/usr/bin/cinder-manage%s --config-dir /etc/cinder/cinder.conf.d db purge %d",
-		debugArg,
+		"/usr/bin/cinder-manage --debug --config-dir /etc/cinder/cinder.conf.d db purge %d",
 		instance.Spec.DBPurge.Age)
 
 	args := []string{"-c", dbPurgeCommand}
