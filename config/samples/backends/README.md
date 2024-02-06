@@ -32,6 +32,7 @@ Currently available samples are:
 - Pure Storage iSCSI
 - Pure Storage FC
 - Pure Storage NVMe-RoCE
+- Dell PowerMax iSCSI
 
 **NOTE**: These examples are designed to be applied one at time. If you attempt
 to add a second backend by applying a second example it will result in the
