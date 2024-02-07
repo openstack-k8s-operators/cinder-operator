@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
@@ -253,7 +252,7 @@ func (r *CinderReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 	// reconciliation for a Cinder CR that does not need it.
 	//
 	// TODO: We also need a watch func to monitor for changes to the secret referenced by Cinder.Spec.Secret
-	transportURLSecretFn := func(o client.Object) []reconcile.Request {
+	transportURLSecretFn := func(ctx context.Context, o client.Object) []reconcile.Request {
 		result := []reconcile.Request{}
 
 		Log := r.GetLogger(ctx)
@@ -289,7 +288,7 @@ func (r *CinderReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 		return nil
 	}
 
-	memcachedFn := func(o client.Object) []reconcile.Request {
+	memcachedFn := func(ctx context.Context, o client.Object) []reconcile.Request {
 		Log := r.GetLogger(ctx)
 
 		result := []reconcile.Request{}
@@ -336,9 +335,9 @@ func (r *CinderReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 		Owns(&rbacv1.Role{}).
 		Owns(&rbacv1.RoleBinding{}).
 		// Watch for TransportURL Secrets which belong to any TransportURLs created by Cinder CRs
-		Watches(&source.Kind{Type: &corev1.Secret{}},
+		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(transportURLSecretFn)).
-		Watches(&source.Kind{Type: &memcachedv1.Memcached{}},
+		Watches(&memcachedv1.Memcached{},
 			handler.EnqueueRequestsFromMapFunc(memcachedFn)).
 		Complete(r)
 }
