@@ -929,6 +929,24 @@ spec:
               serviceUser:
                 default: cinder
                 type: string
+              tls:
+                properties:
+                  api:
+                    properties:
+                      internal:
+                        properties:
+                          secretName:
+                            type: string
+                        type: object
+                      public:
+                        properties:
+                          secretName:
+                            type: string
+                        type: object
+                    type: object
+                  caBundleSecretName:
+                    type: string
+                type: object
               transportURLSecret:
                 type: string
             required:

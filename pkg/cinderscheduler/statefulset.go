@@ -91,7 +91,17 @@ func StatefulSet(
 	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
 
+	volumes := GetVolumes(
+		cinder.GetOwningCinderName(instance),
+		instance.Name,
+		instance.Spec.ExtraMounts)
 	volumeMounts := GetVolumeMounts(instance.Spec.ExtraMounts)
+
+	// Add the CA bundle
+	if instance.Spec.TLS.CaBundleSecretName != "" {
+		volumes = append(volumes, instance.Spec.TLS.CreateVolume())
+		volumeMounts = append(volumeMounts, instance.Spec.TLS.CreateVolumeMounts(nil)...)
+	}
 
 	statefulset := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -140,14 +150,11 @@ func StatefulSet(
 						},
 					},
 					NodeSelector: instance.Spec.NodeSelector,
+					Volumes:      volumes,
 				},
 			},
 		},
 	}
-	statefulset.Spec.Template.Spec.Volumes = GetVolumes(
-		cinder.GetOwningCinderName(instance),
-		instance.Name,
-		instance.Spec.ExtraMounts)
 
 	// If possible two pods of the same service should not
 	// run on the same worker node. If this is not possible
