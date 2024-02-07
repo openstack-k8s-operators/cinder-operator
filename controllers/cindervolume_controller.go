@@ -685,19 +685,17 @@ func (r *CinderVolumeReconciler) generateServiceConfigs(
 
 	templateParameters := make(map[string]interface{})
 	if usesLVM {
-		// Configure 'target_secondary_ip_addresses' using addresses in the
-		// network attachments. This relies on the fact that the LVM backend
-		// can only have one replica.
-		//
-		// Do not configure the primary 'target_ip_address', so that it will default
-		// to the service's 'my_ip' address. This will be the dynamically assigned
-		// OpenShift SDN address, which allows control plane services like g-api and
-		// c-bak to connect to LVM volumes.
 		networkAttachmentAddrs := cinder.GetNetworkAttachmentAddrs(
 			instance.Namespace, instance.Spec.NetworkAttachments, instance.Status.NetworkAttachments)
 
+		// Configure target IP addresses using all addresses in the network
+		// attachments. This relies on the fact that the LVM backend can only
+		// have one replica.
 		if len(networkAttachmentAddrs) > 0 {
-			templateParameters["TargetSecondaryIpAddresses"] = strings.Join(networkAttachmentAddrs, ",")
+			templateParameters["TargetIpAddress"] = networkAttachmentAddrs[0]
+			if len(networkAttachmentAddrs) > 1 {
+				templateParameters["TargetSecondaryIpAddresses"] = strings.Join(networkAttachmentAddrs[1:], ",")
+			}
 		}
 	}
 
