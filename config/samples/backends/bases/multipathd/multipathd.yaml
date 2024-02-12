@@ -3,9 +3,9 @@ apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:
   labels:
-    machineconfiguration.openshift.io/role: master
+    machineconfiguration.openshift.io/role: worker
     service: cinder
-  name: 99-master-cinder-enable-multipathd
+  name: 99-worker-cinder-enable-multipathd
 spec:
   config:
     ignition:
