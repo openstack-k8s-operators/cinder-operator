@@ -16,8 +16,8 @@ limitations under the License.
 package cindervolume
 
 const (
-	// Component -
-	Component = "cinder-volume"
+	// ComponentName -
+	ComponentName = "cinder-volume"
 	// Backend -
 	Backend = "backend"
 )

@@ -416,7 +416,7 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 	serviceLabels := map[string]string{
 		common.AppSelector:       cinder.ServiceName,
-		common.ComponentSelector: cinderbackup.Component,
+		common.ComponentSelector: cinderbackup.ComponentName,
 	}
 
 	//

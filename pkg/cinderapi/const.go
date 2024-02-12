@@ -16,8 +16,8 @@ limitations under the License.
 package cinderapi
 
 const (
-	// Component -
-	Component = "cinder-api"
+	// ComponentName -
+	ComponentName = "cinder-api"
 
 	//LogFile -
 	LogFile = "/var/log/cinder/cinder-api.log"
