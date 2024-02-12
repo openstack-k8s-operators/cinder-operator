@@ -16,6 +16,6 @@ limitations under the License.
 package cinderbackup
 
 const (
-	// Component -
-	Component = "cinder-backup"
+	// ComponentName -
+	ComponentName = "cinder-backup"
 )

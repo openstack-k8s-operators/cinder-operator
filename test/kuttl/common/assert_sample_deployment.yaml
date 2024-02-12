@@ -51,10 +51,10 @@ spec:
           - podAffinityTerm:
               labelSelector:
                 matchExpressions:
-                - key: service
+                - key: component
                   operator: In
                   values:
-                  - cinder
+                  - cinder-api
               topologyKey: kubernetes.io/hostname
             weight: 1
       containers:

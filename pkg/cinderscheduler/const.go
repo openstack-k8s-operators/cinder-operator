@@ -16,6 +16,6 @@ limitations under the License.
 package cinderscheduler
 
 const (
-	// Component -
-	Component = "cinder-scheduler"
+	// ComponentName -
+	ComponentName = "cinder-scheduler"
 )
