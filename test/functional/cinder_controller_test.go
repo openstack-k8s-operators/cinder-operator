@@ -245,8 +245,8 @@ var _ = Describe("Cinder controller", func() {
 		})
 		It("has the expected container image defaults", func() {
 			cinderDefault := GetCinder(cinderTest.Instance)
-			Expect(cinderDefault.Spec.CinderAPI.CinderServiceTemplate.ContainerImage).To(Equal(util.GetEnvVar("RELATED_IMAGE_CINDER_API_IMAGE_URL_DEFAULT", cinderv1.CinderAPIContainerImage)))
-			Expect(cinderDefault.Spec.CinderScheduler.CinderServiceTemplate.ContainerImage).To(Equal(util.GetEnvVar("RELATED_IMAGE_CINDER_SCHEDULER_IMAGE_URL_DEFAULT", cinderv1.CinderSchedulerContainerImage)))
+			Expect(cinderDefault.Spec.CinderAPI.ContainerImage).To(Equal(util.GetEnvVar("RELATED_IMAGE_CINDER_API_IMAGE_URL_DEFAULT", cinderv1.CinderAPIContainerImage)))
+			Expect(cinderDefault.Spec.CinderScheduler.ContainerImage).To(Equal(util.GetEnvVar("RELATED_IMAGE_CINDER_SCHEDULER_IMAGE_URL_DEFAULT", cinderv1.CinderSchedulerContainerImage)))
 			for _, volume := range cinderDefault.Spec.CinderVolumes {
 				Expect(volume.ContainerImage).To(Equal(util.GetEnvVar("RELATED_IMAGE_CINDER_VOLUME_IMAGE_URL_DEFAULT", cinderv1.CinderVolumeContainerImage)))
 			}

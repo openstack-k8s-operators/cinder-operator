@@ -52,8 +52,7 @@ const (
 	DBPurgeDefaultSchedule = "1 0 * * *"
 )
 
-// CinderSpec defines the desired state of Cinder
-type CinderSpec struct {
+type CinderSpecBase struct {
 	CinderTemplate `json:",inline"`
 
 	// +kubebuilder:validation:Required
@@ -89,6 +88,45 @@ type CinderSpec struct {
 	// to /etc/<service>/<service>.conf.d directory as a custom config file.
 	CustomServiceConfig string `json:"customServiceConfig,omitempty"`
 
+	// +kubebuilder:validation:Optional
+	// ExtraMounts containing conf files and credentials
+	ExtraMounts []CinderExtraVolMounts `json:"extraMounts,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// NodeSelector to target subset of worker nodes running this service. Setting
+	// NodeSelector here acts as a default value and can be overridden by service
+	// specific NodeSelector Settings.
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// DBPurge parameters -
+	DBPurge DBPurge `json:"dbPurge,omitempty"`
+}
+
+// CinderSpecCore the same as CinderSpec without ContainerImage references
+type CinderSpecCore struct {
+	CinderSpecBase `json:",inline"`
+
+	// CinderAPI - Spec definition for the API service of this Cinder deployment
+	CinderAPI CinderAPITemplateCore `json:"cinderAPI"`
+
+	// +kubebuilder:validation:Required
+	// CinderScheduler - Spec definition for the Scheduler service of this Cinder deployment
+	CinderScheduler CinderSchedulerTemplateCore `json:"cinderScheduler"`
+
+	// +kubebuilder:validation:Optional
+	// CinderBackup - Spec definition for the Backup service of this Cinder deployment
+	CinderBackup CinderBackupTemplateCore `json:"cinderBackup"`
+
+	// +kubebuilder:validation:Optional
+	// CinderVolumes - Map of chosen names to spec definitions for the Volume(s) service(s) of this Cinder deployment
+	CinderVolumes map[string]CinderVolumeTemplateCore `json:"cinderVolumes,omitempty"`
+}
+
+// CinderSpec defines the desired state of Cinder
+type CinderSpec struct {
+	CinderSpecBase `json:",inline"`
+
 	// +kubebuilder:validation:Required
 	// CinderAPI - Spec definition for the API service of this Cinder deployment
 	CinderAPI CinderAPITemplate `json:"cinderAPI"`
@@ -104,20 +142,6 @@ type CinderSpec struct {
 	// +kubebuilder:validation:Optional
 	// CinderVolumes - Map of chosen names to spec definitions for the Volume(s) service(s) of this Cinder deployment
 	CinderVolumes map[string]CinderVolumeTemplate `json:"cinderVolumes,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// ExtraMounts containing conf files and credentials
-	ExtraMounts []CinderExtraVolMounts `json:"extraMounts,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// NodeSelector to target subset of worker nodes running this service. Setting
-	// NodeSelector here acts as a default value and can be overridden by service
-	// specific NodeSelector Settings.
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// DBPurge parameters -
-	DBPurge DBPurge `json:"dbPurge,omitempty"`
 }
 
 // CinderStatus defines the observed state of Cinder

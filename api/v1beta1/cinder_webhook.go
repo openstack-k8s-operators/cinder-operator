@@ -74,30 +74,30 @@ var _ webhook.Defaulter = &Cinder{}
 func (r *Cinder) Default() {
 	cinderlog.Info("default", "name", r.Name)
 
-	r.Spec.Default()
-}
-
-// Default - set defaults for this Cinder spec
-func (spec *CinderSpec) Default() {
-	if spec.CinderAPI.ContainerImage == "" {
-		spec.CinderAPI.ContainerImage = cinderDefaults.APIContainerImageURL
+	if r.Spec.CinderAPI.ContainerImage == "" {
+		r.Spec.CinderAPI.ContainerImage = cinderDefaults.APIContainerImageURL
 	}
 
-	if spec.CinderBackup.ContainerImage == "" {
-		spec.CinderBackup.ContainerImage = cinderDefaults.BackupContainerImageURL
+	if r.Spec.CinderBackup.ContainerImage == "" {
+		r.Spec.CinderBackup.ContainerImage = cinderDefaults.BackupContainerImageURL
 	}
 
-	if spec.CinderScheduler.ContainerImage == "" {
-		spec.CinderScheduler.ContainerImage = cinderDefaults.SchedulerContainerImageURL
+	if r.Spec.CinderScheduler.ContainerImage == "" {
+		r.Spec.CinderScheduler.ContainerImage = cinderDefaults.SchedulerContainerImageURL
 	}
 
-	for index, cinderVolume := range spec.CinderVolumes {
+	for index, cinderVolume := range r.Spec.CinderVolumes {
 		if cinderVolume.ContainerImage == "" {
 			cinderVolume.ContainerImage = cinderDefaults.VolumeContainerImageURL
 		}
 		// This is required, as the loop variable is a by-value copy
-		spec.CinderVolumes[index] = cinderVolume
+		r.Spec.CinderVolumes[index] = cinderVolume
 	}
+	r.Spec.CinderSpecBase.Default()
+}
+
+// Default - set defaults for this Cinder spec
+func (spec *CinderSpecBase) Default() {
 
 	if spec.DBPurge.Age == 0 {
 		spec.DBPurge.Age = cinderDefaults.DBPurgeAge
@@ -105,6 +105,11 @@ func (spec *CinderSpec) Default() {
 	if spec.DBPurge.Schedule == "" {
 		spec.DBPurge.Schedule = cinderDefaults.DBPurgeSchedule
 	}
+}
+
+// Default - set defaults for this Cinder spec
+func (spec *CinderSpecCore) Default() {
+	spec.CinderSpecBase.Default()
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.

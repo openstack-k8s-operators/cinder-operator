@@ -23,7 +23,7 @@ import (
 )
 
 // CinderSchedulerTemplate defines the input parameters for the Cinder Scheduler service
-type CinderSchedulerTemplate struct {
+type CinderSchedulerTemplateCore struct {
 	// Common input parameters for the Cinder Scheduler service
 	CinderServiceTemplate `json:",inline"`
 
@@ -32,6 +32,15 @@ type CinderSchedulerTemplate struct {
 	// +kubebuilder:validation:Minimum=0
 	// Replicas - Cinder Scheduler Replicas
 	Replicas *int32 `json:"replicas"`
+}
+
+// CinderSchedulerTemplate defines the input parameters for the Cinder Scheduler service
+type CinderSchedulerTemplate struct {
+	// +kubebuilder:validation:Required
+	// ContainerImage - Cinder Container Image URL (will be set to environmental default if empty)
+	ContainerImage string `json:"containerImage"`
+
+	CinderSchedulerTemplateCore `json:",inline"`
 }
 
 // CinderSchedulerSpec defines the desired state of CinderScheduler

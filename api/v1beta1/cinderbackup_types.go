@@ -23,7 +23,7 @@ import (
 )
 
 // CinderBackupTemplate defines the input parameters for the Cinder Backup service
-type CinderBackupTemplate struct {
+type CinderBackupTemplateCore struct {
 	// Common input parameters for the Cinder Backup service
 	CinderServiceTemplate `json:",inline"`
 
@@ -32,6 +32,15 @@ type CinderBackupTemplate struct {
 	// +kubebuilder:validation:Minimum=0
 	// Replicas - Cinder Backup Replicas
 	Replicas *int32 `json:"replicas"`
+}
+
+// CinderBackupTemplate defines the input parameters for the Cinder Backup service
+type CinderBackupTemplate struct {
+	// +kubebuilder:validation:Required
+	// ContainerImage - Cinder Container Image URL (will be set to environmental default if empty)
+	ContainerImage string `json:"containerImage"`
+
+	CinderBackupTemplateCore `json:",inline"`
 }
 
 // CinderBackupSpec defines the desired state of CinderBackup

@@ -24,7 +24,7 @@ import (
 )
 
 // CinderAPITemplate defines the input parameters for the Cinder API service
-type CinderAPITemplate struct {
+type CinderAPITemplateCore struct {
 	// Common input parameters for the Cinder API service
 	CinderServiceTemplate `json:",inline"`
 
@@ -42,6 +42,15 @@ type CinderAPITemplate struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// TLS - Parameters related to the TLS
 	TLS tls.API `json:"tls,omitempty"`
+}
+
+// CinderAPITemplate defines the input parameters for the Cinder API service
+type CinderAPITemplate struct {
+	// +kubebuilder:validation:Required
+	// ContainerImage - Cinder Container Image URL (will be set to environmental default if empty)
+	ContainerImage string `json:"containerImage"`
+
+	CinderAPITemplateCore `json:",inline"`
 }
 
 // APIOverrideSpec to override the generated manifest of several child resources.
