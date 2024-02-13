@@ -3,9 +3,9 @@ apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:
   labels:
-    machineconfiguration.openshift.io/role: worker
+    machineconfiguration.openshift.io/role: master
     service: cinder
-  name: 99-worker-cinder-load-nvmeof
+  name: 99-master-cinder-load-nvmeof
 spec:
   config:
     ignition:
