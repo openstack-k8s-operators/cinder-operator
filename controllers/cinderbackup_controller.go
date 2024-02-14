@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
@@ -176,7 +175,7 @@ func (r *CinderBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *CinderBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	// Watch for changes to secrets we don't own. Global secrets
 	// (e.g. TransportURLSecret) are handled by the main cinder controller.
-	secretFn := func(o client.Object) []reconcile.Request {
+	secretFn := func(ctx context.Context, o client.Object) []reconcile.Request {
 		Log := r.GetLogger(ctx)
 
 		var namespace string = o.GetNamespace()
@@ -259,17 +258,17 @@ func (r *CinderBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 		For(&cinderv1beta1.CinderBackup{}).
 		Owns(&appsv1.StatefulSet{}).
 		// watch the secrets we don't own
-		Watches(&source.Kind{Type: &corev1.Secret{}},
+		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(secretFn)).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
+			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
 
-func (r *CinderBackupReconciler) findObjectsForSrc(src client.Object) []reconcile.Request {
+func (r *CinderBackupReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
 	l := log.FromContext(context.Background()).WithName("Controllers").WithName("CinderBackup")
