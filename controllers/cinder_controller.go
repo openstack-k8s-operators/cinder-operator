@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
@@ -106,6 +105,8 @@ func (r *CinderReconciler) GetLogger(ctx context.Context) logr.Logger {
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;create;update;patch;delete;watch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;create;update;patch;delete;watch
 // +kubebuilder:rbac:groups=mariadb.openstack.org,resources=mariadbdatabases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=mariadb.openstack.org,resources=mariadbaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=mariadb.openstack.org,resources=mariadbaccounts/finalizers,verbs=update
 // +kubebuilder:rbac:groups=memcached.openstack.org,resources=memcacheds,verbs=get;list;watch;
 // +kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapis,verbs=get;list;watch
 // +kubebuilder:rbac:groups=rabbitmq.openstack.org,resources=transporturls,verbs=get;list;watch;create;update;patch;delete
@@ -251,7 +252,7 @@ func (r *CinderReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 	// reconciliation for a Cinder CR that does not need it.
 	//
 	// TODO: We also need a watch func to monitor for changes to the secret referenced by Cinder.Spec.Secret
-	transportURLSecretFn := func(o client.Object) []reconcile.Request {
+	transportURLSecretFn := func(ctx context.Context, o client.Object) []reconcile.Request {
 		result := []reconcile.Request{}
 
 		Log := r.GetLogger(ctx)
@@ -287,7 +288,7 @@ func (r *CinderReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 		return nil
 	}
 
-	memcachedFn := func(o client.Object) []reconcile.Request {
+	memcachedFn := func(ctx context.Context, o client.Object) []reconcile.Request {
 		Log := r.GetLogger(ctx)
 
 		result := []reconcile.Request{}
@@ -321,6 +322,7 @@ func (r *CinderReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.Cinder{}).
 		Owns(&mariadbv1.MariaDBDatabase{}).
+		Owns(&mariadbv1.MariaDBAccount{}).
 		Owns(&cinderv1beta1.CinderAPI{}).
 		Owns(&cinderv1beta1.CinderScheduler{}).
 		Owns(&cinderv1beta1.CinderBackup{}).
@@ -333,9 +335,9 @@ func (r *CinderReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 		Owns(&rbacv1.Role{}).
 		Owns(&rbacv1.RoleBinding{}).
 		// Watch for TransportURL Secrets which belong to any TransportURLs created by Cinder CRs
-		Watches(&source.Kind{Type: &corev1.Secret{}},
+		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(transportURLSecretFn)).
-		Watches(&source.Kind{Type: &memcachedv1.Memcached{}},
+		Watches(&memcachedv1.Memcached{},
 			handler.EnqueueRequestsFromMapFunc(memcachedFn)).
 		Complete(r)
 }
@@ -521,7 +523,6 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	//
 
 	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels)
-
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.RabbitMqTransportURLReadyCondition,
@@ -1064,7 +1065,6 @@ func (r *CinderReconciler) getCinderMemcached(
 }
 
 func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderAPI, controllerutil.OperationResult, error) {
-
 	cinderAPISpec := cinderv1beta1.CinderAPISpec{
 		CinderTemplate:     instance.Spec.CinderTemplate,
 		CinderAPITemplate:  instance.Spec.CinderAPI,
@@ -1099,7 +1099,6 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, inst
 }
 
 func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderScheduler, controllerutil.OperationResult, error) {
-
 	cinderSchedulerSpec := cinderv1beta1.CinderSchedulerSpec{
 		CinderTemplate:          instance.Spec.CinderTemplate,
 		CinderSchedulerTemplate: instance.Spec.CinderScheduler,
@@ -1135,7 +1134,6 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context
 }
 
 func (r *CinderReconciler) backupDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderBackup, controllerutil.OperationResult, error) {
-
 	cinderBackupSpec := cinderv1beta1.CinderBackupSpec{
 		CinderTemplate:       instance.Spec.CinderTemplate,
 		CinderBackupTemplate: instance.Spec.CinderBackup,
@@ -1198,7 +1196,6 @@ func (r *CinderReconciler) backupCleanupDeployment(ctx context.Context, instance
 }
 
 func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, name string, volTemplate cinderv1beta1.CinderVolumeTemplate) (*cinderv1beta1.CinderVolume, controllerutil.OperationResult, error) {
-
 	cinderVolumeSpec := cinderv1beta1.CinderVolumeSpec{
 		CinderTemplate:       instance.Spec.CinderTemplate,
 		CinderVolumeTemplate: volTemplate,

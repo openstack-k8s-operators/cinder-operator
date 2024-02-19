@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
@@ -85,15 +84,13 @@ func (r *CinderAPIReconciler) GetLogger(ctx context.Context) logr.Logger {
 	return log.FromContext(ctx).WithName("Controllers").WithName("CinderAPI")
 }
 
-var (
-	keystoneServices = []map[string]string{
-		{
-			"type": cinder.ServiceTypeV3,
-			"name": cinder.ServiceNameV3,
-			"desc": "Cinder V3 Service",
-		},
-	}
-)
+var keystoneServices = []map[string]string{
+	{
+		"type": cinder.ServiceTypeV3,
+		"name": cinder.ServiceNameV3,
+		"desc": "Cinder V3 Service",
+	},
+}
 
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cinderapis,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cinderapis/status,verbs=get;update;patch
@@ -206,7 +203,7 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 
 	// Watch for changes to secrets we don't own. Global secrets
 	// (e.g. TransportURLSecret) are handled by the main cinder controller.
-	secretFn := func(o client.Object) []reconcile.Request {
+	secretFn := func(ctx context.Context, o client.Object) []reconcile.Request {
 		var namespace string = o.GetNamespace()
 		var secretName string = o.GetName()
 		result := []reconcile.Request{}
@@ -314,17 +311,17 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&corev1.Service{}).
 		// watch the secrets we don't own
-		Watches(&source.Kind{Type: &corev1.Secret{}},
+		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(secretFn)).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
+			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
 
-func (r *CinderAPIReconciler) findObjectsForSrc(src client.Object) []reconcile.Request {
+func (r *CinderAPIReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
 	l := log.FromContext(context.Background()).WithName("Controllers").WithName("CinderAPI")
@@ -714,7 +711,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	//
 	serviceLabels := map[string]string{
 		common.AppSelector:       cinder.ServiceName,
-		common.ComponentSelector: cinderapi.Component,
+		common.ComponentSelector: cinderapi.ComponentName,
 	}
 
 	//

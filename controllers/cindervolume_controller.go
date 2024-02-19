@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
@@ -180,7 +179,7 @@ func (r *CinderVolumeReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 	// (e.g. TransportURLSecret) are handled by the main cinder controller.
 	Log := r.GetLogger(ctx)
 
-	secretFn := func(o client.Object) []reconcile.Request {
+	secretFn := func(ctx context.Context, o client.Object) []reconcile.Request {
 		var namespace string = o.GetNamespace()
 		var secretName string = o.GetName()
 		result := []reconcile.Request{}
@@ -261,17 +260,17 @@ func (r *CinderVolumeReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 		For(&cinderv1beta1.CinderVolume{}).
 		Owns(&appsv1.StatefulSet{}).
 		// watch the secrets we don't own
-		Watches(&source.Kind{Type: &corev1.Secret{}},
+		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(secretFn)).
 		Watches(
-			&source.Kind{Type: &corev1.Secret{}},
+			&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)
 }
 
-func (r *CinderVolumeReconciler) findObjectsForSrc(src client.Object) []reconcile.Request {
+func (r *CinderVolumeReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
 	l := log.FromContext(context.Background()).WithName("Controllers").WithName("CinderVolume")
@@ -417,8 +416,8 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 	serviceLabels := map[string]string{
 		common.AppSelector:       cinder.ServiceName,
-		common.ComponentSelector: cindervolume.Component,
-		cindervolume.Backend:     instance.Name[len(cindervolume.Component)+1:],
+		common.ComponentSelector: cindervolume.ComponentName,
+		cindervolume.Backend:     instance.Name[len(cindervolume.ComponentName)+1:],
 	}
 
 	//
@@ -769,19 +768,15 @@ func processCustomServiceConfig(customServiceConfig string) (bool, string) {
 		if token == "enabled_backends" {
 			// Note when the CR already specifies the enabled_backends
 			hasEnabledBackends = true
-
 		} else if token == "[DEFAULT]" {
 			// Note when the customServiceConfig contains a [DEFAULT] section
 			defaultSectionIdx = idx
-
 		} else if strings.HasPrefix(token, "[") && strings.HasSuffix(token, "]") {
 			// Note the section name before looking for a volume_backend_name
 			sectionName = strings.Trim(token, "[]")
-
 		} else if token == "volume_backend_name" {
 			// The section name is used in the list of enabled_backends
 			backendNames = append(backendNames, sectionName)
-
 		} else if token == "volume_driver" {
 			numDrivers++
 			if strings.HasSuffix(line, ".LVMVolumeDriver") {
@@ -801,14 +796,12 @@ func processCustomServiceConfig(customServiceConfig string) (bool, string) {
 	if hasEnabledBackends || len(backendNames) == 0 {
 		// Nothing to do, just return the original customServiceConfig
 		extendedConfig = customServiceConfig
-
 	} else if defaultSectionIdx == -1 {
 		// Prepend a new [DEFAULT] section that specifies the enabled_backends
 		extendedConfig = fmt.Sprintf(
 			"[DEFAULT]\nenabled_backends=%s\n%s",
 			strings.Join(backendNames, ","),
 			customServiceConfig)
-
 	} else {
 		// Replace the "[DEFAULT]" line in svcConfigLines with text that includes the enabled_backends
 		svcConfigLines[defaultSectionIdx] = fmt.Sprintf(
