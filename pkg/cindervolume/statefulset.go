@@ -19,7 +19,6 @@ import (
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	cinder "github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	common "github.com/openstack-k8s-operators/lib-common/modules/common"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/affinity"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -101,7 +100,17 @@ func StatefulSet(
 	envVars["MALLOC_MMAP_THRESHOLD_"] = env.SetValue("131072")
 	envVars["MALLOC_TRIM_THRESHOLD_"] = env.SetValue("262144")
 
+	volumes := GetVolumes(
+		cinder.GetOwningCinderName(instance),
+		instance.Name,
+		instance.Spec.ExtraMounts)
 	volumeMounts := GetVolumeMounts(instance.Name, instance.Spec.ExtraMounts)
+
+	// Add the CA bundle
+	if instance.Spec.TLS.CaBundleSecretName != "" {
+		volumes = append(volumes, instance.Spec.TLS.CreateVolume())
+		volumeMounts = append(volumeMounts, instance.Spec.TLS.CreateVolumeMounts(nil)...)
+	}
 
 	statefulset := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -127,7 +136,7 @@ func StatefulSet(
 					HostPID: true,
 					Containers: []corev1.Container{
 						{
-							Name: cinder.ServiceName + "-volume",
+							Name: ComponentName,
 							Command: []string{
 								"/bin/bash",
 							},
@@ -154,28 +163,12 @@ func StatefulSet(
 							VolumeMounts: volumeMounts,
 						},
 					},
+					Affinity:     cinder.GetPodAffinity(ComponentName),
 					NodeSelector: instance.Spec.NodeSelector,
+					Volumes:      volumes,
 				},
 			},
 		},
-	}
-	statefulset.Spec.Template.Spec.Volumes = GetVolumes(
-		cinder.GetOwningCinderName(instance),
-		instance.Name,
-		instance.Spec.ExtraMounts)
-
-	// If possible two pods of the same service should not
-	// run on the same worker node. If this is not possible
-	// the get still created on the same worker node.
-	statefulset.Spec.Template.Spec.Affinity = affinity.DistributePods(
-		common.AppSelector,
-		[]string{
-			cinder.ServiceName,
-		},
-		corev1.LabelHostname,
-	)
-	if instance.Spec.NodeSelector != nil && len(instance.Spec.NodeSelector) > 0 {
-		statefulset.Spec.Template.Spec.NodeSelector = instance.Spec.NodeSelector
 	}
 
 	return statefulset

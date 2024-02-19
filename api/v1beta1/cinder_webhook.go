@@ -22,11 +22,12 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // CinderDefaults -
@@ -112,25 +113,25 @@ func (spec *CinderSpec) Default() {
 var _ webhook.Validator = &Cinder{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Cinder) ValidateCreate() error {
+func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
 	cinderlog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Cinder) ValidateUpdate(old runtime.Object) error {
+func (r *Cinder) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	cinderlog.Info("validate update", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object update.
-	return nil
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Cinder) ValidateDelete() error {
+func (r *Cinder) ValidateDelete() (admission.Warnings, error) {
 	cinderlog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
-	return nil
+	return nil, nil
 }

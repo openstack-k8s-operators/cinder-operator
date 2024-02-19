@@ -19,8 +19,9 @@ import (
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	cinder "github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	common "github.com/openstack-k8s-operators/lib-common/modules/common"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/affinity"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -39,7 +40,7 @@ func StatefulSet(
 	configHash string,
 	labels map[string]string,
 	annotations map[string]string,
-) *appsv1.StatefulSet {
+) (*appsv1.StatefulSet, error) {
 	runAsUser := int64(0)
 
 	livenessProbe := &corev1.Probe{
@@ -74,6 +75,43 @@ func StatefulSet(
 			Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(cinder.CinderPublicPort)},
 		}
 		readinessProbe.HTTPGet = livenessProbe.HTTPGet
+
+		if instance.Spec.TLS.API.Enabled(service.EndpointPublic) {
+			livenessProbe.HTTPGet.Scheme = corev1.URISchemeHTTPS
+			readinessProbe.HTTPGet.Scheme = corev1.URISchemeHTTPS
+		}
+	}
+
+	// create Volume and VolumeMounts
+	volumes := GetVolumes(
+		cinder.GetOwningCinderName(instance),
+		instance.Name,
+		instance.Spec.ExtraMounts)
+	volumeMounts := GetVolumeMounts(instance.Spec.ExtraMounts)
+
+	// add CA cert if defined
+	if instance.Spec.TLS.CaBundleSecretName != "" {
+		volumes = append(volumes, instance.Spec.TLS.CreateVolume())
+		volumeMounts = append(volumeMounts, instance.Spec.TLS.CreateVolumeMounts(nil)...)
+	}
+
+	for _, endpt := range []service.Endpoint{service.EndpointInternal, service.EndpointPublic} {
+		if instance.Spec.TLS.API.Enabled(endpt) {
+			var tlsEndptCfg tls.GenericService
+			switch endpt {
+			case service.EndpointPublic:
+				tlsEndptCfg = instance.Spec.TLS.API.Public
+			case service.EndpointInternal:
+				tlsEndptCfg = instance.Spec.TLS.API.Internal
+			}
+
+			svc, err := tlsEndptCfg.ToService()
+			if err != nil {
+				return nil, err
+			}
+			volumes = append(volumes, svc.CreateVolume(endpt.String()))
+			volumeMounts = append(volumeMounts, svc.CreateVolumeMounts(endpt.String())...)
+		}
 	}
 
 	envVars := map[string]env.Setter{}
@@ -123,7 +161,7 @@ func StatefulSet(
 							Resources:    instance.Spec.Resources,
 						},
 						{
-							Name: cinder.ServiceName + "-api",
+							Name: ComponentName,
 							Command: []string{
 								"/bin/bash",
 							},
@@ -133,35 +171,19 @@ func StatefulSet(
 								RunAsUser: &runAsUser,
 							},
 							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:   GetVolumeMounts(instance.Spec.ExtraMounts),
+							VolumeMounts:   volumeMounts,
 							Resources:      instance.Spec.Resources,
 							ReadinessProbe: readinessProbe,
 							LivenessProbe:  livenessProbe,
 						},
 					},
+					Affinity:     cinder.GetPodAffinity(ComponentName),
 					NodeSelector: instance.Spec.NodeSelector,
+					Volumes:      volumes,
 				},
 			},
 		},
 	}
-	statefulset.Spec.Template.Spec.Volumes = GetVolumes(
-		cinder.GetOwningCinderName(instance),
-		instance.Name,
-		instance.Spec.ExtraMounts)
 
-	// If possible two pods of the same service should not
-	// run on the same worker node. If this is not possible
-	// the get still created on the same worker node.
-	statefulset.Spec.Template.Spec.Affinity = affinity.DistributePods(
-		common.AppSelector,
-		[]string{
-			cinder.ServiceName,
-		},
-		corev1.LabelHostname,
-	)
-	if instance.Spec.NodeSelector != nil && len(instance.Spec.NodeSelector) > 0 {
-		statefulset.Spec.Template.Spec.NodeSelector = instance.Spec.NodeSelector
-	}
-
-	return statefulset
+	return statefulset, nil
 }

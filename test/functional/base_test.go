@@ -15,6 +15,9 @@ package functional
 
 import (
 	"fmt"
+
+	"golang.org/x/exp/maps"
+
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -75,6 +78,16 @@ func GetDefaultCinderSpec() map[string]interface{} {
 	}
 }
 
+func GetTLSCinderSpec() map[string]interface{} {
+	return map[string]interface{}{
+		"databaseInstance": "openstack",
+		"secret":           SecretName,
+		"cinderAPI":        GetTLSCinderAPISpec(),
+		"cinderScheduler":  GetDefaultCinderSchedulerSpec(),
+		"cinderVolume":     GetDefaultCinderVolumeSpec(),
+	}
+}
+
 func GetDefaultCinderAPISpec() map[string]interface{} {
 	return map[string]interface{}{
 		"secret":             SecretName,
@@ -84,6 +97,25 @@ func GetDefaultCinderAPISpec() map[string]interface{} {
 		"databaseHostname":   cinderTest.DatabaseHostname,
 		"transportURLSecret": cinderTest.RabbitmqSecretName,
 	}
+}
+
+func GetTLSCinderAPISpec() map[string]interface{} {
+	spec := GetDefaultCinderAPISpec()
+	maps.Copy(spec, map[string]interface{}{
+		"tls": map[string]interface{}{
+			"api": map[string]interface{}{
+				"internal": map[string]interface{}{
+					"secretName": InternalCertSecretName,
+				},
+				"public": map[string]interface{}{
+					"secretName": PublicCertSecretName,
+				},
+			},
+			"caBundleSecretName": CABundleSecretName,
+		},
+	})
+
+	return spec
 }
 
 func GetDefaultCinderSchedulerSpec() map[string]interface{} {
@@ -200,6 +232,11 @@ func GetCinderVolume(name types.NamespacedName) *cinderv1.CinderVolume {
 
 func CinderAPIConditionGetter(name types.NamespacedName) condition.Conditions {
 	instance := GetCinderAPI(name)
+	return instance.Status.Conditions
+}
+
+func CinderSchedulerConditionGetter(name types.NamespacedName) condition.Conditions {
+	instance := GetCinderScheduler(name)
 	return instance.Status.Conditions
 }
 

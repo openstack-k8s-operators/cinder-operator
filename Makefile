@@ -62,7 +62,7 @@ OPERATOR_SDK_VERSION ?= v1.31.0
 DEFAULT_IMG ?= quay.io/openstack-k8s-operators/cinder-operator:latest
 IMG ?= $(DEFAULT_IMG)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.26
+ENVTEST_K8S_VERSION = 1.28
 
 GINKGO ?= $(LOCALBIN)/ginkgo
 
@@ -93,6 +93,9 @@ endif
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
+
+# Extra vars to pass the docker-build target
+DOCKER_BUILD_ARGS ?=
 
 .PHONY: all
 all: build
@@ -182,7 +185,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	podman build --build-arg GOWORK=$(GOWORK) -t ${IMG} .
+	podman build --build-arg GOWORK=$(GOWORK) ${DOCKER_BUILD_ARGS} -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.

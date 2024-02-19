@@ -24,15 +24,19 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
@@ -49,6 +53,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/statefulset"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 )
 
@@ -79,15 +84,13 @@ func (r *CinderAPIReconciler) GetLogger(ctx context.Context) logr.Logger {
 	return log.FromContext(ctx).WithName("Controllers").WithName("CinderAPI")
 }
 
-var (
-	keystoneServices = []map[string]string{
-		{
-			"type": cinder.ServiceTypeV3,
-			"name": cinder.ServiceNameV3,
-			"desc": "Cinder V3 Service",
-		},
-	}
-)
+var keystoneServices = []map[string]string{
+	{
+		"type": cinder.ServiceTypeV3,
+		"name": cinder.ServiceNameV3,
+		"desc": "Cinder V3 Service",
+	},
+}
 
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cinderapis,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cinderapis/status,verbs=get;update;patch
@@ -164,6 +167,7 @@ func (r *CinderAPIReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			condition.UnknownCondition(condition.KeystoneServiceReadyCondition, condition.InitReason, ""),
 			condition.UnknownCondition(condition.KeystoneEndpointReadyCondition, condition.InitReason, ""),
 			condition.UnknownCondition(condition.NetworkAttachmentsReadyCondition, condition.InitReason, condition.NetworkAttachmentsReadyInitMessage),
+			condition.UnknownCondition(condition.TLSInputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
 		)
 
 		instance.Status.Conditions.Init(&cl)
@@ -199,7 +203,7 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 
 	// Watch for changes to secrets we don't own. Global secrets
 	// (e.g. TransportURLSecret) are handled by the main cinder controller.
-	secretFn := func(o client.Object) []reconcile.Request {
+	secretFn := func(ctx context.Context, o client.Object) []reconcile.Request {
 		var namespace string = o.GetNamespace()
 		var secretName string = o.GetName()
 		result := []reconcile.Request{}
@@ -252,6 +256,54 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		return nil
 	}
 
+	// index passwordSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &cinderv1beta1.CinderAPI{}, passwordSecretField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*cinderv1beta1.CinderAPI)
+		if cr.Spec.Secret == "" {
+			return nil
+		}
+		return []string{cr.Spec.Secret}
+	}); err != nil {
+		return err
+	}
+
+	// index caBundleSecretNameField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &cinderv1beta1.CinderAPI{}, caBundleSecretNameField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*cinderv1beta1.CinderAPI)
+		if cr.Spec.TLS.CaBundleSecretName == "" {
+			return nil
+		}
+		return []string{cr.Spec.TLS.CaBundleSecretName}
+	}); err != nil {
+		return err
+	}
+
+	// index tlsAPIInternalField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &cinderv1beta1.CinderAPI{}, tlsAPIInternalField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*cinderv1beta1.CinderAPI)
+		if cr.Spec.TLS.API.Internal.SecretName == nil {
+			return nil
+		}
+		return []string{*cr.Spec.TLS.API.Internal.SecretName}
+	}); err != nil {
+		return err
+	}
+
+	// index tlsAPIPublicField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &cinderv1beta1.CinderAPI{}, tlsAPIPublicField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*cinderv1beta1.CinderAPI)
+		if cr.Spec.TLS.API.Public.SecretName == nil {
+			return nil
+		}
+		return []string{*cr.Spec.TLS.API.Public.SecretName}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.CinderAPI{}).
 		Owns(&keystonev1.KeystoneService{}).
@@ -259,9 +311,47 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&corev1.Service{}).
 		// watch the secrets we don't own
-		Watches(&source.Kind{Type: &corev1.Secret{}},
+		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(secretFn)).
+		Watches(
+			&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(r)
+}
+
+func (r *CinderAPIReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
+	requests := []reconcile.Request{}
+
+	l := log.FromContext(context.Background()).WithName("Controllers").WithName("CinderAPI")
+
+	for _, field := range cinderAPIWatchFields {
+		crList := &cinderv1beta1.CinderAPIList{}
+		listOps := &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(field, src.GetName()),
+			Namespace:     src.GetNamespace(),
+		}
+		err := r.List(context.TODO(), crList, listOps)
+		if err != nil {
+			return []reconcile.Request{}
+		}
+
+		for _, item := range crList.Items {
+			l.Info(fmt.Sprintf("input source %s changed, reconcile: %s - %s", src.GetName(), item.GetName(), item.GetNamespace()))
+
+			requests = append(requests,
+				reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      item.GetName(),
+						Namespace: item.GetNamespace(),
+					},
+				},
+			)
+		}
+	}
+
+	return requests
 }
 
 func (r *CinderAPIReconciler) reconcileDelete(ctx context.Context, instance *cinderv1beta1.CinderAPI, helper *helper.Helper) (ctrl.Result, error) {
@@ -422,7 +512,12 @@ func (r *CinderAPIReconciler) reconcileInit(
 		}
 		// create service - end
 
-		// TODO: TLS, pass in https as protocol, create TLS cert
+		// if TLS is enabled
+		if instance.Spec.TLS.API.Enabled(endpointType) {
+			// set endpoint protocol to https
+			data.Protocol = ptr.To(service.ProtocolHTTPS)
+		}
+
 		apiEndpointsV3[string(endpointType)], err = svc.GetAPIEndpoint(
 			svcOverride.EndpointURL, data.Protocol, data.Path)
 		if err != nil {
@@ -560,14 +655,63 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 			return ctrlResult, err
 		}
 	}
+
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
+
+	//
+	// TLS input validation
+	//
+	// Validate the CA cert secret if provided
+	if instance.Spec.TLS.CaBundleSecretName != "" {
+		hash, ctrlResult, err := tls.ValidateCACertSecret(
+			ctx,
+			helper.GetClient(),
+			types.NamespacedName{
+				Name:      instance.Spec.TLS.CaBundleSecretName,
+				Namespace: instance.Namespace,
+			},
+		)
+		if err != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				condition.TLSInputReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.TLSInputErrorMessage,
+				err.Error()))
+			return ctrlResult, err
+		} else if (ctrlResult != ctrl.Result{}) {
+			return ctrlResult, nil
+		}
+
+		if hash != "" {
+			configVars[tls.CABundleKey] = env.SetValue(hash)
+		}
+	}
+
+	// Validate API service certs secrets
+	certsHash, ctrlResult, err := instance.Spec.TLS.API.ValidateCertSecrets(ctx, helper, instance.Namespace)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.TLSInputReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.TLSInputErrorMessage,
+			err.Error()))
+		return ctrlResult, err
+	} else if (ctrlResult != ctrl.Result{}) {
+		return ctrlResult, nil
+	}
+	configVars[tls.TLSHashName] = env.SetValue(certsHash)
+
+	// all cert input checks out so report InputReady
+	instance.Status.Conditions.MarkTrue(condition.TLSInputReadyCondition, condition.InputReadyMessage)
 
 	//
 	// Create secrets required as input for the Service and calculate an overall hash of hashes
 	//
 	serviceLabels := map[string]string{
 		common.AppSelector:       cinder.ServiceName,
-		common.ComponentSelector: cinderapi.Component,
+		common.ComponentSelector: cinderapi.ComponentName,
 	}
 
 	//
@@ -584,24 +728,6 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 		return ctrl.Result{}, err
 	}
 
-	//
-	// create hash over all the different input resources to identify if any those changed
-	// and a restart/recreate is required.
-	//
-	inputHash, hashChanged, err := r.createHashOfInputHashes(ctx, instance, configVars)
-	if err != nil {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.ServiceConfigReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.ServiceConfigReadyErrorMessage,
-			err.Error()))
-		return ctrl.Result{}, err
-	} else if hashChanged {
-		// Hash changed and instance status should be updated (which will be done by main defer func),
-		// so we need to return and reconcile again
-		return ctrl.Result{}, nil
-	}
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
 	//
@@ -665,8 +791,36 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	// normal reconcile tasks
 	//
 
+	//
+	// create hash over all the different input resources to identify if any those changed
+	// and a restart/recreate is required.
+	//
+	inputHash, hashChanged, err := r.createHashOfInputHashes(ctx, instance, configVars)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ServiceConfigReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.ServiceConfigReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	} else if hashChanged {
+		// Hash changed and instance status should be updated (which will be done by main defer func),
+		// so we need to return and reconcile again
+		return ctrl.Result{}, nil
+	}
+
 	// Deploy a statefulset
-	ssDef := cinderapi.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations)
+	ssDef, err := cinderapi.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DeploymentReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DeploymentReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
 	ss := statefulset.NewStatefulSet(
 		ssDef,
 		time.Duration(5)*time.Second,

@@ -19,12 +19,19 @@ package functional
 
 import (
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
 	// MemcachedInstance - name of the memcached instance
 	MemcachedInstance = "memcached"
+	//PublicCertSecretName -
+	PublicCertSecretName = "public-tls-certs"
+	//InternalCertSecretName -
+	InternalCertSecretName = "internal-tls-certs"
+	//CABundleSecretName -
+	CABundleSecretName = "combined-ca-bundle"
 )
 
 // CinderTestData is the data structure used to provide input data to envTest
@@ -55,6 +62,9 @@ type CinderTestData struct {
 	CinderVolumes          []types.NamespacedName
 	InternalAPINAD         types.NamespacedName
 	ContainerImage         string
+	CABundleSecret         types.NamespacedName
+	InternalCertSecret     types.NamespacedName
+	PublicCertSecret       types.NamespacedName
 }
 
 // GetCinderTestData is a function that initialize the CinderTestData
@@ -149,5 +159,17 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		CinderServiceUser: "cinder",
 		ContainerImage:    "test://cinder",
 		DatabaseHostname:  "database-hostname",
+		CABundleSecret: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      CABundleSecretName,
+		},
+		InternalCertSecret: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      InternalCertSecretName,
+		},
+		PublicCertSecret: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      PublicCertSecretName,
+		},
 	}
 }

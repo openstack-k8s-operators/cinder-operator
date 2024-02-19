@@ -19,6 +19,7 @@ import (
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 
 	"fmt"
+
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,6 +75,12 @@ func CronJob(
 			MountPath: "/etc/cinder/cinder.conf.d",
 			ReadOnly:  true,
 		},
+	}
+
+	// add CA cert if defined
+	if instance.Spec.CinderAPI.TLS.CaBundleSecretName != "" {
+		cronJobVolumes = append(cronJobVolumes, instance.Spec.CinderAPI.TLS.CreateVolume())
+		cronJobVolumeMounts = append(cronJobVolumeMounts, instance.Spec.CinderAPI.TLS.CreateVolumeMounts(nil)...)
 	}
 
 	cronjob := &batchv1.CronJob{
