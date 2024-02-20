@@ -121,6 +121,10 @@ spec:
         - mountPath: /var/lib/config-data/merged
           name: config-data
           readOnly: true
+        - mountPath: /etc/my.cnf
+          name: config-data
+          readOnly: true
+          subPath: my.cnf
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
           readOnly: true

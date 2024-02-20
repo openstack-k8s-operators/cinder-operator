@@ -83,6 +83,10 @@ spec:
         - mountPath: /var/lib/config-data/merged
           name: config-data
           readOnly: true
+        - mountPath: /etc/my.cnf
+          name: config-data
+          readOnly: true
+          subPath: my.cnf
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
           readOnly: true
@@ -175,6 +179,10 @@ spec:
         - mountPath: /var/lib/config-data/merged
           name: config-data
           readOnly: true
+        - mountPath: /etc/my.cnf
+          name: config-data
+          readOnly: true
+          subPath: my.cnf
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
           readOnly: true
@@ -203,6 +211,10 @@ spec:
         - mountPath: /var/lib/config-data/merged
           name: config-data
           readOnly: true
+        - mountPath: /etc/my.cnf
+          name: config-data
+          readOnly: true
+          subPath: my.cnf
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
           readOnly: true
@@ -267,6 +279,10 @@ spec:
         - mountPath: /var/lib/config-data/merged
           name: config-data
           readOnly: true
+        - mountPath: /etc/my.cnf
+          name: config-data
+          readOnly: true
+          subPath: my.cnf
         - mountPath: /var/lib/cinder
           name: var-lib-cinder
         - mountPath: /etc/nvme
@@ -315,6 +331,10 @@ spec:
         - mountPath: /var/lib/config-data/merged
           name: config-data
           readOnly: true
+        - mountPath: /etc/my.cnf
+          name: config-data
+          readOnly: true
+          subPath: my.cnf
         - mountPath: /var/lib/cinder
           name: var-lib-cinder
         - mountPath: /etc/nvme

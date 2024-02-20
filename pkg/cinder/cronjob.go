@@ -17,6 +17,7 @@ package cinder
 
 import (
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
+	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 
 	"fmt"
 
@@ -75,6 +76,12 @@ func CronJob(
 			MountPath: "/etc/cinder/cinder.conf.d",
 			ReadOnly:  true,
 		},
+		{
+			Name:      "config-data",
+			MountPath: "/etc/my.cnf",
+			SubPath:   MyCnfFileName,
+			ReadOnly:  true,
+		},
 	}
 
 	// add CA cert if defined
@@ -82,6 +89,8 @@ func CronJob(
 		cronJobVolumes = append(cronJobVolumes, instance.Spec.CinderAPI.TLS.CreateVolume())
 		cronJobVolumeMounts = append(cronJobVolumeMounts, instance.Spec.CinderAPI.TLS.CreateVolumeMounts(nil)...)
 	}
+
+	cronJobExtraMounts := []cinderv1beta1.CinderExtraVolMounts{}
 
 	cronjob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
@@ -122,7 +131,7 @@ func CronJob(
 									},
 								},
 							},
-							Volumes:            cronJobVolumes,
+							Volumes:            append(GetVolumes(instance.Name, false, cronJobExtraMounts, DbsyncPropagation), cronJobVolumes...),
 							RestartPolicy:      corev1.RestartPolicyNever,
 							ServiceAccountName: instance.RbacResourceName(),
 						},
