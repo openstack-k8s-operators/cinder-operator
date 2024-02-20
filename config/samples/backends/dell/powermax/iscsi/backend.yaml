@@ -1,0 +1,30 @@
+# To be able to use this sample it is necessary to:
+# - Have a Dell PowerMax backend with iSCSI support
+# - Have the Unisphere for PowerMax credentials in cinder-volume-powermax-secrets.yaml
+# - Having iscsid and multpathd running on the host (automatically done by this sample)
+#
+# The correct way to configure and run the daemons is using `MachineConfig` as shown in `iscsid.yaml` and `multipathd.yaml`, like this sample does.
+#
+# ATTENTION: After applying this OpenShift nodes will reboot, because of the `MachineConfig` changes and will take a while to recover.
+
+apiVersion: core.openstack.org/v1beta1
+kind: OpenStackControlPlane
+metadata:
+  name: openstack
+spec:
+  cinder:
+    template:
+      cinderVolumes:
+        powermax-iscsi:
+          networkAttachments:
+          - storage
+          customServiceConfigSecrets:
+          - cinder-volume-powermax-secrets
+          customServiceConfig: |
+            [powermax-iscsi]
+            volume_backend_name=powermax
+            volume_driver = cinder.volume.drivers.dell_emc.powermax.iscsi.PowerMaxISCSIDriver
+            powermax_port_groups = [OS-ISCSI-PG]
+            powermax_array = 000120001607
+            powermax_srp = SRP_1
+            image_volume_cache_enabled = True
