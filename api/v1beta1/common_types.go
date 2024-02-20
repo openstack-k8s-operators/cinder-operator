@@ -29,17 +29,16 @@ type CinderTemplate struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=cinder
-	// DatabaseUser - optional username used for cinder DB, defaults to cinder
-	// TODO: -> implement needs work in mariadb-operator, right now only cinder
-	DatabaseUser string `json:"databaseUser"`
+	// DatabaseAccount - optional MariaDBAccount used for cinder DB, defaults to cinder
+	DatabaseAccount string `json:"databaseAccount"`
 
 	// +kubebuilder:validation:Required
-	// Secret containing OpenStack password information for CinderDatabasePassword
+	// Secret containing OpenStack password information
 	Secret string `json:"secret"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default={database: CinderDatabasePassword, service: CinderPassword}
-	// PasswordSelectors - Selectors to identify the DB and ServiceUser password from the Secret
+	// +kubebuilder:default={service: CinderPassword}
+	// PasswordSelectors - Selectors to identify the ServiceUser password from the Secret
 	PasswordSelectors PasswordSelector `json:"passwordSelectors"`
 }
 
@@ -79,11 +78,6 @@ type CinderServiceTemplate struct {
 
 // PasswordSelector to identify the DB and AdminUser password from the Secret
 type PasswordSelector struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="CinderDatabasePassword"
-	// Database - Selector to get the cinder database user password from the Secret
-	// TODO: not used, need change in mariadb-operator
-	Database string `json:"database"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="CinderPassword"
 	// Service - Selector to get the cinder service password from the Secret

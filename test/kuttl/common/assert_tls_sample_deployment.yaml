@@ -8,7 +8,7 @@ spec:
     [DEFAULT]
     debug = true
   databaseInstance: openstack
-  databaseUser: cinder
+  databaseAccount: cinder
   rabbitMqClusterName: rabbitmq
   cinderAPI:
     replicas: 1
