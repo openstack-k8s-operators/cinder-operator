@@ -3,7 +3,9 @@
 # The correct way to configure the load of additional kernel modules is using `MachineConfig` as shown in `nvme-fabrics.yaml`.yaml`.
 # To create the LVM on CRC the sample also uses a `MachineConfig` using a systemd unit with file `lvm.yaml`
 #
-# ATTENTION: After applying this OpenShift nodes will reboot, because of the `MachineConfig` changes and will take a while to recover.
+# ATTENTION:
+# - Node where we want LVM to run needs to be labeled with openstack.org/cinder-lvm
+# - After applying this OpenShift nodes will reboot, because of the `MachineConfig` changes and will take a while to recover.
 apiVersion: core.openstack.org/v1beta1
 kind: OpenStackControlPlane
 metadata:
@@ -13,6 +15,8 @@ spec:
     template:
       cinderVolumes:
         lvm-nvme-tcp:
+          nodeSelector:
+            openstack.org/cinder-lvm: ""
           networkAttachments:
           - storage
           customServiceConfig: |

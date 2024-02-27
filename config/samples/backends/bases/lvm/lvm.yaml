@@ -1,3 +1,9 @@
+# This machine config creates a systemd unit that creates a file based LVM VG
+# called cinder-volumes and mounts it on each reboot.
+#
+# Even though the systemd unit will be deployed in ALL OCP master nodes it will
+# only really run on the nodes that have the "openstack.org/cinder-lvm"
+# label.
 apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:
@@ -17,19 +23,23 @@ spec:
         Contents:  |
           [Unit]
           Description=Cinder LVM losetup
-          DefaultDependencies=no
           Conflicts=umount.target
-          Requires=lvm2-monitor.service systemd-udev-settle.service
-          Before=local-fs.target umount.target
-          After=var.mount lvm2-monitor.service systemd-udev-settle.service
+          Requires=lvm2-monitor.service systemd-udev-settle.service kubelet.service
+          After=var.mount lvm2-monitor.service systemd-udev-settle.service kubelet.service
 
           [Service]
           Environment=VG_GB_SIZE=10G
           Environment=LOOPBACK_FILE=/var/home/core/cinder-volumes
-          Type=oneshot
-          ExecStart=bash -c "if [[ ! -e ${LOOPBACK_FILE} ]]; then /bin/truncate -s ${VG_GB_SIZE} ${LOOPBACK_FILE} && /sbin/vgcreate cinder-volumes `/sbin/losetup --show -f ${LOOPBACK_FILE}`; else /sbin/losetup -f ${LOOPBACK_FILE}; fi"
-          ExecStop=bash -c "/sbin/losetup -d `/sbin/losetup -j ${LOOPBACK_FILE} -l -n -O NAME`"
+          Environment=LABEL=openstack.org/cinder-lvm
+
+          # Waits until cluster is available by failing, then Restart kicks in after 5 seconds
+          ExecStartPre=oc --kubeconfig=/var/lib/kubelet/kubeconfig get node
+          ExecStart=bash -c "if [ \"$(oc --kubeconfig=/var/lib/kubelet/kubeconfig get node -l ${LABEL} -o name)\" = \"node/$(hostname)\" ]; then if [[ ! -e ${LOOPBACK_FILE} ]]; then /bin/truncate -s ${VG_GB_SIZE} ${LOOPBACK_FILE} && /sbin/vgcreate cinder-volumes `/sbin/losetup --show -f ${LOOPBACK_FILE}`; else /sbin/losetup -f ${LOOPBACK_FILE}; fi; fi"
+          ExecStop=bash -c "if vgdisplay cinder-volumes; then /sbin/losetup -d `/sbin/losetup -j ${LOOPBACK_FILE} -l -n -O NAME`; fi"
           RemainAfterExit=yes
 
+          Restart=on-failure
+          RestartSec=5
+
           [Install]
-          WantedBy=local-fs-pre.target
+          WantedBy=multi-user.target
