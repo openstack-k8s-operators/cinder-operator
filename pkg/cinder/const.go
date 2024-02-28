@@ -41,6 +41,8 @@ const (
 	CustomServiceConfigFileName = "03-service-custom.conf"
 	// CustomServiceConfigSecretsFileName -
 	CustomServiceConfigSecretsFileName = "04-service-custom-secrets.conf"
+	// MyCnfFileName -
+	MyCnfFileName = "my.cnf"
 
 	// CinderPublicPort -
 	CinderPublicPort int32 = 8776

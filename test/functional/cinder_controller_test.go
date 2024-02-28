@@ -25,6 +25,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	util "github.com/openstack-k8s-operators/lib-common/modules/common/util"
@@ -218,13 +219,17 @@ var _ = Describe("Cinder controller", func() {
 			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, "memcached", memcachedSpec))
 			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Instance)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
 		})
 		It("should create config-data and scripts ConfigMaps", func() {
 			keystoneAPI := keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPI)
-			Eventually(func() corev1.Secret {
-				return th.GetSecret(cinderTest.CinderConfigSecret)
-			}, timeout, interval).ShouldNot(BeNil())
+			cf := th.GetSecret(cinderTest.CinderConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			conf := cf.Data[cinder.MyCnfFileName]
+			Expect(conf).To(
+				ContainSubstring("[client]\nssl=0"))
 			Eventually(func() corev1.Secret {
 				return th.GetSecret(cinderTest.CinderConfigScripts)
 			}, timeout, interval).ShouldNot(BeNil())
@@ -461,7 +466,7 @@ var _ = Describe("Cinder controller", func() {
 			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
+			mariadb.SimulateMariaDBTLSDatabaseCompleted(cinderTest.Instance)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
 		})
 
@@ -508,6 +513,19 @@ var _ = Describe("Cinder controller", func() {
 				condition.ErrorReason,
 				fmt.Sprintf("TLSInput error occured in TLS sources Secret %s/public-tls-certs not found", namespace),
 			)
+		})
+
+		It("should create config-data and scripts ConfigMaps", func() {
+			keystoneAPI := keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPI)
+			cf := th.GetSecret(cinderTest.CinderConfigSecret)
+			Expect(cf).ShouldNot(BeNil())
+			conf := cf.Data[cinder.MyCnfFileName]
+			Expect(conf).To(
+				ContainSubstring("[client]\nssl-ca=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem\nssl=1"))
+			Eventually(func() corev1.Secret {
+				return th.GetSecret(cinderTest.CinderConfigScripts)
+			}, timeout, interval).ShouldNot(BeNil())
 		})
 
 		It("Creates CinderAPI", func() {

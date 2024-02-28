@@ -172,6 +172,12 @@ func GetVolumeMounts(storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMou
 			MountPath: "/var/lib/config-data/merged",
 			ReadOnly:  true,
 		},
+		{
+			Name:      "config-data",
+			MountPath: "/etc/my.cnf",
+			SubPath:   MyCnfFileName,
+			ReadOnly:  true,
+		},
 	}
 
 	// Volume and backup services require extra directories
