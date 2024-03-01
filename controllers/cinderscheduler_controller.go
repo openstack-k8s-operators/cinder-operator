@@ -410,6 +410,20 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	instance.Status.Conditions.MarkTrue(condition.TLSInputReadyCondition, condition.InputReadyMessage)
 
 	//
+	// Hash the nodeSelector so the pod is recreated when it changes
+	//
+	err = cinder.AddNodeSelectorHash(instance.Spec.NodeSelector, &configVars)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.ServiceConfigReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.ServiceConfigReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+
+	//
 	// Create ConfigMaps required as input for the Service and calculate an overall hash of hashes
 	//
 	serviceLabels := map[string]string{
