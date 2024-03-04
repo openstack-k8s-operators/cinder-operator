@@ -36,6 +36,7 @@
 
 from http import server
 import signal
+import socket
 import sys
 import time
 import threading
@@ -47,11 +48,12 @@ from cinder.volume import configuration as vol_conf
 from cinder import objects
 
 
-HOSTNAME = ''
 SERVER_PORT = 8080
 CONF = cfg.CONF
 BINARIES = ('volume', 'backup', 'scheduler')
 
+class HTTPServerV6(server.HTTPServer):
+  address_family = socket.AF_INET6
 
 class HeartbeatServer(server.BaseHTTPRequestHandler):
     @classmethod
@@ -164,7 +166,12 @@ if __name__ == "__main__":
 
     HeartbeatServer.initialize_class(binary)
 
-    webServer = server.HTTPServer((HOSTNAME, SERVER_PORT), HeartbeatServer)
+    hostname = socket.gethostname()
+    ipv6_address = socket.getaddrinfo(hostname, None, socket.AF_INET6)
+    if ipv6_address:
+        webServer = HTTPServerV6(("::",SERVER_PORT), HeartbeatServer)
+    else:
+        webServer = server.HTTPServer(("0.0.0.0", SERVER_PORT), HeartbeatServer)
     stop = get_stopper(webServer)
 
     # Need to run the server on a different thread because its shutdown method
@@ -173,7 +180,7 @@ if __name__ == "__main__":
     thread = threading.Thread(target=webServer.serve_forever)
     thread.daemon = True
     thread.start()
-    print(f"Cinder Healthcheck Server started http://{HOSTNAME}:{SERVER_PORT}")
+    print(f"Cinder Healthcheck Server started http://{hostname}:{SERVER_PORT}")
     signal.signal(signal.SIGTERM, stop)
 
     try:
