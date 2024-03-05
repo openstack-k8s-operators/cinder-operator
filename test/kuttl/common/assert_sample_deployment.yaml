@@ -31,7 +31,7 @@ metadata:
     kind: CinderAPI
     name: cinder-api
 spec:
-  podManagementPolicy: OrderedReady
+  podManagementPolicy: Parallel
   replicas: 1
   revisionHistoryLimit: 10
   selector:
