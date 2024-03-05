@@ -185,10 +185,6 @@ type DBPurge struct {
 type CinderDebug struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	// DBSync pauses the dbSync container instead of executing the db_sync command.
-	DBSync bool `json:"dbSync"`
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
 	// DBPurge increases log verbosity by executing the db_purge command with "--debug".
 	DBPurge bool `json:"dbPurge"`
 }

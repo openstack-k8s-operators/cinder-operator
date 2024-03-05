@@ -56,11 +56,6 @@ type CinderServiceTemplate struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// Debug - enable debug for different deploy stages. If an init container is used, it runs and the
-	// actual action pod gets started with sleep infinity
-	Debug CinderServiceDebug `json:"debug,omitempty"`
-
-	// +kubebuilder:validation:Optional
 	// CustomServiceConfig - customize the service config using this parameter to change service defaults,
 	// or overwrite rendered information using raw OpenStack config format. The content gets added to
 	// to /etc/<service>/<service>.conf.d directory as a custom config file.
@@ -93,13 +88,4 @@ type PasswordSelector struct {
 	// +kubebuilder:default="CinderPassword"
 	// Service - Selector to get the cinder service password from the Secret
 	Service string `json:"service"`
-}
-
-// CinderServiceDebug indicates whether certain stages of Cinder service
-// deployment should pause in debug mode
-type CinderServiceDebug struct {
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=false
-	// service enable debug
-	Service bool `json:"service"`
 }
