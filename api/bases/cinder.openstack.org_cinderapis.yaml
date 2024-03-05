@@ -48,10 +48,10 @@ spec:
                 items:
                   type: string
                 type: array
-              databaseHostname:
-                type: string
-              databaseUser:
+              databaseAccount:
                 default: cinder
+                type: string
+              databaseHostname:
                 type: string
               extraMounts:
                 items:
@@ -870,12 +870,8 @@ spec:
                 type: object
               passwordSelectors:
                 default:
-                  database: CinderDatabasePassword
                   service: CinderPassword
                 properties:
-                  database:
-                    default: CinderDatabasePassword
-                    type: string
                   service:
                     default: CinderPassword
                     type: string

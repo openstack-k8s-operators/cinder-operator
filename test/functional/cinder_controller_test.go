@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
@@ -29,6 +30,7 @@ import (
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	util "github.com/openstack-k8s-operators/lib-common/modules/common/util"
+	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
 )
 
 var _ = Describe("Cinder controller", func() {
@@ -63,7 +65,7 @@ var _ = Describe("Cinder controller", func() {
 		It("should have the Spec fields initialized", func() {
 			Cinder := GetCinder(cinderTest.Instance)
 			Expect(Cinder.Spec.DatabaseInstance).Should(Equal("openstack"))
-			Expect(Cinder.Spec.DatabaseUser).Should(Equal(cinderTest.CinderDataBaseUser))
+			Expect(Cinder.Spec.DatabaseAccount).Should(Equal(cinderTest.CinderDataBaseAccount))
 			Expect(Cinder.Spec.MemcachedInstance).Should(Equal(cinderTest.MemcachedInstance))
 			Expect(Cinder.Spec.RabbitMqClusterName).Should(Equal(cinderTest.RabbitmqClusterName))
 			Expect(Cinder.Spec.ServiceUser).Should(Equal(cinderTest.CinderServiceUser))
@@ -645,4 +647,84 @@ var _ = Describe("Cinder controller", func() {
 			}, timeout, interval).Should(Succeed())
 		})
 	})
+
+	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
+	// that exercise standard account create / update patterns that should be
+	// common to all controllers that ensure MariaDBAccount CRs.
+	mariadbSuite := &mariadb_test.MariaDBTestHarness{
+		PopulateHarness: func(harness *mariadb_test.MariaDBTestHarness) {
+			harness.Setup(
+				"Cinder",
+				cinderTest.Instance.Namespace,
+				cinderTest.Instance.Name,
+				"Cinder",
+				mariadb,
+				timeout,
+				interval,
+			)
+		},
+		// Generate a fully running Cinder service given an accountName
+		// needs to make it all the way to the end where the mariadb finalizers
+		// are removed from unused accounts since that's part of what we are testing
+		SetupCR: func(accountName types.NamespacedName) {
+			spec := GetTLSCinderSpec()
+			spec["databaseAccount"] = accountName.Name
+
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(th.DeleteInstance, CreateCinderAPI(cinderTest.Instance, GetDefaultCinderAPISpec()))
+			DeferCleanup(th.DeleteInstance, CreateCinderScheduler(cinderTest.Instance, GetDefaultCinderSchedulerSpec()))
+			DeferCleanup(th.DeleteInstance, CreateCinderVolume(cinderTest.Instance, GetDefaultCinderVolumeSpec()))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderName).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(accountName)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.InternalCertSecret))
+			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.PublicCertSecret))
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			th.AssertServiceExists(cinderTest.CinderServicePublic)
+			th.AssertServiceExists(cinderTest.CinderServiceInternal)
+
+			// check keystone endpoints
+			keystoneEndpoint := keystone.GetKeystoneEndpoint(cinderTest.CinderKeystoneEndpoint)
+			endpoints := keystoneEndpoint.Spec.Endpoints
+			Expect(endpoints).To(HaveKeyWithValue("public", "https://cinder-public."+namespace+".svc:8776/v3"))
+			Expect(endpoints).To(HaveKeyWithValue("internal", "https://cinder-internal."+namespace+".svc:8776/v3"))
+
+		},
+		// Change the account name in the service to a new name
+		UpdateAccount: func(newAccountName types.NamespacedName) {
+
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderName)
+				cinder.Spec.DatabaseAccount = newAccountName.Name
+				g.Expect(th.K8sClient.Update(ctx, cinder)).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+		},
+		// delete the instance to exercise finalizer removal
+		DeleteCR: func() {
+			th.DeleteInstance(GetCinder(cinderName))
+		},
+	}
+
+	mariadbSuite.RunBasicSuite()
+
 })

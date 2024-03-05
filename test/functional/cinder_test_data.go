@@ -39,7 +39,7 @@ type CinderTestData struct {
 	RabbitmqClusterName    string
 	RabbitmqSecretName     string
 	MemcachedInstance      string
-	CinderDataBaseUser     string
+	CinderDataBaseAccount  string
 	CinderPassword         string
 	CinderServiceUser      string
 	DatabaseHostname       string
@@ -150,10 +150,10 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 			Namespace: cinderName.Namespace,
 			Name:      "internalapi",
 		},
-		RabbitmqClusterName: "rabbitmq",
-		RabbitmqSecretName:  "rabbitmq-secret",
-		MemcachedInstance:   MemcachedInstance,
-		CinderDataBaseUser:  "cinder",
+		RabbitmqClusterName:   "rabbitmq",
+		RabbitmqSecretName:    "rabbitmq-secret",
+		MemcachedInstance:     MemcachedInstance,
+		CinderDataBaseAccount: "cinder",
 		// Password used for both db and service
 		CinderPassword:    "12345678",
 		CinderServiceUser: "cinder",
