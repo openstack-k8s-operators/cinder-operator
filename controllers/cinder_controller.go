@@ -19,12 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -500,7 +498,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	//
 	// Check for required memcached used for caching
 	//
-	memcached, err := r.getCinderMemcached(ctx, helper, instance)
+	memcached, err := memcachedv1.GetMemcachedByName(ctx, helper, instance.Spec.MemcachedInstance, instance.Namespace)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -925,7 +923,7 @@ func (r *CinderReconciler) generateServiceConfigs(
 		string(dbSecret.Data[mariadbv1.DatabasePasswordSelector]),
 		instance.Status.DatabaseHostname,
 		cinder.DatabaseName)
-	templateParameters["MemcachedServersWithInet"] = strings.Join(memcached.Status.ServerListWithInet, ",")
+	templateParameters["MemcachedServersWithInet"] = memcached.GetMemcachedServerListWithInetString()
 
 	// create httpd  vhost template parameters
 	httpdVhostConfig := map[string]interface{}{}
@@ -1010,26 +1008,6 @@ func (r *CinderReconciler) transportURLCreateOrUpdate(
 	})
 
 	return transportURL, op, err
-}
-
-// getCinderMemcached - gets the Memcached instance used for Cinder cache backend
-func (r *CinderReconciler) getCinderMemcached(
-	ctx context.Context,
-	h *helper.Helper,
-	instance *cinderv1beta1.Cinder,
-) (*memcachedv1.Memcached, error) {
-	memcached := &memcachedv1.Memcached{}
-	err := h.GetClient().Get(
-		ctx,
-		types.NamespacedName{
-			Name:      instance.Spec.MemcachedInstance,
-			Namespace: instance.Namespace,
-		},
-		memcached)
-	if err != nil {
-		return nil, err
-	}
-	return memcached, err
 }
 
 func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderAPI, controllerutil.OperationResult, error) {
