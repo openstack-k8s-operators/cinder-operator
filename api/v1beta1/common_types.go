@@ -45,9 +45,6 @@ type CinderTemplate struct {
 // CinderServiceTemplate defines the input parameters that can be defined for a given
 // Cinder service
 type CinderServiceTemplate struct {
-	// +kubebuilder:validation:Required
-	// ContainerImage - Cinder Container Image URL (will be set to environmental default if empty)
-	ContainerImage string `json:"containerImage"`
 
 	// +kubebuilder:validation:Optional
 	// NodeSelector to target subset of worker nodes running this service. Setting here overrides

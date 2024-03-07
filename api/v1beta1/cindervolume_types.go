@@ -23,7 +23,7 @@ import (
 )
 
 // CinderVolumeTemplate defines the input parameters for the Cinder Volume service
-type CinderVolumeTemplate struct {
+type CinderVolumeTemplateCore struct {
 	// Common input parameters for the Cinder Volume service
 	CinderServiceTemplate `json:",inline"`
 
@@ -33,6 +33,15 @@ type CinderVolumeTemplate struct {
 	// +kubebuilder:validation:Maximum=1
 	// Replicas - Cinder Volume Replicas
 	Replicas *int32 `json:"replicas"`
+}
+
+// CinderVolumeTemplate defines the input parameters for the Cinder Volume service
+type CinderVolumeTemplate struct {
+	// +kubebuilder:validation:Required
+	// ContainerImage - Cinder Container Image URL (will be set to environmental default if empty)
+	ContainerImage string `json:"containerImage"`
+
+	CinderVolumeTemplateCore `json:",inline"`
 }
 
 // CinderVolumeSpec defines the desired state of CinderVolume
