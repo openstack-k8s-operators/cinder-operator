@@ -435,20 +435,6 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	}
 
 	//
-	// Hash the nodeSelector so the pod is recreated when it changes
-	//
-	err = cinder.AddNodeSelectorHash(instance.Spec.NodeSelector, &configVars)
-	if err != nil {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.ServiceConfigReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.ServiceConfigReadyErrorMessage,
-			err.Error()))
-		return ctrl.Result{}, err
-	}
-
-	//
 	// create hash over all the different input resources to identify if any those changed
 	// and a restart/recreate is required.
 	//
