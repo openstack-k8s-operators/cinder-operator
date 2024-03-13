@@ -18,8 +18,6 @@ spec:
         lvm-iscsi:
           nodeSelector:
             openstack.org/cinder-lvm: ""
-          networkAttachments:
-          - storage
           customServiceConfig: |
             [lvm]
             image_volume_cache_enabled=false
@@ -28,3 +26,5 @@ spec:
             target_protocol=iscsi
             target_helper=lioadm
             volume_backend_name=lvm_iscsi
+            # This is the OCP host's static IP on the storage VLAN network
+            target_ip_address=172.18.0.5

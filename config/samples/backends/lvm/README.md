@@ -12,11 +12,13 @@ and not an external storage system. This has several implications:
   are creating `MachineConfig` objects to start daemons and create the LVM
   backing file.
 
-- Network configuration on the OCP host needs to be different, as it needs a
-  macvlan interface on top of the storage VLAN interface. This can be easily
-  done by modifying the operators deployment step running:
-  `NETWORK_STORAGE_MACVLAN=true make openstack`. Other option is to manually
-  modify the `nncp` of the OCP node.
+- To prevent issues with exported volumes the cinder-operator will
+  automatically use the host network when using the LVM backend, and the
+  cinder backend needs to be configured to use the host's VLAN IP address. This
+  also means that the cinder-volume service doesn't need any
+  `networkAttachments`.  The config sample has the IP address used by the CRC
+  deployment using `install_yamls`, so any other OCP cluster will need to
+  change this.
 
 - We need to mark one of our OCP nodes with a specific label so that:
 
@@ -36,8 +38,14 @@ $ oc label node \
 ```
 
 If we have a specific node in mind we can just do:
+
 ```bash
 $ oc label node <nodename> openstack.org/cinder-lvm=
+```
+
+Or if we are running a single node OCP cluster we can run:
+```bash
+$ oc label node --all openstack.org/cinder-lvm=
 ```
 
 To see how this label is being used please look into the following files:
