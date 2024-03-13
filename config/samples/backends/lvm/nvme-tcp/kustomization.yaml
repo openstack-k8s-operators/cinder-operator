@@ -1,5 +1,8 @@
 resources:
   - ../../bases/nvmeof
+  # Due to an os-brick limitation multipathd needs to be running to do
+  # multipathing even if it's not used for NVMe-oF
+  - ../../bases/multipathd
   - ../../bases/lvm
   - ../../bases/openstack
 patches:
