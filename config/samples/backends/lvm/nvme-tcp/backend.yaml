@@ -17,8 +17,6 @@ spec:
         lvm-nvme-tcp:
           nodeSelector:
             openstack.org/cinder-lvm: ""
-          networkAttachments:
-          - storage
           customServiceConfig: |
             [lvm]
             volume_backend_name=lvm_nvme_tcp
@@ -28,5 +26,8 @@ spec:
             target_port=4420
             target_prefix=nvme-subsystem-1
             nvmeof_conn_info_version=2
-            use_multipath_for_image_xfer=false
             volume_group=cinder-volumes
+            # This is the OCP host's static IP on the storage VLAN network
+            target_ip_address=172.18.0.5
+            # This is the OCP host's static IP on the tenant VLAN network
+            target_secondary_ip_addresses = 172.19.0.5

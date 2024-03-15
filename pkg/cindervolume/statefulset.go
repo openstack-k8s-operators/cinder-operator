@@ -37,6 +37,7 @@ func StatefulSet(
 	configHash string,
 	labels map[string]string,
 	annotations map[string]string,
+	usesLVM bool,
 ) *appsv1.StatefulSet {
 	trueVar := true
 	rootUser := int64(0)
@@ -87,7 +88,7 @@ func StatefulSet(
 		cinder.GetOwningCinderName(instance),
 		instance.Name,
 		instance.Spec.ExtraMounts)
-	volumeMounts := GetVolumeMounts(instance.Name, instance.Spec.ExtraMounts)
+	volumeMounts := GetVolumeMounts(instance.Name, instance.Spec.ExtraMounts, usesLVM)
 
 	// Add the CA bundle
 	if instance.Spec.TLS.CaBundleSecretName != "" {

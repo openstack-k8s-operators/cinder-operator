@@ -423,7 +423,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 	// create custom Configmap for this cinder volume service
 	//
-	err = r.generateServiceConfigs(ctx, helper, instance, &configVars, serviceLabels)
+	err, usesLVM := r.generateServiceConfigs(ctx, helper, instance, &configVars, serviceLabels)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
@@ -516,7 +516,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 
 	// Deploy a statefulset
-	ssDef := cindervolume.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations)
+	ssDef := cindervolume.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, usesLVM)
 	ss := statefulset.NewStatefulSet(
 		ssDef,
 		time.Duration(5)*time.Second,
@@ -641,14 +641,14 @@ func (r *CinderVolumeReconciler) getSecret(
 	return ctrl.Result{}, nil
 }
 
-// generateServiceConfigs - create Secret which holds the service configuration
+// generateServiceConfigs - create Secret which holds the service configuration and check if it's using LVM
 func (r *CinderVolumeReconciler) generateServiceConfigs(
 	ctx context.Context,
 	h *helper.Helper,
 	instance *cinderv1beta1.CinderVolume,
 	envVars *map[string]env.Setter,
 	serviceLabels map[string]string,
-) error {
+) (error, bool) {
 	//
 	// create custom Secret for cinder service-specific config input
 	// - %-config-data holds custom config for the service
@@ -666,7 +666,7 @@ func (r *CinderVolumeReconciler) generateServiceConfigs(
 	cinderSecretName := cinder.GetOwningCinderName(instance) + "-config-data"
 	cinderSecret, _, err := secret.GetSecret(ctx, h, cinderSecretName, instance.Namespace)
 	if err != nil {
-		return err
+		return err, usesLVM
 	}
 	customData[cinder.DefaultsConfigFileName] = string(cinderSecret.Data[cinder.DefaultsConfigFileName])
 	customData[cinder.CustomConfigFileName] = string(cinderSecret.Data[cinder.CustomConfigFileName])
@@ -675,7 +675,7 @@ func (r *CinderVolumeReconciler) generateServiceConfigs(
 	for _, secretName := range instance.Spec.CustomServiceConfigSecrets {
 		secret, _, err := secret.GetSecret(ctx, h, secretName, instance.Namespace)
 		if err != nil {
-			return err
+			return err, usesLVM
 		}
 		for _, data := range secret.Data {
 			customSecrets += string(data) + "\n"
@@ -683,35 +683,18 @@ func (r *CinderVolumeReconciler) generateServiceConfigs(
 	}
 	customData[cinder.CustomServiceConfigSecretsFileName] = customSecrets
 
-	templateParameters := make(map[string]interface{})
-	if usesLVM {
-		networkAttachmentAddrs := cinder.GetNetworkAttachmentAddrs(
-			instance.Namespace, instance.Spec.NetworkAttachments, instance.Status.NetworkAttachments)
-
-		// Configure target IP addresses using all addresses in the network
-		// attachments. This relies on the fact that the LVM backend can only
-		// have one replica.
-		if len(networkAttachmentAddrs) > 0 {
-			templateParameters["TargetIpAddress"] = networkAttachmentAddrs[0]
-			if len(networkAttachmentAddrs) > 1 {
-				templateParameters["TargetSecondaryIpAddresses"] = strings.Join(networkAttachmentAddrs[1:], ",")
-			}
-		}
-	}
-
 	configTemplates := []util.Template{
 		{
-			Name:          fmt.Sprintf("%s-config-data", instance.Name),
-			Namespace:     instance.Namespace,
-			Type:          util.TemplateTypeConfig,
-			InstanceType:  instance.Kind,
-			CustomData:    customData,
-			ConfigOptions: templateParameters,
-			Labels:        labels,
+			Name:         fmt.Sprintf("%s-config-data", instance.Name),
+			Namespace:    instance.Namespace,
+			Type:         util.TemplateTypeConfig,
+			InstanceType: instance.Kind,
+			CustomData:   customData,
+			Labels:       labels,
 		},
 	}
 
-	return secret.EnsureSecrets(ctx, h, instance, configTemplates, envVars)
+	return secret.EnsureSecrets(ctx, h, instance, configTemplates, envVars), usesLVM
 }
 
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart

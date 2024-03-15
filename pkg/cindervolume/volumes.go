@@ -31,7 +31,13 @@ func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderE
 }
 
 // GetVolumeMounts - Cinder Volume VolumeMounts
-func GetVolumeMounts(name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.VolumeMount {
+func GetVolumeMounts(name string, extraVol []cinderv1beta1.CinderExtraVolMounts, usesLVM bool) []corev1.VolumeMount {
+	var config_data string
+	if usesLVM {
+		config_data = "cinder-volume-lvm-config.json"
+	} else {
+		config_data = "cinder-volume-config.json"
+	}
 	volumeVolumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "config-data-custom",
@@ -41,7 +47,7 @@ func GetVolumeMounts(name string, extraVol []cinderv1beta1.CinderExtraVolMounts)
 		{
 			Name:      "config-data",
 			MountPath: "/var/lib/kolla/config_files/config.json",
-			SubPath:   "cinder-volume-config.json",
+			SubPath:   config_data,
 			ReadOnly:  true,
 		},
 	}
