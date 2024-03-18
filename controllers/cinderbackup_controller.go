@@ -119,11 +119,6 @@ func (r *CinderBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Always patch the instance status when exiting this function so we can persist any changes.
 	defer func() {
-		// update the overall status condition if service is ready
-		if instance.IsReady() {
-			instance.Status.Conditions.MarkTrue(condition.ReadyCondition, condition.ReadyMessage)
-		}
-
 		err := helper.PatchInstance(ctx, instance)
 		if err != nil {
 			_err = err
@@ -582,6 +577,10 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 	// create StatefulSet - end
 
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
+	// update the overall status condition if service is ready
+	if instance.IsReady() {
+		instance.Status.Conditions.MarkTrue(condition.ReadyCondition, condition.ReadyMessage)
+	}
 	return ctrl.Result{}, nil
 }
 

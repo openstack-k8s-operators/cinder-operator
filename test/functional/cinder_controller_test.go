@@ -61,7 +61,7 @@ var _ = Describe("Cinder controller", func() {
 				cinderTest.Instance,
 				ConditionGetterFunc(CinderConditionGetter),
 				condition.ReadyCondition,
-				corev1.ConditionUnknown,
+				corev1.ConditionFalse,
 			)
 		})
 		It("should have the Spec fields initialized", func() {
