@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -476,7 +475,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 					condition.SeverityInfo,
 					condition.NetworkAttachmentsReadyWaitingMessage,
 					netAtt))
-				return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("network-attachment-definition %s not found", netAtt)
+				return cinder.ResultRequeue, fmt.Errorf("network-attachment-definition %s not found", netAtt)
 			}
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NetworkAttachmentsReadyCondition,
@@ -530,10 +529,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 
 	// Deploy a statefulset
 	ssDef := cinderscheduler.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations)
-	ss := statefulset.NewStatefulSet(
-		ssDef,
-		time.Duration(5)*time.Second,
-	)
+	ss := statefulset.NewStatefulSet(ssDef, cinder.ShortDuration)
 
 	ctrlResult, err = ss.CreateOrPatch(ctx, helper)
 	if err != nil {
@@ -660,7 +656,7 @@ func (r *CinderSchedulerReconciler) getSecret(
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("Secret %s not found", secretName)
+			return cinder.ResultRequeue, fmt.Errorf("Secret %s not found", secretName)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
