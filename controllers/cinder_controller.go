@@ -396,7 +396,7 @@ func (r *CinderReconciler) reconcileInit(
 		jobDef,
 		cinderv1beta1.DbSyncHash,
 		instance.Spec.PreserveJobs,
-		time.Duration(5)*time.Second,
+		cinder.ShortDuration,
 		dbSyncHash,
 	)
 	ctrlResult, err := dbSyncjob.DoJob(
@@ -492,7 +492,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			condition.RequestedReason,
 			condition.SeverityInfo,
 			condition.RabbitMqTransportURLReadyRunningMessage))
-		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
+		return cinder.ResultRequeue, nil
 	}
 
 	instance.Status.Conditions.MarkTrue(condition.RabbitMqTransportURLReadyCondition, condition.RabbitMqTransportURLReadyMessage)
@@ -504,6 +504,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	//
 	memcached, err := memcachedv1.GetMemcachedByName(ctx, helper, instance.Spec.MemcachedInstance, instance.Namespace)
 	if err != nil {
+		Log.Info(fmt.Sprintf("%s... requeueing", condition.MemcachedReadyWaitingMessage))
 		if k8s_errors.IsNotFound(err) {
 			Log.Info(fmt.Sprintf("memcached %s not found", instance.Spec.MemcachedInstance))
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -511,7 +512,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.MemcachedReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
+			return cinder.ResultRequeue, nil
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.MemcachedReadyCondition,
@@ -523,13 +524,13 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	}
 
 	if !memcached.IsReady() {
-		Log.Info(fmt.Sprintf("memcached %s is not ready", memcached.Name))
+		Log.Info(fmt.Sprintf("%s... requeueing", condition.MemcachedReadyWaitingMessage))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.MemcachedReadyCondition,
 			condition.RequestedReason,
 			condition.SeverityInfo,
 			condition.MemcachedReadyWaitingMessage))
-		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
+		return cinder.ResultRequeue, nil
 	}
 	// Mark the Memcached Service as Ready if we get to this point with no errors
 	instance.Status.Conditions.MarkTrue(
@@ -548,7 +549,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
+			return cinder.ResultRequeue, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -629,7 +630,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 					condition.SeverityInfo,
 					condition.NetworkAttachmentsReadyWaitingMessage,
 					netAtt))
-				return ctrl.Result{RequeueAfter: time.Second * 10}, nil
+				return cinder.ResultRequeue, fmt.Errorf(condition.NetworkAttachmentsReadyWaitingMessage, netAtt)
 			}
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NetworkAttachmentsReadyCondition,
