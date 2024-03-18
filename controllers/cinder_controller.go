@@ -420,9 +420,6 @@ func (r *CinderReconciler) reconcileInit(
 	}
 	instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage)
 
-	// when job passed, mark NetworkAttachmentsReadyCondition ready
-	instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
-
 	// run Cinder db sync - end
 
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
@@ -604,7 +601,8 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// TODO check when/if Init, Update, or Upgrade should/could be skipped
 	//
 
-	// networks to attach to
+	// Check networks that the DBSync job will use in reconcileInit. The ones from the API service are always enough,
+	// it doesn't need the storage specific ones that volume or backup may have.
 	for _, netAtt := range instance.Spec.CinderAPI.NetworkAttachments {
 		_, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
 		if err != nil {
@@ -626,6 +624,8 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			return ctrl.Result{}, err
 		}
 	}
+
+	instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
 
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.CinderAPI.NetworkAttachments)
 	if err != nil {
