@@ -16,6 +16,10 @@ limitations under the License.
 package cinder
 
 import (
+	"time"
+
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 )
 
@@ -66,7 +70,12 @@ const (
 	// Cinder is the global ServiceType that refers to all the components deployed
 	// by the cinder operator
 	Cinder storage.PropagationType = "Cinder"
+
+	ShortDuration  = time.Duration(5) * time.Second
+	NormalDuration = time.Duration(10) * time.Second
 )
+
+var ResultRequeue = ctrl.Result{RequeueAfter: NormalDuration}
 
 // DbsyncPropagation keeps track of the DBSync Service Propagation Type
 var DbsyncPropagation = []storage.PropagationType{storage.DBSync}

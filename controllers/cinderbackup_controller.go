@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -484,7 +483,7 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 					condition.SeverityInfo,
 					condition.NetworkAttachmentsReadyWaitingMessage,
 					netAtt))
-				return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("network-attachment-definition %s not found", netAtt)
+				return cinder.ResultRequeue, fmt.Errorf("network-attachment-definition %s not found", netAtt)
 			}
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NetworkAttachmentsReadyCondition,
@@ -538,10 +537,7 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 
 	// Deploy a statefulset
 	ssDef := cinderbackup.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations)
-	ss := statefulset.NewStatefulSet(
-		ssDef,
-		time.Duration(5)*time.Second,
-	)
+	ss := statefulset.NewStatefulSet(ssDef, cinder.ShortDuration)
 
 	var ssData appsv1.StatefulSet
 	ctrlResult, err = ss.CreateOrPatch(ctx, helper)
@@ -558,7 +554,7 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 		// Wait until the data in the StatefulSet is for the current generation
 		ssData = ss.GetStatefulSet()
 		if ssData.Generation != ssData.Status.ObservedGeneration {
-			ctrlResult = ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}
+			ctrlResult = cinder.ResultRequeue
 			err = fmt.Errorf("waiting for Statefulset %s to start reconciling", ssData.Name)
 		}
 	}
@@ -687,7 +683,7 @@ func (r *CinderBackupReconciler) getSecret(
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("Secret %s not found", secretName)
+			return cinder.ResultRequeue, fmt.Errorf("Secret %s not found", secretName)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,

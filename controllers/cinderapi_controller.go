@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -569,7 +568,7 @@ func (r *CinderAPIReconciler) reconcileInit(
 			PasswordSelector:   instance.Spec.PasswordSelectors.Service,
 		}
 
-		ksSvcObj := keystonev1.NewKeystoneService(ksSvcSpec, instance.Namespace, serviceLabels, time.Duration(10)*time.Second)
+		ksSvcObj := keystonev1.NewKeystoneService(ksSvcSpec, instance.Namespace, serviceLabels, cinder.NormalDuration)
 		ctrlResult, err := ksSvcObj.CreateOrPatch(ctx, helper)
 		if err != nil {
 			instance.Status.Conditions.MarkFalse(
@@ -604,7 +603,7 @@ func (r *CinderAPIReconciler) reconcileInit(
 			instance.Namespace,
 			ksEndptSpec,
 			serviceLabels,
-			time.Duration(10)*time.Second)
+			cinder.NormalDuration)
 		ctrlResult, err = ksEndptObj.CreateOrPatch(ctx, helper)
 		if err != nil {
 			instance.Status.Conditions.MarkFalse(
@@ -780,7 +779,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 					condition.SeverityInfo,
 					condition.NetworkAttachmentsReadyWaitingMessage,
 					netAtt))
-				return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("network-attachment-definition %s not found", netAtt)
+				return cinder.ResultRequeue, fmt.Errorf("network-attachment-definition %s not found", netAtt)
 			}
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NetworkAttachmentsReadyCondition,
@@ -868,10 +867,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 			err.Error()))
 		return ctrl.Result{}, err
 	}
-	ss := statefulset.NewStatefulSet(
-		ssDef,
-		time.Duration(5)*time.Second,
-	)
+	ss := statefulset.NewStatefulSet(ssDef, cinder.ShortDuration)
 
 	var ssData appsv1.StatefulSet
 	ctrlResult, err = ss.CreateOrPatch(ctx, helper)
@@ -888,7 +884,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 		// Wait until the data in the StatefulSet is for the current generation
 		ssData = ss.GetStatefulSet()
 		if ssData.Generation != ssData.Status.ObservedGeneration {
-			ctrlResult = ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}
+			ctrlResult = cinder.ResultRequeue
 			err = fmt.Errorf("waiting for Statefulset %s to start reconciling", ssData.Name)
 		}
 	}
@@ -1018,7 +1014,7 @@ func (r *CinderAPIReconciler) getSecret(
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("Secret %s not found", secretName)
+			return cinder.ResultRequeue, fmt.Errorf("Secret %s not found", secretName)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
