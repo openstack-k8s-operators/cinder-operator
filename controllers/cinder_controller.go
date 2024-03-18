@@ -683,7 +683,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		return ctrl.Result{}, err
 	}
 	if op != controllerutil.OperationResultNone {
-		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+		Log.Info(fmt.Sprintf("API CR for %s successfully %s", instance.Name, string(op)))
 	}
 
 	// Mirror CinderAPI status' APIEndpoints and ReadyCount to this parent CR
@@ -709,7 +709,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		return ctrl.Result{}, err
 	}
 	if op != controllerutil.OperationResultNone {
-		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+		Log.Info(fmt.Sprintf("Scheduler CR for %s successfully %s", instance.Name, string(op)))
 	}
 
 	// Mirror CinderScheduler status' ReadyCount to this parent CR
@@ -738,7 +738,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			return ctrl.Result{}, err
 		}
 		if op != controllerutil.OperationResultNone {
-			Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+			Log.Info(fmt.Sprintf("Backup CR for %s successfully %s", instance.Name, string(op)))
 		}
 
 		// Mirror CinderBackup status' ReadyCount to this parent CR
@@ -779,7 +779,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			return ctrl.Result{}, err
 		}
 		if op != controllerutil.OperationResultNone {
-			Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+			Log.Info(fmt.Sprintf("Volume %s CR for %s successfully %s", name, instance.Name, string(op)))
 		}
 
 		// Mirror CinderVolume status' ReadyCount to this parent CR
