@@ -135,6 +135,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		Log.Error(err, fmt.Sprintf("could not fetch Cinder instance %s", instance.Name))
 		return ctrl.Result{}, err
 	}
 
@@ -146,6 +147,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		Log,
 	)
 	if err != nil {
+		Log.Error(err, fmt.Sprintf("could not instantiate helper for instance %s", instance.Name))
 		return ctrl.Result{}, err
 	}
 
@@ -1256,6 +1258,8 @@ func (r *CinderReconciler) ensureDB(
 	h *helper.Helper,
 	instance *cinderv1beta1.Cinder,
 ) (*mariadbv1.Database, ctrl.Result, error) {
+	Log := r.GetLogger(ctx)
+
 	// ensure MariaDBAccount exists.  This account record may be created by
 	// openstack-operator or the cloud operator up front without a specific
 	// MariaDBDatabase configured yet.   Otherwise, a MariaDBAccount CR is
@@ -1323,6 +1327,7 @@ func (r *CinderReconciler) ensureDB(
 		return db, ctrlResult, err
 	}
 	if (ctrlResult != ctrl.Result{}) {
+		Log.Info(fmt.Sprintf("%s... requeueing", condition.DBReadyRunningMessage))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,
 			condition.RequestedReason,
