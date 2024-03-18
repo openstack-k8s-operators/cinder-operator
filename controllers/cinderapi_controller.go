@@ -520,6 +520,12 @@ func (r *CinderAPIReconciler) reconcileInit(
 		apiEndpointsV3[string(endpointType)], err = svc.GetAPIEndpoint(
 			svcOverride.EndpointURL, data.Protocol, data.Path)
 		if err != nil {
+			instance.Status.Conditions.MarkFalse(
+				condition.ExposeServiceReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.ExposeServiceReadyErrorMessage,
+				err.Error())
 			return ctrl.Result{}, err
 		}
 	}
@@ -558,6 +564,12 @@ func (r *CinderAPIReconciler) reconcileInit(
 		ksSvcObj := keystonev1.NewKeystoneService(ksSvcSpec, instance.Namespace, serviceLabels, time.Duration(10)*time.Second)
 		ctrlResult, err := ksSvcObj.CreateOrPatch(ctx, helper)
 		if err != nil {
+			instance.Status.Conditions.MarkFalse(
+				condition.KeystoneServiceReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				"Creating KeyStoneService CR %s",
+				err.Error())
 			return ctrlResult, err
 		}
 
@@ -587,6 +599,12 @@ func (r *CinderAPIReconciler) reconcileInit(
 			time.Duration(10)*time.Second)
 		ctrlResult, err = ksEndptObj.CreateOrPatch(ctx, helper)
 		if err != nil {
+			instance.Status.Conditions.MarkFalse(
+				condition.KeystoneEndpointReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				"Creating KeyStoneEndpoint CR %s",
+				err.Error())
 			return ctrlResult, err
 		}
 
@@ -679,6 +697,11 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 				err.Error()))
 			return ctrlResult, err
 		} else if (ctrlResult != ctrl.Result{}) {
+			instance.Status.Conditions.MarkFalse(
+				condition.TLSInputReadyCondition,
+				condition.InitReason,
+				condition.SeverityInfo,
+				condition.InputReadyInitMessage)
 			return ctrlResult, nil
 		}
 
@@ -758,8 +781,14 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.NetworkAttachments)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
-			instance.Spec.NetworkAttachments, err)
+		error := fmt.Errorf("failed create network annotation from %s: %w", instance.Spec.NetworkAttachments, err)
+		instance.Status.Conditions.MarkFalse(
+			condition.NetworkAttachmentsReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.NetworkAttachmentsReadyErrorMessage,
+			error)
+		return ctrl.Result{}, error
 	}
 
 	// Handle service init
@@ -804,6 +833,12 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 			err.Error()))
 		return ctrl.Result{}, err
 	} else if hashChanged {
+		Log.Info(fmt.Sprintf("%s... requeueing", condition.ServiceConfigReadyInitMessage))
+		instance.Status.Conditions.MarkFalse(
+			condition.ServiceConfigReadyCondition,
+			condition.InitReason,
+			condition.SeverityInfo,
+			condition.ServiceConfigReadyInitMessage)
 		// Hash changed and instance status should be updated (which will be done by main defer func),
 		// so we need to return and reconcile again
 		return ctrl.Result{}, nil
@@ -856,7 +891,14 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 			instance.Status.ReadyCount,
 		)
 		if err != nil {
-			return ctrl.Result{}, err
+			error := fmt.Errorf("verifying API NetworkAttachments (%s) %w", instance.Spec.NetworkAttachments, err)
+			instance.Status.Conditions.MarkFalse(
+				condition.NetworkAttachmentsReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.NetworkAttachmentsReadyErrorMessage,
+				error.Error())
+			return ctrl.Result{}, error
 		}
 	} else {
 		networkReady = true
@@ -879,6 +921,20 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 
 	if instance.Status.ReadyCount > 0 {
 		instance.Status.Conditions.MarkTrue(condition.DeploymentReadyCondition, condition.DeploymentReadyMessage)
+
+	} else if *instance.Spec.Replicas > 0 {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DeploymentReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.DeploymentReadyRunningMessage))
+
+	} else {
+		instance.Status.Conditions.MarkFalse(
+			condition.DeploymentReadyCondition,
+			condition.NotRequestedReason,
+			condition.SeverityInfo,
+			condition.DeploymentReadyInitMessage)
 	}
 	// create StatefulSet - end
 
