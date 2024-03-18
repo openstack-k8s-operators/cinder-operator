@@ -590,6 +590,12 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			err.Error()))
 		return ctrl.Result{}, err
 	} else if hashChanged {
+		Log.Info(fmt.Sprintf("%s... requeueing", condition.ServiceConfigReadyInitMessage))
+		instance.Status.Conditions.MarkFalse(
+			condition.ServiceConfigReadyCondition,
+			condition.InitReason,
+			condition.SeverityInfo,
+			condition.ServiceConfigReadyInitMessage)
 		// Hash changed and instance status should be updated (which will be done by main defer func),
 		// so we need to return and reconcile again
 		return ctrl.Result{}, nil
