@@ -311,19 +311,6 @@ func (r *CinderSchedulerReconciler) reconcileDelete(ctx context.Context, instanc
 	return ctrl.Result{}, nil
 }
 
-func (r *CinderSchedulerReconciler) reconcileInit(
-	ctx context.Context,
-	instance *cinderv1beta1.CinderScheduler,
-	helper *helper.Helper,
-) (ctrl.Result, error) {
-	Log := r.GetLogger(ctx)
-
-	Log.Info(fmt.Sprintf("Reconciling Service '%s' init", instance.Name))
-
-	Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
-	return ctrl.Result{}, nil
-}
-
 func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
@@ -499,30 +486,6 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 		return ctrl.Result{}, error
 	}
 
-	// Handle service init
-	ctrlResult, err = r.reconcileInit(ctx, instance, helper)
-	if err != nil {
-		return ctrlResult, err
-	} else if (ctrlResult != ctrl.Result{}) {
-		return ctrlResult, nil
-	}
-
-	// Handle service update
-	ctrlResult, err = r.reconcileUpdate(ctx, instance, helper)
-	if err != nil {
-		return ctrlResult, err
-	} else if (ctrlResult != ctrl.Result{}) {
-		return ctrlResult, nil
-	}
-
-	// Handle service upgrade
-	ctrlResult, err = r.reconcileUpgrade(ctx, instance, helper)
-	if err != nil {
-		return ctrlResult, err
-	} else if (ctrlResult != ctrl.Result{}) {
-		return ctrlResult, nil
-	}
-
 	//
 	// normal reconcile tasks
 	//
@@ -613,30 +576,6 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	if instance.IsReady() {
 		instance.Status.Conditions.MarkTrue(condition.ReadyCondition, condition.ReadyMessage)
 	}
-	return ctrl.Result{}, nil
-}
-
-func (r *CinderSchedulerReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
-	Log := r.GetLogger(ctx)
-
-	Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
-
-	// TODO: should have minor update tasks if required
-	// - delete dbsync hash from status to rerun it?
-
-	Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
-	return ctrl.Result{}, nil
-}
-
-func (r *CinderSchedulerReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
-	Log := r.GetLogger(ctx)
-
-	Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
-
-	// TODO: should have major version upgrade tasks
-	// -delete dbsync hash from status to rerun it?
-
-	Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
