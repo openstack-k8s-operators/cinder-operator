@@ -18,26 +18,46 @@ spec:
       displayName: Cinder API
       kind: CinderAPI
       name: cinderapis.cinder.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: tls
       version: v1beta1
     - description: CinderBackup is the Schema for the cinderbackups API
       displayName: Cinder Backup
       kind: CinderBackup
       name: cinderbackups.cinder.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: tls
       version: v1beta1
     - description: Cinder is the Schema for the cinders API
       displayName: Cinder
       kind: Cinder
       name: cinders.cinder.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: cinderAPI.tls
       version: v1beta1
     - description: CinderScheduler is the Schema for the cinderschedulers API
       displayName: Cinder Scheduler
       kind: CinderScheduler
       name: cinderschedulers.cinder.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: tls
       version: v1beta1
     - description: CinderVolume is the Schema for the cindervolumes API
       displayName: Cinder Volume
       kind: CinderVolume
       name: cindervolumes.cinder.openstack.org
+      specDescriptors:
+      - description: TLS - Parameters related to the TLS
+        displayName: TLS
+        path: tls
       version: v1beta1
   description: Cinder Operator
   displayName: Cinder Operator
