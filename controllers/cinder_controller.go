@@ -149,20 +149,6 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		return ctrl.Result{}, err
 	}
 
-	// Always patch the instance status when exiting this function so we can persist any changes.
-	defer func() {
-		err := helper.PatchInstance(ctx, instance)
-		if err != nil {
-			_err = err
-			return
-		}
-	}()
-
-	// If we're not deleting this and the service object doesn't have our finalizer, add it.
-	if instance.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(instance, helper.GetFinalizer()) {
-		return ctrl.Result{}, nil
-	}
-
 	//
 	// initialize status
 	//
@@ -170,6 +156,20 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	if isNewInstance {
 		instance.Status.Conditions = condition.Conditions{}
 	}
+
+	// Save a copy of the condtions so that we can restore the LastTransitionTime
+	// when a condition's state doesn't change.
+	savedConditions := instance.Status.Conditions.DeepCopy()
+
+	// Always patch the instance status when exiting this function so we can persist any changes.
+	defer func() {
+		condition.RestoreLastTransitionTimes(&instance.Status.Conditions, savedConditions)
+		err := helper.PatchInstance(ctx, instance)
+		if err != nil {
+			_err = err
+			return
+		}
+	}()
 
 	// Always initialize conditions used later as Status=Unknown
 	// except ReadyCondition which is False unless proven otherwise
@@ -194,7 +194,8 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	)
 	instance.Status.Conditions.Init(&cl)
 
-	if isNewInstance {
+	// If we're not deleting this and the service object doesn't have our finalizer, add it.
+	if (instance.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(instance, helper.GetFinalizer())) || isNewInstance {
 		// Register overall status immediately to have an early feedback e.g. in the cli
 		return ctrl.Result{}, nil
 	}
