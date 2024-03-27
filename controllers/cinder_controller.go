@@ -838,6 +838,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	}
 
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
+	instance.Status.ObservedGeneration = instance.Generation
 	// update the overall status condition if service is ready
 	if instance.IsReady() {
 		instance.Status.Conditions.MarkTrue(condition.ReadyCondition, condition.ReadyMessage)
