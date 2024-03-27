@@ -3,7 +3,6 @@ package cinder
 import (
 	common "github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/affinity"
-	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,15 +46,4 @@ func GetPodAffinity(componentName string) *corev1.Affinity {
 		},
 		corev1.LabelHostname,
 	)
-}
-
-// RestoreLastTransitionTimes - Updates each condition's LastTransitionTime when its state
-// matches the one in a list of "saved" conditions.
-func RestoreLastTransitionTimes(conditions *condition.Conditions, savedConditions condition.Conditions) {
-	for idx, cond := range *conditions {
-		savedCond := savedConditions.Get(cond.Type)
-		if savedCond != nil && condition.HasSameState(&cond, savedCond) {
-			(*conditions)[idx].LastTransitionTime = savedCond.LastTransitionTime
-		}
-	}
 }
