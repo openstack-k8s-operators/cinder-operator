@@ -1,0 +1,35 @@
+apiVersion: cinder.openstack.org/v1beta1
+kind: Cinder
+metadata:
+  name: cinder
+spec:
+  serviceUser: cinder
+  customServiceConfig: |
+    [DEFAULT]
+    debug = true
+  databaseInstance: openstack
+  databaseAccount: cinder
+  rabbitMqClusterName: rabbitmq
+  cinderAPI:
+    replicas: 1
+  cinderScheduler:
+    replicas: 1
+  cinderBackup:
+    replicas: 1
+  cinderVolumes:
+    volume1:
+      replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cinder-scheduler
+  ownerReferences:
+    - apiVersion: cinder.openstack.org/v1beta1
+      blockOwnerDeletion: true
+      controller: true
+      kind: CinderScheduler
+      name: cinder-scheduler
+status:
+  availableReplicas: 1
+  replicas: 1
