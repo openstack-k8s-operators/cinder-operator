@@ -132,6 +132,10 @@ func (r *CinderSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// Always patch the instance status when exiting this function so we can persist any changes.
 	defer func() {
 		condition.RestoreLastTransitionTimes(&instance.Status.Conditions, savedConditions)
+		if instance.Status.Conditions.IsUnknown(condition.ReadyCondition) {
+			instance.Status.Conditions.Set(
+				instance.Status.Conditions.Mirror(condition.ReadyCondition))
+		}
 		err := helper.PatchInstance(ctx, instance)
 		if err != nil {
 			_err = err
@@ -141,6 +145,7 @@ func (r *CinderSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// Always initialize conditions used later as Status=Unknown
 	cl := condition.CreateList(
+		condition.UnknownCondition(condition.ReadyCondition, condition.InitReason, condition.ReadyInitMessage),
 		condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
 		condition.UnknownCondition(condition.ServiceConfigReadyCondition, condition.InitReason, condition.ServiceConfigReadyInitMessage),
 		condition.UnknownCondition(condition.DeploymentReadyCondition, condition.InitReason, condition.DeploymentReadyInitMessage),

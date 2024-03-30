@@ -164,6 +164,10 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	// Always patch the instance status when exiting this function so we can persist any changes.
 	defer func() {
 		condition.RestoreLastTransitionTimes(&instance.Status.Conditions, savedConditions)
+		if instance.Status.Conditions.IsUnknown(condition.ReadyCondition) {
+			instance.Status.Conditions.Set(
+				instance.Status.Conditions.Mirror(condition.ReadyCondition))
+		}
 		err := helper.PatchInstance(ctx, instance)
 		if err != nil {
 			_err = err
@@ -172,9 +176,8 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	}()
 
 	// Always initialize conditions used later as Status=Unknown
-	// except ReadyCondition which is False unless proven otherwise
 	cl := condition.CreateList(
-		condition.FalseCondition(condition.ReadyCondition, condition.InitReason, condition.SeverityInfo, condition.ReadyInitMessage),
+		condition.UnknownCondition(condition.ReadyCondition, condition.InitReason, condition.ReadyInitMessage),
 		condition.UnknownCondition(condition.DBReadyCondition, condition.InitReason, condition.DBReadyInitMessage),
 		condition.UnknownCondition(condition.DBSyncReadyCondition, condition.InitReason, condition.DBSyncReadyInitMessage),
 		condition.UnknownCondition(condition.RabbitMqTransportURLReadyCondition, condition.InitReason, condition.RabbitMqTransportURLReadyInitMessage),
