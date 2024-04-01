@@ -15,7 +15,7 @@ spec:
   cinderScheduler:
     replicas: 1
   cinderBackup:
-    replicas: 3
+    replicas: 1
   cinderVolumes:
     volume1:
       replicas: 1
@@ -31,5 +31,5 @@ metadata:
       kind: CinderBackup
       name: cinder-backup
 status:
-  availableReplicas: 3
-  replicas: 3
+  availableReplicas: 1
+  replicas: 1
