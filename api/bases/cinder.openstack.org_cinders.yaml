@@ -1152,13 +1152,19 @@ spec:
                   type: object
                 type: object
               cinderAPIReadyCount:
+                default: 0
                 format: int32
+                minimum: 0
                 type: integer
               cinderBackupReadyCount:
+                default: 0
                 format: int32
+                minimum: 0
                 type: integer
               cinderSchedulerReadyCount:
+                default: 0
                 format: int32
+                minimum: 0
                 type: integer
               cinderVolumesReadyCounts:
                 additionalProperties:
@@ -1202,6 +1208,10 @@ spec:
                 type: object
               transportURLSecret:
                 type: string
+            required:
+            - cinderAPIReadyCount
+            - cinderBackupReadyCount
+            - cinderSchedulerReadyCount
             type: object
         type: object
     served: true

@@ -82,7 +82,9 @@ type CinderBackupStatus struct {
 	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
 
 	// ReadyCount of Cinder Backup instances
-	ReadyCount int32 `json:"readyCount,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=0
+	ReadyCount int32 `json:"readyCount"`
 
 	// NetworkAttachments status of the deployment pods
 	NetworkAttachments map[string][]string `json:"networkAttachments,omitempty"`

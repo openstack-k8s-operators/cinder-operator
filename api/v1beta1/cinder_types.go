@@ -160,13 +160,19 @@ type CinderStatus struct {
 	ServiceIDs map[string]string `json:"serviceIDs,omitempty"`
 
 	// ReadyCount of Cinder API instance
-	CinderAPIReadyCount int32 `json:"cinderAPIReadyCount,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=0
+	CinderAPIReadyCount int32 `json:"cinderAPIReadyCount"`
 
 	// ReadyCount of Cinder Backup instance
-	CinderBackupReadyCount int32 `json:"cinderBackupReadyCount,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=0
+	CinderBackupReadyCount int32 `json:"cinderBackupReadyCount"`
 
 	// ReadyCount of Cinder Scheduler instance
-	CinderSchedulerReadyCount int32 `json:"cinderSchedulerReadyCount,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=0
+	CinderSchedulerReadyCount int32 `json:"cinderSchedulerReadyCount"`
 
 	// ReadyCounts of Cinder Volume instances
 	CinderVolumesReadyCounts map[string]int32 `json:"cinderVolumesReadyCounts,omitempty"`
