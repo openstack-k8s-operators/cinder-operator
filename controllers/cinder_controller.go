@@ -196,6 +196,8 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		condition.UnknownCondition(condition.RoleBindingReadyCondition, condition.InitReason, condition.RoleBindingReadyInitMessage),
 	)
 	instance.Status.Conditions.Init(&cl)
+	// Always mark the Generation as observed early on
+	instance.Status.ObservedGeneration = instance.Generation
 
 	// If we're not deleting this and the service object doesn't have our finalizer, add it.
 	if (instance.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(instance, helper.GetFinalizer())) || isNewInstance {
@@ -841,7 +843,6 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	}
 
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
-	instance.Status.ObservedGeneration = instance.Generation
 	// update the overall status condition if service is ready
 	if instance.IsReady() {
 		instance.Status.Conditions.MarkTrue(condition.ReadyCondition, condition.ReadyMessage)

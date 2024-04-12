@@ -177,7 +177,10 @@ type CinderStatus struct {
 	// ReadyCounts of Cinder Volume instances
 	CinderVolumesReadyCounts map[string]int32 `json:"cinderVolumesReadyCounts,omitempty"`
 
-	//ObservedGeneration - the most recent generation observed for this service. If the observed generation is less than the spec generation, then the controller has not processed the latest changes.
+	// ObservedGeneration - the most recent generation observed for this service.
+	// If the observed generation is different than the spec generation, then thei
+	// controller has not started processing the latest changes, and the status
+	// and its conditions are likely stale.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
