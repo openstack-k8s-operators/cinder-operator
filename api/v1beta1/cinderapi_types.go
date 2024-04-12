@@ -106,6 +106,12 @@ type CinderAPIStatus struct {
 
 	// NetworkAttachments status of the deployment pods
 	NetworkAttachments map[string][]string `json:"networkAttachments,omitempty"`
+
+	// ObservedGeneration - the most recent generation observed for this service.
+	// If the observed generation is different than the spec generation, then the
+	// controller has not started processing the latest changes, and the status
+	// and its conditions are likely stale.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

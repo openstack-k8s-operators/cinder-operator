@@ -986,6 +986,9 @@ spec:
                     type: string
                   type: array
                 type: object
+              observedGeneration:
+                format: int64
+                type: integer
               readyCount:
                 default: 0
                 format: int32
