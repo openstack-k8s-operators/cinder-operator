@@ -541,6 +541,13 @@ var _ = Describe("Cinder controller", func() {
 
 			CinderAPIExists(cinderTest.Instance)
 
+			th.ExpectCondition(
+				cinderTest.CinderAPI,
+				ConditionGetterFunc(CinderAPIConditionGetter),
+				condition.TLSInputReadyCondition,
+				corev1.ConditionTrue,
+			)
+
 			d := th.GetStatefulSet(cinderTest.CinderAPI)
 			// Check the resulting deployment fields
 			Expect(int(*d.Spec.Replicas)).To(Equal(1))
@@ -571,6 +578,13 @@ var _ = Describe("Cinder controller", func() {
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 
 			CinderSchedulerExists(cinderTest.Instance)
+
+			th.ExpectCondition(
+				cinderTest.CinderScheduler,
+				ConditionGetterFunc(CinderSchedulerConditionGetter),
+				condition.TLSInputReadyCondition,
+				corev1.ConditionTrue,
+			)
 
 			ss := th.GetStatefulSet(cinderTest.CinderScheduler)
 			// Check the resulting deployment fields
