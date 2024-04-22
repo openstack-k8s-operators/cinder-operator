@@ -86,10 +86,8 @@ cli.
           - CinderBackup
           volumes:
           - name: ceph
-            projected:
-              sources:
-              - secret:
-                  name: ceph-client-conf
+            secret:
+              secretName: ceph-client-conf
           mounts:
           - name: ceph
             mountPath: "/etc/ceph"
@@ -151,10 +149,8 @@ spec:
         extraVolType: Ceph
         volumes:
         - name: ceph
-          projected:
-            sources:
-            - secret:
-                name: ceph-client-files
+          secret:
+            secretName: ceph-client-conf
         mounts:
         - name: ceph
           mountPath: "/etc/ceph"
