@@ -278,7 +278,7 @@ func (r *CinderVolumeReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 func (r *CinderVolumeReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
-	l := log.FromContext(context.Background()).WithName("Controllers").WithName("CinderVolume")
+	l := log.FromContext(ctx).WithName("Controllers").WithName("CinderVolume")
 
 	for _, field := range commonWatchFields {
 		crList := &cinderv1beta1.CinderVolumeList{}
@@ -286,7 +286,7 @@ func (r *CinderVolumeReconciler) findObjectsForSrc(ctx context.Context, src clie
 			FieldSelector: fields.OneTermEqualSelector(field, src.GetName()),
 			Namespace:     src.GetNamespace(),
 		}
-		err := r.List(context.TODO(), crList, listOps)
+		err := r.List(ctx, crList, listOps)
 		if err != nil {
 			return []reconcile.Request{}
 		}
@@ -323,7 +323,6 @@ func (r *CinderVolumeReconciler) reconcileDelete(ctx context.Context, instance *
 func (r *CinderVolumeReconciler) reconcileInit(
 	ctx context.Context,
 	instance *cinderv1beta1.CinderVolume,
-	helper *helper.Helper,
 ) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
@@ -433,7 +432,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 	// create custom Configmap for this cinder volume service
 	//
-	err, usesLVM := r.generateServiceConfigs(ctx, helper, instance, &configVars, serviceLabels)
+	usesLVM, err := r.generateServiceConfigs(ctx, helper, instance, &configVars, serviceLabels)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
@@ -499,18 +498,18 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.NetworkAttachments)
 	if err != nil {
-		error := fmt.Errorf("failed create network annotation from %s: %w", instance.Spec.NetworkAttachments, err)
+		err = fmt.Errorf("failed create network annotation from %s: %w", instance.Spec.NetworkAttachments, err)
 		instance.Status.Conditions.MarkFalse(
 			condition.NetworkAttachmentsReadyCondition,
 			condition.ErrorReason,
 			condition.SeverityWarning,
 			condition.NetworkAttachmentsReadyErrorMessage,
-			error)
-		return ctrl.Result{}, error
+			err.Error())
+		return ctrl.Result{}, err
 	}
 
 	// Handle service init
-	ctrlResult, err = r.reconcileInit(ctx, instance, helper)
+	ctrlResult, err = r.reconcileInit(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -518,7 +517,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	}
 
 	// Handle service update
-	ctrlResult, err = r.reconcileUpdate(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpdate(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -526,7 +525,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	}
 
 	// Handle service upgrade
-	ctrlResult, err = r.reconcileUpgrade(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpgrade(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -575,13 +574,13 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 			instance.Status.ReadyCount,
 		)
 		if err != nil {
-			error := fmt.Errorf("verifying API NetworkAttachments (%s) %w", instance.Spec.NetworkAttachments, err)
+			err = fmt.Errorf("verifying API NetworkAttachments (%s) %w", instance.Spec.NetworkAttachments, err)
 			instance.Status.Conditions.MarkFalse(
 				condition.NetworkAttachmentsReadyCondition,
 				condition.ErrorReason,
 				condition.SeverityWarning,
 				condition.NetworkAttachmentsReadyErrorMessage,
-				error.Error())
+				err.Error())
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -629,7 +628,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	return ctrl.Result{}, nil
 }
 
-func (r *CinderVolumeReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderVolume, helper *helper.Helper) (ctrl.Result, error) {
+func (r *CinderVolumeReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderVolume) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
@@ -641,7 +640,7 @@ func (r *CinderVolumeReconciler) reconcileUpdate(ctx context.Context, instance *
 	return ctrl.Result{}, nil
 }
 
-func (r *CinderVolumeReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderVolume, helper *helper.Helper) (ctrl.Result, error) {
+func (r *CinderVolumeReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderVolume) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
@@ -694,7 +693,7 @@ func (r *CinderVolumeReconciler) generateServiceConfigs(
 	instance *cinderv1beta1.CinderVolume,
 	envVars *map[string]env.Setter,
 	serviceLabels map[string]string,
-) (error, bool) {
+) (bool, error) {
 	//
 	// create custom Secret for cinder service-specific config input
 	// - %-config-data holds custom config for the service
@@ -712,7 +711,7 @@ func (r *CinderVolumeReconciler) generateServiceConfigs(
 	cinderSecretName := cinder.GetOwningCinderName(instance) + "-config-data"
 	cinderSecret, _, err := secret.GetSecret(ctx, h, cinderSecretName, instance.Namespace)
 	if err != nil {
-		return err, usesLVM
+		return usesLVM, err
 	}
 	customData[cinder.DefaultsConfigFileName] = string(cinderSecret.Data[cinder.DefaultsConfigFileName])
 	customData[cinder.CustomConfigFileName] = string(cinderSecret.Data[cinder.CustomConfigFileName])
@@ -721,7 +720,7 @@ func (r *CinderVolumeReconciler) generateServiceConfigs(
 	for _, secretName := range instance.Spec.CustomServiceConfigSecrets {
 		secret, _, err := secret.GetSecret(ctx, h, secretName, instance.Namespace)
 		if err != nil {
-			return err, usesLVM
+			return usesLVM, err
 		}
 		for _, data := range secret.Data {
 			customSecrets += string(data) + "\n"
@@ -740,7 +739,7 @@ func (r *CinderVolumeReconciler) generateServiceConfigs(
 		},
 	}
 
-	return secret.EnsureSecrets(ctx, h, instance, configTemplates, envVars), usesLVM
+	return usesLVM, secret.EnsureSecrets(ctx, h, instance, configTemplates, envVars)
 }
 
 // createHashOfInputHashes - creates a hash of hashes which gets added to the resources which requires a restart

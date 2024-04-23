@@ -329,7 +329,7 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 func (r *CinderAPIReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
-	l := log.FromContext(context.Background()).WithName("Controllers").WithName("CinderAPI")
+	l := log.FromContext(ctx).WithName("Controllers").WithName("CinderAPI")
 
 	for _, field := range cinderAPIWatchFields {
 		crList := &cinderv1beta1.CinderAPIList{}
@@ -337,7 +337,7 @@ func (r *CinderAPIReconciler) findObjectsForSrc(ctx context.Context, src client.
 			FieldSelector: fields.OneTermEqualSelector(field, src.GetName()),
 			Namespace:     src.GetNamespace(),
 		}
-		err := r.List(context.TODO(), crList, listOps)
+		err := r.List(ctx, crList, listOps)
 		if err != nil {
 			return []reconcile.Request{}
 		}
@@ -792,14 +792,14 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.NetworkAttachments)
 	if err != nil {
-		error := fmt.Errorf("failed create network annotation from %s: %w", instance.Spec.NetworkAttachments, err)
+		err = fmt.Errorf("failed create network annotation from %s: %w", instance.Spec.NetworkAttachments, err)
 		instance.Status.Conditions.MarkFalse(
 			condition.NetworkAttachmentsReadyCondition,
 			condition.ErrorReason,
 			condition.SeverityWarning,
 			condition.NetworkAttachmentsReadyErrorMessage,
-			error)
-		return ctrl.Result{}, error
+			err.Error())
+		return ctrl.Result{}, err
 	}
 
 	// Handle service init
@@ -811,7 +811,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	}
 
 	// Handle service update
-	ctrlResult, err = r.reconcileUpdate(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpdate(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -819,7 +819,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	}
 
 	// Handle service upgrade
-	ctrlResult, err = r.reconcileUpgrade(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpgrade(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -902,14 +902,14 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 			instance.Status.ReadyCount,
 		)
 		if err != nil {
-			error := fmt.Errorf("verifying API NetworkAttachments (%s) %w", instance.Spec.NetworkAttachments, err)
+			err = fmt.Errorf("verifying API NetworkAttachments (%s) %w", instance.Spec.NetworkAttachments, err)
 			instance.Status.Conditions.MarkFalse(
 				condition.NetworkAttachmentsReadyCondition,
 				condition.ErrorReason,
 				condition.SeverityWarning,
 				condition.NetworkAttachmentsReadyErrorMessage,
-				error.Error())
-			return ctrl.Result{}, error
+				err.Error())
+			return ctrl.Result{}, err
 		}
 	} else {
 		networkReady = true
@@ -957,7 +957,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	return ctrl.Result{}, nil
 }
 
-func (r *CinderAPIReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderAPI, helper *helper.Helper) (ctrl.Result, error) {
+func (r *CinderAPIReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderAPI) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
@@ -969,7 +969,7 @@ func (r *CinderAPIReconciler) reconcileUpdate(ctx context.Context, instance *cin
 	return ctrl.Result{}, nil
 }
 
-func (r *CinderAPIReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderAPI, helper *helper.Helper) (ctrl.Result, error) {
+func (r *CinderAPIReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderAPI) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
