@@ -126,5 +126,8 @@ func init() {
 
 // IsReady - returns true if service is ready to serve requests
 func (instance CinderScheduler) IsReady() bool {
-	return instance.Status.ReadyCount == *instance.Spec.Replicas
+	return instance.Generation == instance.Status.ObservedGeneration &&
+		instance.Status.ReadyCount == *instance.Spec.Replicas &&
+		(instance.Status.Conditions.IsTrue(condition.DeploymentReadyCondition) ||
+			(instance.Status.Conditions.IsFalse(condition.DeploymentReadyCondition) && *instance.Spec.Replicas == 0))
 }

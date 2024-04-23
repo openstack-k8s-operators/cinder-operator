@@ -542,6 +542,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 		time.Duration(5)*time.Second,
 	)
 
+	var ssData appsv1.StatefulSet
 	ctrlResult, err = ss.CreateOrPatch(ctx, helper)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
@@ -551,15 +552,32 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 			condition.DeploymentReadyErrorMessage,
 			err.Error()))
 		return ctrlResult, err
-	} else if (ctrlResult != ctrl.Result{}) {
+
+	} else if (ctrlResult == ctrl.Result{}) {
+		// Wait until the data in the StatefulSet is for the current generation
+		ssData = ss.GetStatefulSet()
+		if ssData.Generation != ssData.Status.ObservedGeneration {
+			ctrlResult = ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}
+			err = fmt.Errorf("waiting for Statefulset %s to start reconciling", ssData.Name)
+		}
+	}
+
+	if (ctrlResult != ctrl.Result{}) {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DeploymentReadyCondition,
 			condition.RequestedReason,
 			condition.SeverityInfo,
 			condition.DeploymentReadyRunningMessage))
-		return ctrlResult, nil
+		// If the deployment is not ready, then neither are the NADs
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.NetworkAttachmentsReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			condition.NetworkAttachmentsReadyInitMessage))
+		return ctrlResult, err
 	}
-	instance.Status.ReadyCount = ss.GetStatefulSet().Status.ReadyReplicas
+
+	instance.Status.ReadyCount = ssData.Status.ReadyReplicas
 
 	// verify if network attachment matches expectations
 	networkReady := false
@@ -624,6 +642,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	if instance.IsReady() {
 		instance.Status.Conditions.MarkTrue(condition.ReadyCondition, condition.ReadyMessage)
 	}
+	// For non ready we'll let the main defer func handle the status update using the Mirror function
 	return ctrl.Result{}, nil
 }
 

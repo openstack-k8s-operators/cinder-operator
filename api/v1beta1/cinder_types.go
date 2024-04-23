@@ -226,7 +226,8 @@ func init() {
 
 // IsReady - returns true if all subresources Ready condition is true
 func (instance Cinder) IsReady() bool {
-	return instance.Status.Conditions.IsTrue(CinderAPIReadyCondition) &&
+	return instance.Generation == instance.Status.ObservedGeneration &&
+		instance.Status.Conditions.IsTrue(CinderAPIReadyCondition) &&
 		instance.Status.Conditions.IsTrue(CinderBackupReadyCondition) &&
 		instance.Status.Conditions.IsTrue(CinderSchedulerReadyCondition) &&
 		instance.Status.Conditions.IsTrue(CinderVolumeReadyCondition)

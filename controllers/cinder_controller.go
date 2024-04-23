@@ -688,15 +688,18 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
 	}
 
-	// Mirror CinderAPI status' APIEndpoints and ReadyCount to this parent CR
-	instance.Status.APIEndpoints = cinderAPI.Status.APIEndpoints
-	instance.Status.ServiceIDs = cinderAPI.Status.ServiceIDs
-	instance.Status.CinderAPIReadyCount = cinderAPI.Status.ReadyCount
+	// Mirror values when the data in the StatefulSet is for the current generation
+	if cinderAPI.Generation == cinderAPI.Status.ObservedGeneration {
+		// Mirror CinderAPI status' APIEndpoints and ReadyCount to this parent CR
+		instance.Status.APIEndpoints = cinderAPI.Status.APIEndpoints
+		instance.Status.ServiceIDs = cinderAPI.Status.ServiceIDs
+		instance.Status.CinderAPIReadyCount = cinderAPI.Status.ReadyCount
 
-	// Mirror CinderAPI's condition status
-	c := cinderAPI.Status.Conditions.Mirror(cinderv1beta1.CinderAPIReadyCondition)
-	if c != nil {
-		instance.Status.Conditions.Set(c)
+		// Mirror CinderAPI's condition status
+		c := cinderAPI.Status.Conditions.Mirror(cinderv1beta1.CinderAPIReadyCondition)
+		if c != nil {
+			instance.Status.Conditions.Set(c)
+		}
 	}
 
 	// deploy cinder-scheduler
@@ -714,13 +717,16 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
 	}
 
-	// Mirror CinderScheduler status' ReadyCount to this parent CR
-	instance.Status.CinderSchedulerReadyCount = cinderScheduler.Status.ReadyCount
+	// Mirror values when the data in the StatefulSet is for the current generation
+	if cinderScheduler.Generation == cinderScheduler.Status.ObservedGeneration {
+		// Mirror CinderScheduler status' ReadyCount to this parent CR
+		instance.Status.CinderSchedulerReadyCount = cinderScheduler.Status.ReadyCount
 
-	// Mirror CinderScheduler's condition status
-	c = cinderScheduler.Status.Conditions.Mirror(cinderv1beta1.CinderSchedulerReadyCondition)
-	if c != nil {
-		instance.Status.Conditions.Set(c)
+		// Mirror CinderScheduler's condition status
+		c := cinderScheduler.Status.Conditions.Mirror(cinderv1beta1.CinderSchedulerReadyCondition)
+		if c != nil {
+			instance.Status.Conditions.Set(c)
+		}
 	}
 
 	// deploy cinder-backup, but only if necessary
@@ -743,24 +749,25 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
 		}
 
-		// Mirror CinderBackup status' ReadyCount to this parent CR
-		instance.Status.CinderBackupReadyCount = cinderBackup.Status.ReadyCount
+		// Mirror values when the data in the StatefulSet is for the current generation
+		if cinderBackup.Generation == cinderBackup.Status.ObservedGeneration {
+			// Mirror CinderBackup status' ReadyCount to this parent CR
+			instance.Status.CinderBackupReadyCount = cinderBackup.Status.ReadyCount
 
-		// Mirror CinderBackup's condition status
-		backupCondition = cinderBackup.Status.Conditions.Mirror(cinderv1beta1.CinderBackupReadyCondition)
+			// Mirror CinderBackup's condition status
+			backupCondition = cinderBackup.Status.Conditions.Mirror(cinderv1beta1.CinderBackupReadyCondition)
+			instance.Status.Conditions.Set(backupCondition)
+		}
 
 	} else {
 		// Clean up cinder-backup if there are no replicas
 		err = r.backupCleanupDeployment(ctx, instance)
 		if err != nil {
+			// Should we set the condition to False?
 			return ctrl.Result{}, err
 		}
-	}
+		// TODO: Wait for the deployment to actually disappear before setting the condition
 
-	if backupCondition != nil {
-		// If there's a backupCondition then set that as the CinderBackupReadyCondition
-		instance.Status.Conditions.Set(backupCondition)
-	} else {
 		// The CinderBackup is ready, even if the service wasn't deployed.
 		// Using "condition.DeploymentReadyMessage" here because that is what gets mirrored
 		// as the message for the other Cinder children when they are successfully-deployed
@@ -769,6 +776,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 
 	// deploy cinder-volumes
 	var volumeCondition *condition.Condition
+	waitingGenerationMatch := false
 	for name, volume := range instance.Spec.CinderVolumes {
 		cinderVolume, op, err := r.volumeDeploymentCreateOrUpdate(ctx, instance, name, volume)
 		if err != nil {
@@ -784,27 +792,32 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
 		}
 
-		// Mirror CinderVolume status' ReadyCount to this parent CR
-		// TODO: Somehow this status map can be nil here despite being initialized
-		//       in the Reconcile function above
-		if instance.Status.CinderVolumesReadyCounts == nil {
-			instance.Status.CinderVolumesReadyCounts = map[string]int32{}
-		}
-		instance.Status.CinderVolumesReadyCounts[name] = cinderVolume.Status.ReadyCount
+		// Mirror values when the data in the StatefulSet is for the current generation
+		if cinderVolume.Generation != cinderVolume.Status.ObservedGeneration {
+			waitingGenerationMatch = true
+		} else {
+			// Mirror CinderVolume status' ReadyCount to this parent CR
+			// TODO: Somehow this status map can be nil here despite being initialized
+			//       in the Reconcile function above
+			if instance.Status.CinderVolumesReadyCounts == nil {
+				instance.Status.CinderVolumesReadyCounts = map[string]int32{}
+			}
+			instance.Status.CinderVolumesReadyCounts[name] = cinderVolume.Status.ReadyCount
 
-		// If this cinderVolume is not IsReady, mirror the condition to get the latest step it is in.
-		// Could also check the overall ReadyCondition of the cinderVolume.
-		if !cinderVolume.IsReady() {
-			c = cinderVolume.Status.Conditions.Mirror(cinderv1beta1.CinderVolumeReadyCondition)
-			// Get the condition with higher priority for volumeCondition.
-			volumeCondition = condition.GetHigherPrioCondition(c, volumeCondition).DeepCopy()
+			// If this cinderVolume is not IsReady, mirror the condition to get the latest step it is in.
+			// Could also check the overall ReadyCondition of the cinderVolume.
+			if !cinderVolume.IsReady() {
+				c := cinderVolume.Status.Conditions.Mirror(cinderv1beta1.CinderVolumeReadyCondition)
+				// Get the condition with higher priority for volumeCondition.
+				volumeCondition = condition.GetHigherPrioCondition(c, volumeCondition).DeepCopy()
+			}
 		}
 	}
 
 	if volumeCondition != nil {
 		// If there was a Status=False condition, set that as the CinderVolumeReadyCondition
 		instance.Status.Conditions.Set(volumeCondition)
-	} else {
+	} else if !waitingGenerationMatch {
 		// The CinderVolumes are ready.
 		// Using "condition.DeploymentReadyMessage" here because that is what gets mirrored
 		// as the message for the other Cinder children when they are successfully-deployed
