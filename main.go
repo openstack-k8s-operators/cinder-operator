@@ -127,7 +127,7 @@ func main() {
 		Client:  mgr.GetClient(),
 		Scheme:  mgr.GetScheme(),
 		Kclient: kclient,
-	}).SetupWithManager(context.Background(), mgr); err != nil {
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cinder")
 		os.Exit(1)
 	}

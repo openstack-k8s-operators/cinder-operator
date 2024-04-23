@@ -192,7 +192,7 @@ func (r *CinderBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 		listOpts := []client.ListOption{
 			client.InNamespace(namespace),
 		}
-		if err := r.Client.List(context.Background(), backups, listOpts...); err != nil {
+		if err := r.Client.List(ctx, backups, listOpts...); err != nil {
 			Log.Error(err, "Unable to retrieve backups CRs %v")
 			return nil
 		}
@@ -236,7 +236,7 @@ func (r *CinderBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 	}
 
 	// index passwordSecretField
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &cinderv1beta1.CinderBackup{}, passwordSecretField, func(rawObj client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &cinderv1beta1.CinderBackup{}, passwordSecretField, func(rawObj client.Object) []string {
 		// Extract the secret name from the spec, if one is provided
 		cr := rawObj.(*cinderv1beta1.CinderBackup)
 		if cr.Spec.Secret == "" {
@@ -248,7 +248,7 @@ func (r *CinderBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 	}
 
 	// index caBundleSecretNameField
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &cinderv1beta1.CinderBackup{}, caBundleSecretNameField, func(rawObj client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &cinderv1beta1.CinderBackup{}, caBundleSecretNameField, func(rawObj client.Object) []string {
 		// Extract the secret name from the spec, if one is provided
 		cr := rawObj.(*cinderv1beta1.CinderBackup)
 		if cr.Spec.TLS.CaBundleSecretName == "" {
@@ -276,7 +276,7 @@ func (r *CinderBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 func (r *CinderBackupReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
-	l := log.FromContext(context.Background()).WithName("Controllers").WithName("CinderBackup")
+	l := log.FromContext(ctx).WithName("Controllers").WithName("CinderBackup")
 
 	for _, field := range commonWatchFields {
 		crList := &cinderv1beta1.CinderBackupList{}
@@ -284,7 +284,7 @@ func (r *CinderBackupReconciler) findObjectsForSrc(ctx context.Context, src clie
 			FieldSelector: fields.OneTermEqualSelector(field, src.GetName()),
 			Namespace:     src.GetNamespace(),
 		}
-		err := r.List(context.TODO(), crList, listOps)
+		err := r.List(ctx, crList, listOps)
 		if err != nil {
 			return []reconcile.Request{}
 		}
@@ -321,7 +321,6 @@ func (r *CinderBackupReconciler) reconcileDelete(ctx context.Context, instance *
 func (r *CinderBackupReconciler) reconcileInit(
 	ctx context.Context,
 	instance *cinderv1beta1.CinderBackup,
-	helper *helper.Helper,
 ) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
@@ -497,18 +496,18 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.NetworkAttachments)
 	if err != nil {
-		error := fmt.Errorf("failed create network annotation from %s: %w", instance.Spec.NetworkAttachments, err)
+		err = fmt.Errorf("failed create network annotation from %s: %w", instance.Spec.NetworkAttachments, err)
 		instance.Status.Conditions.MarkFalse(
 			condition.NetworkAttachmentsReadyCondition,
 			condition.ErrorReason,
 			condition.SeverityWarning,
 			condition.NetworkAttachmentsReadyErrorMessage,
-			error)
-		return ctrl.Result{}, error
+			err)
+		return ctrl.Result{}, err
 	}
 
 	// Handle service init
-	ctrlResult, err = r.reconcileInit(ctx, instance, helper)
+	ctrlResult, err = r.reconcileInit(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -516,7 +515,7 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 	}
 
 	// Handle service update
-	ctrlResult, err = r.reconcileUpdate(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpdate(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -524,7 +523,7 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 	}
 
 	// Handle service upgrade
-	ctrlResult, err = r.reconcileUpgrade(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpgrade(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -573,13 +572,13 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 			instance.Status.ReadyCount,
 		)
 		if err != nil {
-			error := fmt.Errorf("verifying API NetworkAttachments (%s) %w", instance.Spec.NetworkAttachments, err)
+			err = fmt.Errorf("verifying API NetworkAttachments (%s) %w", instance.Spec.NetworkAttachments, err)
 			instance.Status.Conditions.MarkFalse(
 				condition.NetworkAttachmentsReadyCondition,
 				condition.ErrorReason,
 				condition.SeverityWarning,
 				condition.NetworkAttachmentsReadyErrorMessage,
-				error.Error())
+				err.Error())
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -627,7 +626,7 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 	return ctrl.Result{}, nil
 }
 
-func (r *CinderBackupReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderBackup, helper *helper.Helper) (ctrl.Result, error) {
+func (r *CinderBackupReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderBackup) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
@@ -639,7 +638,7 @@ func (r *CinderBackupReconciler) reconcileUpdate(ctx context.Context, instance *
 	return ctrl.Result{}, nil
 }
 
-func (r *CinderBackupReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderBackup, helper *helper.Helper) (ctrl.Result, error) {
+func (r *CinderBackupReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderBackup) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))

@@ -244,7 +244,7 @@ var (
 )
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *CinderReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// transportURLSecretFn - Watch for changes made to the secret associated with the RabbitMQ
 	// TransportURL created and used by Cinder CRs.  Watch functions return a list of namespace-scoped
 	// CRs that then get fed  to the reconciler.  Hence, in this case, we need to know the name of the
@@ -302,7 +302,7 @@ func (r *CinderReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manage
 		listOpts := []client.ListOption{
 			client.InNamespace(o.GetNamespace()),
 		}
-		if err := r.Client.List(context.Background(), cinders, listOpts...); err != nil {
+		if err := r.Client.List(ctx, cinders, listOpts...); err != nil {
 			Log.Error(err, "Unable to retrieve Cinder CRs %w")
 			return nil
 		}
@@ -652,7 +652,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	}
 
 	// Handle service update
-	ctrlResult, err = r.reconcileUpdate(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpdate(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -660,7 +660,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	}
 
 	// Handle service upgrade
-	ctrlResult, err = r.reconcileUpgrade(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpgrade(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -849,7 +849,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	return ctrl.Result{}, nil
 }
 
-func (r *CinderReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, helper *helper.Helper) (ctrl.Result, error) {
+func (r *CinderReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
@@ -861,7 +861,7 @@ func (r *CinderReconciler) reconcileUpdate(ctx context.Context, instance *cinder
 	return ctrl.Result{}, nil
 }
 
-func (r *CinderReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.Cinder, helper *helper.Helper) (ctrl.Result, error) {
+func (r *CinderReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.Cinder) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))

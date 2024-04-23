@@ -276,7 +276,7 @@ func (r *CinderSchedulerReconciler) SetupWithManager(ctx context.Context, mgr ct
 func (r *CinderSchedulerReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
-	l := log.FromContext(context.Background()).WithName("Controllers").WithName("CinderScheduler")
+	l := log.FromContext(ctx).WithName("Controllers").WithName("CinderScheduler")
 
 	for _, field := range commonWatchFields {
 		crList := &cinderv1beta1.CinderSchedulerList{}
@@ -284,7 +284,7 @@ func (r *CinderSchedulerReconciler) findObjectsForSrc(ctx context.Context, src c
 			FieldSelector: fields.OneTermEqualSelector(field, src.GetName()),
 			Namespace:     src.GetNamespace(),
 		}
-		err := r.List(context.TODO(), crList, listOps)
+		err := r.List(ctx, crList, listOps)
 		if err != nil {
 			return []reconcile.Request{}
 		}
@@ -321,7 +321,6 @@ func (r *CinderSchedulerReconciler) reconcileDelete(ctx context.Context, instanc
 func (r *CinderSchedulerReconciler) reconcileInit(
 	ctx context.Context,
 	instance *cinderv1beta1.CinderScheduler,
-	helper *helper.Helper,
 ) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
@@ -496,18 +495,18 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 
 	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.NetworkAttachments)
 	if err != nil {
-		error := fmt.Errorf("failed create network annotation from %s: %w", instance.Spec.NetworkAttachments, err)
+		err = fmt.Errorf("failed create network annotation from %s: %w", instance.Spec.NetworkAttachments, err)
 		instance.Status.Conditions.MarkFalse(
 			condition.NetworkAttachmentsReadyCondition,
 			condition.ErrorReason,
 			condition.SeverityWarning,
 			condition.NetworkAttachmentsReadyErrorMessage,
-			error)
-		return ctrl.Result{}, error
+			err.Error())
+		return ctrl.Result{}, err
 	}
 
 	// Handle service init
-	ctrlResult, err = r.reconcileInit(ctx, instance, helper)
+	ctrlResult, err = r.reconcileInit(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -515,7 +514,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	}
 
 	// Handle service update
-	ctrlResult, err = r.reconcileUpdate(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpdate(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -523,7 +522,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	}
 
 	// Handle service upgrade
-	ctrlResult, err = r.reconcileUpgrade(ctx, instance, helper)
+	ctrlResult, err = r.reconcileUpgrade(ctx, instance)
 	if err != nil {
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
@@ -572,13 +571,13 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 			instance.Status.ReadyCount,
 		)
 		if err != nil {
-			error := fmt.Errorf("verifying API NetworkAttachments (%s) %w", instance.Spec.NetworkAttachments, err)
+			err = fmt.Errorf("verifying API NetworkAttachments (%s) %w", instance.Spec.NetworkAttachments, err)
 			instance.Status.Conditions.MarkFalse(
 				condition.NetworkAttachmentsReadyCondition,
 				condition.ErrorReason,
 				condition.SeverityWarning,
 				condition.NetworkAttachmentsReadyErrorMessage,
-				error.Error())
+				err.Error())
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -626,7 +625,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	return ctrl.Result{}, nil
 }
 
-func (r *CinderSchedulerReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
+func (r *CinderSchedulerReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.CinderScheduler) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
@@ -638,7 +637,7 @@ func (r *CinderSchedulerReconciler) reconcileUpdate(ctx context.Context, instanc
 	return ctrl.Result{}, nil
 }
 
-func (r *CinderSchedulerReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderScheduler, helper *helper.Helper) (ctrl.Result, error) {
+func (r *CinderSchedulerReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.CinderScheduler) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
