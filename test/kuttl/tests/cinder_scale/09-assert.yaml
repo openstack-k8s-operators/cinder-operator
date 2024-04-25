@@ -11,11 +11,11 @@ spec:
   databaseAccount: cinder
   rabbitMqClusterName: rabbitmq
   cinderAPI:
-    replicas: 1
+    replicas: 0
   cinderScheduler:
     replicas: 1
   cinderBackup:
-    replicas: 3
+    replicas: 1
   cinderVolumes:
     volume1:
       replicas: 1
@@ -23,13 +23,13 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: cinder-backup
+  name: cinder-api
   ownerReferences:
-    - apiVersion: cinder.openstack.org/v1beta1
-      blockOwnerDeletion: true
-      controller: true
-      kind: CinderBackup
-      name: cinder-backup
+    -  apiVersion: cinder.openstack.org/v1beta1
+       blockOwnerDeletion: true
+       controller: true
+       kind: CinderAPI
+       name: cinder-api
 status:
-  availableReplicas: 3
-  replicas: 3
+  availableReplicas: 0
+  replicas: 0

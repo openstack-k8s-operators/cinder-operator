@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      oc patch cinder -n $NAMESPACE  cinder --type='json' -p='[{"op": "replace", "path": "/spec/cinderAPI/replicas", "value":0}]'
