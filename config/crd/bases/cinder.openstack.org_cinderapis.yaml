@@ -986,13 +986,20 @@ spec:
                     type: string
                   type: array
                 type: object
+              observedGeneration:
+                format: int64
+                type: integer
               readyCount:
+                default: 0
                 format: int32
+                minimum: 0
                 type: integer
               serviceIDs:
                 additionalProperties:
                   type: string
                 type: object
+            required:
+            - readyCount
             type: object
         type: object
     served: true

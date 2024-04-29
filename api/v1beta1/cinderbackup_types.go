@@ -82,10 +82,18 @@ type CinderBackupStatus struct {
 	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
 
 	// ReadyCount of Cinder Backup instances
-	ReadyCount int32 `json:"readyCount,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=0
+	ReadyCount int32 `json:"readyCount"`
 
 	// NetworkAttachments status of the deployment pods
 	NetworkAttachments map[string][]string `json:"networkAttachments,omitempty"`
+
+	// ObservedGeneration - the most recent generation observed for this service.
+	// If the observed generation is different than the spec generation, then the
+	// controller has not started processing the latest changes, and the status
+	// and its conditions are likely stale.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -118,5 +126,8 @@ func init() {
 
 // IsReady - returns true if service is ready to serve requests
 func (instance CinderBackup) IsReady() bool {
-	return instance.Status.ReadyCount == *instance.Spec.Replicas
+	return instance.Generation == instance.Status.ObservedGeneration &&
+		instance.Status.ReadyCount == *instance.Spec.Replicas &&
+		(instance.Status.Conditions.IsTrue(condition.DeploymentReadyCondition) ||
+			(instance.Status.Conditions.IsFalse(condition.DeploymentReadyCondition) && *instance.Spec.Replicas == 0))
 }

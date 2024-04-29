@@ -160,18 +160,27 @@ type CinderStatus struct {
 	ServiceIDs map[string]string `json:"serviceIDs,omitempty"`
 
 	// ReadyCount of Cinder API instance
-	CinderAPIReadyCount int32 `json:"cinderAPIReadyCount,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=0
+	CinderAPIReadyCount int32 `json:"cinderAPIReadyCount"`
 
 	// ReadyCount of Cinder Backup instance
-	CinderBackupReadyCount int32 `json:"cinderBackupReadyCount,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=0
+	CinderBackupReadyCount int32 `json:"cinderBackupReadyCount"`
 
 	// ReadyCount of Cinder Scheduler instance
-	CinderSchedulerReadyCount int32 `json:"cinderSchedulerReadyCount,omitempty"`
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=0
+	CinderSchedulerReadyCount int32 `json:"cinderSchedulerReadyCount"`
 
 	// ReadyCounts of Cinder Volume instances
 	CinderVolumesReadyCounts map[string]int32 `json:"cinderVolumesReadyCounts,omitempty"`
 
-	//ObservedGeneration - the most recent generation observed for this service. If the observed generation is less than the spec generation, then the controller has not processed the latest changes.
+	// ObservedGeneration - the most recent generation observed for this service.
+	// If the observed generation is different than the spec generation, then the
+	// controller has not started processing the latest changes, and the status
+	// and its conditions are likely stale.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
@@ -217,7 +226,8 @@ func init() {
 
 // IsReady - returns true if all subresources Ready condition is true
 func (instance Cinder) IsReady() bool {
-	return instance.Status.Conditions.IsTrue(CinderAPIReadyCondition) &&
+	return instance.Generation == instance.Status.ObservedGeneration &&
+		instance.Status.Conditions.IsTrue(CinderAPIReadyCondition) &&
 		instance.Status.Conditions.IsTrue(CinderBackupReadyCondition) &&
 		instance.Status.Conditions.IsTrue(CinderSchedulerReadyCondition) &&
 		instance.Status.Conditions.IsTrue(CinderVolumeReadyCondition)
