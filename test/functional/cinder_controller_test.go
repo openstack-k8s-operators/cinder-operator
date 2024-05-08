@@ -17,14 +17,17 @@ package functional
 
 import (
 	"fmt"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2" //revive:disable:dot-imports
 	. "github.com/onsi/gomega"    //revive:disable:dot-imports
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	//revive:disable-next-line:dot-imports
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
@@ -746,4 +749,44 @@ var _ = Describe("Cinder controller", func() {
 
 	mariadbSuite.RunBasicSuite()
 
+})
+
+var _ = Describe("Cinder Webhook", func() {
+
+	BeforeEach(func() {
+		err := os.Setenv("OPERATOR_TEMPLATES", "../../templates")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("rejects with wrong CinderAPI service override endpoint type", func() {
+		spec := GetDefaultCinderSpec()
+		apiSpec := GetDefaultCinderAPISpec()
+		apiSpec["override"] = map[string]interface{}{
+			"service": map[string]interface{}{
+				"internal": map[string]interface{}{},
+				"wrooong":  map[string]interface{}{},
+			},
+		}
+		spec["cinderAPI"] = apiSpec
+
+		raw := map[string]interface{}{
+			"apiVersion": "cinder.openstack.org/v1beta1",
+			"kind":       "Cinder",
+			"metadata": map[string]interface{}{
+				"name":      cinderTest.Instance.Name,
+				"namespace": cinderTest.Instance.Namespace,
+			},
+			"spec": spec,
+		}
+
+		unstructuredObj := &unstructured.Unstructured{Object: raw}
+		_, err := controllerutil.CreateOrPatch(
+			th.Ctx, th.K8sClient, unstructuredObj, func() error { return nil })
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(
+			ContainSubstring(
+				"invalid: spec.cinderAPI.override.service[wrooong]: " +
+					"Invalid value: \"wrooong\": invalid endpoint type: wrooong"),
+		)
+	})
 })
