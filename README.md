@@ -1,349 +1,156 @@
-# cinder-operator
-// TODO(user): Add simple overview of use/purpose
+# CINDER-OPERATOR
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+The cinder-operator is an OpenShift Operator built using the Operator Framework
+for Go. The Operator provides a way to easily install and manage an OpenStack
+Cinder service on OpenShift. This Operator was developed using RDO containers
+for openStack but is not limited to them.
+
+Conceptually there are 2 types of nodes: Control Plane Nodes, running OpenStack
+control plane services on OpenShift, and External Data Plane (EDPM) Nodes,
+running RHEL for computes (and maybe swift).
+
+Some links of interest:
+
+- [OpenStack Kubernetes Operators](https://github.com/openstack-k8s-operators/)
+- [Developer Docs](https://github.com/openstack-k8s-operators/dev-docs)
+- [Data Plane Operator docs](https://openstack-k8s-operators.github.io/dataplane-operator/)
 
 ## Getting Started
-You’ll need a Kubernetes cluster to run against.  Our recommendation for the time being is to use
-[OpenShift Local](https://access.redhat.com/documentation/en-us/red_hat_openshift_local/2.2/html/getting_started_guide/installation_gsg) (formerly known as CRC / Code Ready Containers).
-We have [companion development tools](https://github.com/openstack-k8s-operators/install_yamls/blob/main/devsetup/README.md) available that will install OpenShift Local for you.
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+In this section we'll deploy an operator deployed OpenStack system with a
+single compute node and using the LVM backend for block storage. The control
+plane will run in a single node OpenShift cluster inside a VM and the compute
+node will be a single EDPM node in another VM.
 
-```sh
-kubectl apply -f config/samples/
-```
+Cloning this repository is not necessary to follow this getting started
+section, though it will be for development.
 
-2. Build and push your image to the location specified by `IMG`:
+**You need to get your [pull-secrets from Red Hat](
+https://cloud.redhat.com/openshift/create/local) and store it in the machine,
+for example on your home directory as `pull-secret`.**
 
-```sh
-make docker-build docker-push IMG=<some-registry>/cinder-operator:tag
-```
-
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+Ensure prerequisites are installed:
 
 ```sh
-make deploy IMG=<some-registry>/cinder-operator:tag
+sudo dnf -y install git make wget ansible-core
+git clone https://github.com/openstack-k8s-operators/install_yamls.git
 ```
 
-### Uninstall CRDs
-To delete the CRDs from the cluster:
+Get the OpenShift cluster up and running:
 
 ```sh
-make uninstall
+cd install_yamls/devsetup
+
+PULL_SECRET=~/pull-secret CPUS=6 MEMORY=24576 DISK=50 make download_tools crc
+
+make crc_attach_default_interface
 ```
 
-### Undeploy controller
-UnDeploy the controller to the cluster:
+Install the OpenStack operators:
 
 ```sh
-make undeploy
+eval $(crc oc-env)
+cd ..
+make crc_storage openstack_wait
 ```
 
-### Configure Cinder with Ceph backend
-
-The Cinder services can be configured to interact with an external Ceph cluster.
-In particular, the `customServiceConfig` parameter must be used, for each defined
-`cinder-volume` and `cinder-backup` instance, to override the `enabled_backends`
-parameter and inject the Ceph related parameters.
-The `ceph.conf` and the `client keyring` must exist as secrets, and can be
-mounted by the cinder pods using the `extraMounts` feature.
-
-Create a secret by generating the following file and then apply it using the `oc`
-cli.
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ceph-client-conf
-  namespace: openstack
-stringData:
-  ceph.client.openstack.keyring: |
-    [client.openstack]
-        key = <secret key>
-        caps mgr = "allow *"
-        caps mon = "profile rbd"
-        caps osd = "profile rbd pool=images"
-  ceph.conf: |
-    [global]
-    fsid = 7a1719e8-9c59-49e2-ae2b-d7eb08c695d4
-    mon_host = 10.1.1.2,10.1.1.3,10.1.1.4
-
-
-Add the following to the spec of the Cinder CR and then apply it using the `oc`
-cli.
-
-```
-  extraMounts:
-    - name: v1
-      region: r1
-      extraVol:
-        - propagation:
-          - CinderVolume
-          - CinderBackup
-          volumes:
-          - name: ceph
-            secret:
-              secretName: ceph-client-conf
-          mounts:
-          - name: ceph
-            mountPath: "/etc/ceph"
-            readOnly: true
-```
-
-The following represents an example of the entire Cinder object that can be used
-to trigger the Cinder service deployment, and enable the Cinder backend that
-points to an external Ceph cluster.
-
-
-```
-apiVersion: cinder.openstack.org/v1beta1
-kind: Cinder
-metadata:
-  name: cinder
-  namespace: openstack
-spec:
-  serviceUser: cinder
-  databaseInstance: openstack
-  databaseUser: cinder
-  cinderAPI:
-    replicas: 1
-    containerImage: quay.io/podified-antelopecentos9/openstack-cinder-api:current-podified
-  cinderScheduler:
-    replicas: 1
-    containerImage: quay.io/podified-antelopecentos9/openstack-cinder-scheduler:current-podified
-  cinderBackup:
-    replicas: 1
-    containerImage: quay.io/podified-antelopecentos9/openstack-cinder-backup:current-podified
-    customServiceConfig: |
-      [DEFAULT]
-      backup_driver = cinder.backup.drivers.ceph.CephBackupDriver
-      backup_ceph_pool = backups
-      backup_ceph_user = admin
-  secret: cinder-secret
-  cinderVolumes:
-    volume1:
-      containerImage: quay.io/podified-antelopecentos9/openstack-cinder-volume:current-podified
-      replicas: 1
-      customServiceConfig: |
-        [DEFAULT]
-        enabled_backends=ceph
-        [ceph]
-        volume_backend_name=ceph
-        volume_driver=cinder.volume.drivers.rbd.RBDDriver
-        rbd_ceph_conf=/etc/ceph/ceph.conf
-        rbd_user=admin
-        rbd_pool=volumes
-        rbd_flatten_volume_from_snapshot=False
-        rbd_secret_uuid=<Ceph_FSID>
-  extraMounts:
-    - name: cephfiles
-      region: r1
-      extraVol:
-      - propagation:
-        - CinderVolume
-        - CinderBackup
-        extraVolType: Ceph
-        volumes:
-        - name: ceph
-          secret:
-            secretName: ceph-client-conf
-        mounts:
-        - name: ceph
-          mountPath: "/etc/ceph"
-          readOnly: true
-```
-
-When the service is up and running, it's possible to interact with the Cinder
-API and create the Ceph `cinder type` backend which is associated with the Ceph
-tier specified in the config file.
-
-## Example: configure Cinder with additional networks
-
-The Cinder spec can be used to configure Cinder to have the pods
-being attached to additional networks to e.g. connect to a Ceph
-RBD server on a dedicated storage network.
-
-Create a network-attachement-definition which then can be referenced
-from the Cinder CR.
-
-```
----
-apiVersion: k8s.cni.cncf.io/v1
-kind: NetworkAttachmentDefinition
-metadata:
-  name: storage
-  namespace: openstack
-spec:
-  config: |
-    {
-      "cniVersion": "0.3.1",
-      "name": "storage",
-      "type": "macvlan",
-      "master": "enp7s0.21",
-      "ipam": {
-        "type": "whereabouts",
-        "range": "172.18.0.0/24",
-        "range_start": "172.18.0.50",
-        "range_end": "172.18.0.100"
-      }
-    }
-```
-
-The following represents an example of Cinder resource that can be used
-to trigger the service deployment, and have the Cinder Volume and Cinder Backup
-service pods attached to the storage network using the above NetworkAttachmentDefinition.
-
-```
-apiVersion: cinder.openstack.org/v1beta1
-kind: Cinder
-metadata:
-  name: cinder
-spec:
-  ...
-  cinderBackup:
-    ...
-    networkAttachents:
-    - storage
-  cinderVolume:
-    volume1:
-      ...
-      networkAttachents:
-      - storage
-...
-```
-
-When the service is up and running, it will now have an additional nic
-configured for the storage network:
-
-```
-# oc rsh cinder-volume-volume1-0
-Defaulted container "cinder-volume" out of: cinder-volume, probe, init (init)
-sh-5.1# ip a
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-       valid_lft forever preferred_lft forever
-    inet6 ::1/128 scope host
-       valid_lft forever preferred_lft forever
-3: eth0@if334: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue state UP group default
-    link/ether 0a:58:0a:82:01:44 brd ff:ff:ff:ff:ff:ff link-netns 7ea23955-d990-449d-81f9-fd57cb710daa
-    inet 10.130.1.68/23 brd 10.130.1.255 scope global eth0
-       valid_lft forever preferred_lft forever
-    inet6 fe80::bc92:5cff:fef3:2e27/64 scope link
-       valid_lft forever preferred_lft forever
-4: net1@if17: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
-    link/ether 26:35:09:03:71:b3 brd ff:ff:ff:ff:ff:ff link-netns 7ea23955-d990-449d-81f9-fd57cb710daa
-    inet 172.18.0.20/24 brd 172.18.0.255 scope global net1
-       valid_lft forever preferred_lft forever
-    inet6 fe80::2435:9ff:fe03:71b3/64 scope link
-       valid_lft forever preferred_lft forever
-```
-
-## Example: expose Cinder API to an isolated network
-
-The Cinder spec can be used to configure Cinder API to register e.g.
-the internal endpoint to an isolated network. MetalLB is used for this
-scenario.
-
-As a pre requisite, MetalLB needs to be installed and worker nodes
-prepared to work as MetalLB nodes to serve the LoadBalancer service.
-
-In this example the following MetalLB IPAddressPool is used:
-
-```
----
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: osp-internalapi
-  namespace: metallb-system
-spec:
-  addresses:
-  - 172.17.0.200-172.17.0.210
-  autoAssign: false
-```
-
-The following represents an example of Cinder resource that can be used
-to trigger the service deployment, and have the cinderAPI endpoint
-registerd as a MetalLB service using the IPAddressPool `osp-internal`,
-request to use the IP `172.17.0.202` as the VIP and the IP is shared with
-other services.
-
-```
-apiVersion: cinder.openstack.org/v1beta1
-kind: Cinder
-metadata:
-  name: cinder
-spec:
-  ...
-  cinderAPI:
-    ...
-    override:
-      service:
-        internal:
-          metadata:
-            annotations:
-              metallb.universe.tf/address-pool: osp-internalapi
-              metallb.universe.tf/allow-shared-ip: internalapi
-              metallb.universe.tf/loadBalancerIPs: 172.17.0.202
-          spec:
-            type: LoadBalancer
-    ...
-...
-```
-
-The internal cinder endpoint gets registered with its service name. This
-service name needs to resolve to the `LoadBalancerIP` on the isolated network
-either by DNS or via /etc/hosts:
-
-```
-# openstack endpoint list -c 'Service Name' -c Interface -c URL --service cinderv3
-+--------------+-----------+------------------------------------------------------------------+
-| Service Name | Interface | URL                                                              |
-+--------------+-----------+------------------------------------------------------------------+
-| cinderv3     | internal  | http://cinder-internal.openstack.svc:8776/v3                     |
-| cinderv3     | public    | http://cinder-public-openstack.apps.ostest.test.metalkube.org/v3 |
-+--------------+-----------+------------------------------------------------------------------+
-```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/)
-which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster
-
-### Test It Out
-1. Install the CRDs into the cluster:
+Create the deployment config for the LVM backend and deploy the OpenStack
+control plane:
 
 ```sh
-make install
+oc kustomize \
+  https://github.com/openstack-k8s-operators/cinder-operator.git/config/samples/backends/lvm/iscsi?ref=main \
+  > ~/openstack-deployment.yaml
+
+oc label node --all openstack.org/cinder-lvm=
+
+OPENSTACK_CR=~/openstack-deployment.yaml make openstack_deploy
 ```
 
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
+*NOTE*: We are using `--all` to label all the nodes because we only have 1 node
+in our OpenShift cluster. For 3 node cluster a node name must be provided
+instead.
+
+This will reboot the OpenShift cluster, so it will take a while to be up and
+running.
 
 ```sh
-make run
+oc wait --for condition=Ready --timeout=300s
 ```
 
-**NOTE:** You can also run this in one step by running: `make install run`
-
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
+Create the EDPM (compute) VM and provisioning:
 
 ```sh
-make manifests
+cd devsetup
+make edpm_compute
+
+cd ..
+DATAPLANE_TIMEOUT=40m make edpm_wait_deploy
 ```
 
-**NOTE:** Run `make --help` for more information on all potential `make` targets
+We should now have a working OpenStack deployment and we will be able to run
+commands using the `openstackclient` pod:
 
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+```sh
+oc exec -t openstackclient -- openstack volume service list
+oc exec -t openstackclient -- openstack compute service list
+```
+
+## Other information
+
+- [Configure Cinder with additional networks](docs/additional_network.md)
+- [Expose Cinder API to an isolated network](docs/api_isolated_network.md)
+- [Configure Cinder with Ceph backend](docs/ceph_backend.md)
+- [Contributing](CONTRIBUTING.md)
+
+## Troubleshooting
+
+### Failure creating PVs
+
+Running `make crc_storage openstack_wait` may fail creating the PVs. It is safe
+to just retry the command.
+
+Or we can clean existing PVs with `make crc_storage_cleanup` and retry.
+
+### Timeout deploying EDPM
+
+Running `DATAPLANE_TIMEOUT=40m make edpm_wait_deploy` usually fails due to a
+timeout.
+
+You can `watch oc get OpenStackDataPlaneDeployment` until it is ready and then
+run `make edpm_nova_discover_hosts`.
+
+### Problems deploying EDPM
+
+We can see the pods that are running ansible playbooks to configure the
+compute node with `oc get pod -l app=openstackansibleee --watch` and the do an
+`oc logs` on a specific pod.
+
+We can also check the logs filtering by label:
+```sh
+oc logs -f -l app=openstackansibleee
+```
+
+Or we can also run a complex command to log the different pods automatically:
+
+```sh
+while true; do oc logs -n openstack -f $(oc get pod -l osdpd=openstack-edpm --field-selector='status.phase=Running' --no-headers -o name) 2>/dev/null || echo -n .; sleep 1; done
+```
+
+### Go into the EDPM node:
+
+```sh
+ssh -i ~/install_yamls/out/edpm/ansibleee-ssh-key-id_rsa root@192.168.122.100
+```
+
+Once provisioned cloud-admin user will exist.
+
+### Go into the OpenShift node
+
+```sh
+oc debug $(oc get node -o name)
+chroot /host
+```
 
 ## License
 
