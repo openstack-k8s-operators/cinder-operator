@@ -222,3 +222,29 @@ func (r *Cinder) ValidateDelete() (admission.Warnings, error) {
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil, nil
 }
+
+// SetDefaultRouteAnnotations sets HAProxy timeout values of the route
+func (spec *CinderSpecCore) SetDefaultRouteAnnotations(annotations map[string]string) {
+	const haProxyAnno = "haproxy.router.openshift.io/timeout"
+	// Use a custom annotation to flag when the operator has set the default HAProxy timeout
+	// With the annotation func determines when to overwrite existing HAProxy timeout with the APITimeout
+	const cinderAnno = "api.cinder.openstack.org/timeout"
+
+	valCinder, okCinder := annotations[cinderAnno]
+	valHAProxy, okHAProxy := annotations[haProxyAnno]
+
+	// Human operator set the HAProxy timeout manually
+	if (!okCinder && okHAProxy) {
+		return
+	}
+
+	// Human operator modified the HAProxy timeout manually without removing the Cinder flag
+	if (okCinder && okHAProxy && valCinder != valHAProxy) {
+		delete(annotations, cinderAnno)
+		return
+	}
+
+	timeout := fmt.Sprintf("%ds", spec.APITimeout)
+	annotations[cinderAnno] = timeout
+	annotations[haProxyAnno] = timeout
+}
