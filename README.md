@@ -1,4 +1,4 @@
-# CINDER-OPERATOR
+# CINDER-OPERATORR
 
 The cinder-operator is an OpenShift Operator built using the Operator Framework
 for Go. The Operator provides a way to easily install and manage an OpenStack
