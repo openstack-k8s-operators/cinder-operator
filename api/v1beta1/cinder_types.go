@@ -96,6 +96,12 @@ type CinderSpecBase struct {
 	// +kubebuilder:validation:Optional
 	// DBPurge parameters -
 	DBPurge DBPurge `json:"dbPurge,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=60
+	// +kubebuilder:validation:Minimum=10
+	// APITimeout for HAProxy, Apache, and rpc_response_timeout
+	APITimeout int `json:"apiTimeout"`
 }
 
 // CinderSpecCore the same as CinderSpec without ContainerImage references

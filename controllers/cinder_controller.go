@@ -954,6 +954,7 @@ func (r *CinderReconciler) generateServiceConfigs(
 		instance.Status.DatabaseHostname,
 		cinder.DatabaseName)
 	templateParameters["MemcachedServersWithInet"] = memcached.GetMemcachedServerListWithInetString()
+	templateParameters["TimeOut"] = instance.Spec.APITimeout
 
 	// create httpd  vhost template parameters
 	httpdVhostConfig := map[string]interface{}{}
