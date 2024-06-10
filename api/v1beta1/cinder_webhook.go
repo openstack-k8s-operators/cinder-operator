@@ -44,6 +44,7 @@ type CinderDefaults struct {
 	VolumeContainerImageURL    string
 	DBPurgeAge                 int
 	DBPurgeSchedule            string
+	APITimeout                 int
 }
 
 var cinderDefaults CinderDefaults
@@ -60,6 +61,7 @@ func SetupDefaults() {
 		VolumeContainerImageURL:    util.GetEnvVar("RELATED_IMAGE_CINDER_VOLUME_IMAGE_URL_DEFAULT", CinderVolumeContainerImage),
 		DBPurgeAge:                 DBPurgeDefaultAge,
 		DBPurgeSchedule:            DBPurgeDefaultSchedule,
+		APITimeout:                 APITimeoutDefault,
 	}
 
 	cinderlog.Info("Cinder defaults initialized", "defaults", cinderDefaults)
@@ -110,6 +112,9 @@ func (spec *CinderSpecBase) Default() {
 	}
 	if spec.DBPurge.Schedule == "" {
 		spec.DBPurge.Schedule = cinderDefaults.DBPurgeSchedule
+	}
+	if spec.APITimeout == 0 {
+		spec.APITimeout = cinderDefaults.APITimeout
 	}
 }
 
