@@ -50,6 +50,8 @@ const (
 	DBPurgeDefaultAge = 30
 	// DBPurgeDefaultSchedule - Default cron schedule for purging the DB
 	DBPurgeDefaultSchedule = "1 0 * * *"
+	// APITimeoutDefault  - Default timeout in seconds for HAProxy, Apache, and RPCs
+	APITimeoutDefault  = 60
 )
 
 type CinderSpecBase struct {
