@@ -20,6 +20,7 @@ package functional
 import (
 	"fmt"
 
+	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -65,6 +66,7 @@ type CinderTestData struct {
 	CABundleSecret         types.NamespacedName
 	InternalCertSecret     types.NamespacedName
 	PublicCertSecret       types.NamespacedName
+	Database               types.NamespacedName
 }
 
 // GetCinderTestData is a function that initialize the CinderTestData
@@ -115,7 +117,7 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		},
 		CinderTransportURL: types.NamespacedName{
 			Namespace: cinderName.Namespace,
-			Name:      fmt.Sprintf("cinder-%s-transport", cinderName.Name),
+			Name:      fmt.Sprintf("%s-cinder-transport", cinderName.Name),
 		},
 		CinderMemcached: types.NamespacedName{
 			Namespace: cinderName.Namespace,
@@ -132,19 +134,19 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		// Also used to identify CinderRoutePublic
 		CinderServicePublic: types.NamespacedName{
 			Namespace: cinderName.Namespace,
-			Name:      fmt.Sprintf("%s-public", cinderName.Name),
+			Name:      fmt.Sprintf("%s-public", cinder.ServiceName),
 		},
 		CinderServiceInternal: types.NamespacedName{
 			Namespace: cinderName.Namespace,
-			Name:      fmt.Sprintf("%s-internal", cinderName.Name),
+			Name:      fmt.Sprintf("%s-internal", cinder.ServiceName),
 		},
 		CinderKeystoneService: types.NamespacedName{
 			Namespace: cinderName.Namespace,
-			Name:      fmt.Sprintf("%sv3", cinderName.Name),
+			Name:      cinder.ServiceNameV3,
 		},
 		CinderKeystoneEndpoint: types.NamespacedName{
 			Namespace: cinderName.Namespace,
-			Name:      fmt.Sprintf("%sv3", cinderName.Name),
+			Name:      cinder.ServiceNameV3,
 		},
 		InternalAPINAD: types.NamespacedName{
 			Namespace: cinderName.Namespace,
@@ -170,6 +172,10 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		PublicCertSecret: types.NamespacedName{
 			Namespace: cinderName.Namespace,
 			Name:      PublicCertSecretName,
+		},
+		Database: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      cinder.DatabaseName,
 		},
 	}
 }

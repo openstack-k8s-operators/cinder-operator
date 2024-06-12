@@ -18,6 +18,4 @@ package cindervolume
 const (
 	// ComponentName -
 	ComponentName = "cinder-volume"
-	// Backend -
-	Backend = "backend"
 )
