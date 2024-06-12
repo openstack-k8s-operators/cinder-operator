@@ -354,7 +354,7 @@ func (r *CinderReconciler) reconcileDelete(ctx context.Context, instance *cinder
 	Log.Info(fmt.Sprintf("Reconciling Service '%s' delete", instance.Name))
 
 	// remove db finalizer first
-	db, err := mariadbv1.GetDatabaseByNameAndAccount(ctx, helper, instance.Name, instance.Spec.DatabaseAccount, instance.Namespace)
+	db, err := mariadbv1.GetDatabaseByNameAndAccount(ctx, helper, cinder.DatabaseName, instance.Spec.DatabaseAccount, instance.Namespace)
 	if err != nil && !k8s_errors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	}
@@ -1283,8 +1283,8 @@ func (r *CinderReconciler) ensureDB(
 
 	db := mariadbv1.NewDatabaseForAccount(
 		instance.Spec.DatabaseInstance, // mariadb/galera service to target
-		instance.Name,                  // name used in CREATE DATABASE in mariadb
-		instance.Name,                  // CR name for MariaDBDatabase
+		cinder.DatabaseName,            // name used in CREATE DATABASE in mariadb
+		cinder.DatabaseName,            // CR name for MariaDBDatabase
 		instance.Spec.DatabaseAccount,  // CR name for MariaDBAccount
 		instance.Namespace,             // namespace
 	)
