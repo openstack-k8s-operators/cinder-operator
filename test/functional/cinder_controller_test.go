@@ -114,7 +114,7 @@ var _ = Describe("Cinder controller", func() {
 			// it to run
 			Eventually(func() []string {
 				return GetCinder(cinderTest.Instance).Finalizers
-			}, timeout, interval).Should(ContainElement("Cinder"))
+			}, timeout, interval).Should(ContainElement("openstack.org/cinder"))
 		})
 		It("creates service account, role and rolebinding", func() {
 			th.ExpectCondition(
@@ -327,12 +327,12 @@ var _ = Describe("Cinder controller", func() {
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 
 			mDB := mariadb.GetMariaDBDatabase(cinderTest.Instance)
-			Expect(mDB.Finalizers).To(ContainElement("Cinder"))
+			Expect(mDB.Finalizers).To(ContainElement("openstack.org/cinder"))
 
 			th.DeleteInstance(GetCinder(cinderTest.Instance))
 
 			mDB = mariadb.GetMariaDBDatabase(cinderTest.Instance)
-			Expect(mDB.Finalizers).NotTo(ContainElement("Cinder"))
+			Expect(mDB.Finalizers).NotTo(ContainElement("openstack.org/cinder"))
 		})
 	})
 	When("Cinder CR instance is built with NAD", func() {
@@ -679,7 +679,7 @@ var _ = Describe("Cinder controller", func() {
 				"Cinder",
 				cinderTest.Instance.Namespace,
 				cinderTest.Instance.Name,
-				"Cinder",
+				"openstack.org/cinder",
 				mariadb,
 				timeout,
 				interval,
