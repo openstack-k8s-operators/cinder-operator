@@ -850,7 +850,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	instance.Status.Conditions.MarkTrue(condition.CronJobReadyCondition, condition.CronJobReadyMessage)
 	// create CronJob - end
 
-	err = mariadbv1.DeleteUnusedMariaDBAccountFinalizers(ctx, helper, instance.Name, instance.Spec.DatabaseAccount, instance.Namespace)
+	err = mariadbv1.DeleteUnusedMariaDBAccountFinalizers(ctx, helper, cinder.DatabaseName, instance.Spec.DatabaseAccount, instance.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
