@@ -404,6 +404,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateLoadBalancerServiceIP(cinderTest.CinderServiceInternal)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 		})
 		It("Check the resulting endpoints of the generated sub-CRs", func() {
