@@ -262,7 +262,7 @@ var _ = BeforeEach(func() {
 	// we run the test in an existing cluster.
 	cinderName = types.NamespacedName{
 		Namespace: namespace,
-		Name:      "cinder",
+		Name:      "cinder-" + uuid.NewString()[:5],
 	}
 
 	cinderTest = GetCinderTestData(cinderName)

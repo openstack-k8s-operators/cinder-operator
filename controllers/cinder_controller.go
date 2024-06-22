@@ -850,7 +850,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	instance.Status.Conditions.MarkTrue(condition.CronJobReadyCondition, condition.CronJobReadyMessage)
 	// create CronJob - end
 
-	err = mariadbv1.DeleteUnusedMariaDBAccountFinalizers(ctx, helper, instance.Name, instance.Spec.DatabaseAccount, instance.Namespace)
+	err = mariadbv1.DeleteUnusedMariaDBAccountFinalizers(ctx, helper, cinder.DatabaseName, instance.Spec.DatabaseAccount, instance.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -1187,6 +1187,7 @@ func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, i
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-volume-%s", instance.Name, name),
 			Namespace: instance.Namespace,
+			Labels:    map[string]string{cinderv1beta1.Backend: name},
 		},
 	}
 
@@ -1226,18 +1227,14 @@ func (r *CinderReconciler) volumeCleanupDeployments(ctx context.Context, instanc
 		return nil
 	}
 
-	prefixLen := len(instance.Name + "-volume-")
 	for _, volume := range volumes.Items {
 		// Skip volumes that we don't own
 		if cinder.GetOwningCinderName(&volume) != instance.Name {
 			continue
 		}
 
-		// specName is the volume's name as it would appear in the CinderVolumes spec
-		specName := volume.Name[prefixLen:]
-
 		// Delete the volume if it's no longer in the spec
-		_, exists := instance.Spec.CinderVolumes[specName]
+		_, exists := instance.Spec.CinderVolumes[volume.BackendName()]
 		if !exists && volume.DeletionTimestamp.IsZero() {
 			err := r.Client.Delete(ctx, &volume)
 			if err != nil && !k8s_errors.IsNotFound(err) {

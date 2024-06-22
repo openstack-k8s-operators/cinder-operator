@@ -428,7 +428,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	serviceLabels := map[string]string{
 		common.AppSelector:       cinder.ServiceName,
 		common.ComponentSelector: cindervolume.ComponentName,
-		cindervolume.Backend:     instance.Name[len(cindervolume.ComponentName)+1:],
+		cinderv1beta1.Backend:    instance.BackendName(),
 	}
 
 	//

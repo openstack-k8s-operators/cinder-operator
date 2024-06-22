@@ -22,6 +22,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// Backend -
+	Backend = "backend"
+)
+
 // CinderVolumeTemplate defines the input parameters for the Cinder Volume service
 type CinderVolumeTemplateCore struct {
 	// Common input parameters for the Cinder Volume service
@@ -131,4 +136,9 @@ func (instance CinderVolume) IsReady() bool {
 		instance.Status.ReadyCount == *instance.Spec.Replicas &&
 		(instance.Status.Conditions.IsTrue(condition.DeploymentReadyCondition) ||
 			(instance.Status.Conditions.IsFalse(condition.DeploymentReadyCondition) && *instance.Spec.Replicas == 0))
+}
+
+// BackendName - returns the backend name of a CinderVolume instance based on the labels
+func (instance CinderVolume) BackendName() string {
+	return instance.Labels[Backend]
 }

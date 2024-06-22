@@ -169,8 +169,8 @@ var _ = Describe("Cinder controller", func() {
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(namespace))
 		})
 		It("Should set DBReady Condition and set DatabaseHostname Status when DB is Created", func() {
-			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
 			Cinder := GetCinder(cinderTest.Instance)
 			Expect(Cinder.Status.DatabaseHostname).To(Equal(fmt.Sprintf("hostname-for-openstack.%s.svc", namespace)))
@@ -188,8 +188,8 @@ var _ = Describe("Cinder controller", func() {
 			)
 		})
 		It("Should fail if db-sync job fails when DB is Created", func() {
-			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobFailure(cinderTest.CinderDBSync)
 			th.ExpectCondition(
 				cinderTest.Instance,
@@ -229,8 +229,8 @@ var _ = Describe("Cinder controller", func() {
 			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, "memcached", memcachedSpec))
 			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
-			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 		})
 		It("should create config-data and scripts ConfigMaps", func() {
 			keystoneAPI := keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace)
@@ -281,8 +281,8 @@ var _ = Describe("Cinder controller", func() {
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
 			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
-			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
@@ -319,19 +319,19 @@ var _ = Describe("Cinder controller", func() {
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
 			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
-			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
 		})
 		It("removes the finalizers from the Cinder DB", func() {
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 
-			mDB := mariadb.GetMariaDBDatabase(cinderTest.Instance)
+			mDB := mariadb.GetMariaDBDatabase(cinderTest.Database)
 			Expect(mDB.Finalizers).To(ContainElement("openstack.org/cinder"))
 
 			th.DeleteInstance(GetCinder(cinderTest.Instance))
 
-			mDB = mariadb.GetMariaDBDatabase(cinderTest.Instance)
+			mDB = mariadb.GetMariaDBDatabase(cinderTest.Database)
 			Expect(mDB.Finalizers).NotTo(ContainElement("openstack.org/cinder"))
 		})
 	})
@@ -401,8 +401,8 @@ var _ = Describe("Cinder controller", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(k8sClient.Status().Update(ctx, keystoneAPI.DeepCopy())).Should(Succeed())
 			}, timeout, interval).Should(Succeed())
-			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Instance)
-			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 		})
@@ -475,8 +475,8 @@ var _ = Describe("Cinder controller", func() {
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
 			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
-			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Instance)
-			mariadb.SimulateMariaDBTLSDatabaseCompleted(cinderTest.Instance)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBTLSDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
 		})
 
@@ -678,7 +678,7 @@ var _ = Describe("Cinder controller", func() {
 			harness.Setup(
 				"Cinder",
 				cinderTest.Instance.Namespace,
-				cinderTest.Instance.Name,
+				cinder.DatabaseName,
 				"openstack.org/cinder",
 				mariadb,
 				timeout,
@@ -712,7 +712,7 @@ var _ = Describe("Cinder controller", func() {
 			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
 			mariadb.SimulateMariaDBAccountCompleted(accountName)
-			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Instance)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
 
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
