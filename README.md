@@ -13,7 +13,7 @@ Some links of interest:
 
 - [OpenStack Kubernetes Operators](https://github.com/openstack-k8s-operators/)
 - [Developer Docs](https://github.com/openstack-k8s-operators/dev-docs)
-- [Data Plane Operator docs](https://openstack-k8s-operators.github.io/dataplane-operator/)
+- [User Docs](https://openstack-k8s-operators.github.io/openstack-operator/)
 
 ## Getting Started
 
