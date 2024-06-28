@@ -27,6 +27,12 @@
     },
     {
       "source": "/usr/local/bin/container-scripts/run-on-host",
+      "dest": "/usr/sbin/cryptsetup",
+      "owner": "root:root",
+      "perm": "0755"
+    },
+    {
+      "source": "/usr/local/bin/container-scripts/run-on-host",
       "dest": "/usr/sbin/nvme",
       "owner": "root:root",
       "perm": "0755"
