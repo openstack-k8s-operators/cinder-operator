@@ -135,6 +135,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
+		Log.Error(err, fmt.Sprintf("could not fetch Cinder instance %s", instance.Name))
 		return ctrl.Result{}, err
 	}
 
@@ -146,6 +147,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		Log,
 	)
 	if err != nil {
+		Log.Error(err, fmt.Sprintf("could not instantiate helper for instance %s", instance.Name))
 		return ctrl.Result{}, err
 	}
 
@@ -396,7 +398,7 @@ func (r *CinderReconciler) reconcileInit(
 		jobDef,
 		cinderv1beta1.DbSyncHash,
 		instance.Spec.PreserveJobs,
-		time.Duration(5)*time.Second,
+		cinder.ShortDuration,
 		dbSyncHash,
 	)
 	ctrlResult, err := dbSyncjob.DoJob(
@@ -492,7 +494,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			condition.RequestedReason,
 			condition.SeverityInfo,
 			condition.RabbitMqTransportURLReadyRunningMessage))
-		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
+		return cinder.ResultRequeue, nil
 	}
 
 	instance.Status.Conditions.MarkTrue(condition.RabbitMqTransportURLReadyCondition, condition.RabbitMqTransportURLReadyMessage)
@@ -504,13 +506,14 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	//
 	memcached, err := memcachedv1.GetMemcachedByName(ctx, helper, instance.Spec.MemcachedInstance, instance.Namespace)
 	if err != nil {
+		Log.Info(fmt.Sprintf("%s... requeueing", condition.MemcachedReadyWaitingMessage))
 		if k8s_errors.IsNotFound(err) {
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.MemcachedReadyCondition,
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.MemcachedReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("memcached %s not found", instance.Spec.MemcachedInstance)
+			return cinder.ResultRequeue, nil
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.MemcachedReadyCondition,
@@ -522,12 +525,13 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	}
 
 	if !memcached.IsReady() {
+		Log.Info(fmt.Sprintf("%s... requeueing", condition.MemcachedReadyWaitingMessage))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.MemcachedReadyCondition,
 			condition.RequestedReason,
 			condition.SeverityInfo,
 			condition.MemcachedReadyWaitingMessage))
-		return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("memcached %s is not ready", memcached.Name)
+		return cinder.ResultRequeue, nil
 	}
 	// Mark the Memcached Service as Ready if we get to this point with no errors
 	instance.Status.Conditions.MarkTrue(
@@ -545,7 +549,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 				condition.RequestedReason,
 				condition.SeverityInfo,
 				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
+			return cinder.ResultRequeue, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
 		}
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
@@ -625,7 +629,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 					condition.SeverityInfo,
 					condition.NetworkAttachmentsReadyWaitingMessage,
 					netAtt))
-				return ctrl.Result{RequeueAfter: time.Second * 10}, fmt.Errorf("network-attachment-definition %s not found", netAtt)
+				return cinder.ResultRequeue, fmt.Errorf(condition.NetworkAttachmentsReadyWaitingMessage, netAtt)
 			}
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NetworkAttachmentsReadyCondition,
@@ -653,22 +657,6 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		return ctrlResult, nil
 	}
 
-	// Handle service update
-	ctrlResult, err = r.reconcileUpdate(ctx, instance)
-	if err != nil {
-		return ctrlResult, err
-	} else if (ctrlResult != ctrl.Result{}) {
-		return ctrlResult, nil
-	}
-
-	// Handle service upgrade
-	ctrlResult, err = r.reconcileUpgrade(ctx, instance)
-	if err != nil {
-		return ctrlResult, err
-	} else if (ctrlResult != ctrl.Result{}) {
-		return ctrlResult, nil
-	}
-
 	//
 	// normal reconcile tasks
 	//
@@ -685,7 +673,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		return ctrl.Result{}, err
 	}
 	if op != controllerutil.OperationResultNone {
-		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+		Log.Info(fmt.Sprintf("API CR for %s successfully %s", instance.Name, string(op)))
 	}
 
 	// Mirror values when the data in the StatefulSet is for the current generation
@@ -714,7 +702,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		return ctrl.Result{}, err
 	}
 	if op != controllerutil.OperationResultNone {
-		Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+		Log.Info(fmt.Sprintf("Scheduler CR for %s successfully %s", instance.Name, string(op)))
 	}
 
 	// Mirror values when the data in the StatefulSet is for the current generation
@@ -746,7 +734,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			return ctrl.Result{}, err
 		}
 		if op != controllerutil.OperationResultNone {
-			Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+			Log.Info(fmt.Sprintf("Backup CR for %s successfully %s", instance.Name, string(op)))
 		}
 
 		// Mirror values when the data in the StatefulSet is for the current generation
@@ -789,7 +777,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			return ctrl.Result{}, err
 		}
 		if op != controllerutil.OperationResultNone {
-			Log.Info(fmt.Sprintf("Deployment %s successfully reconciled - operation: %s", instance.Name, string(op)))
+			Log.Info(fmt.Sprintf("Volume %s CR for %s successfully %s", name, instance.Name, string(op)))
 		}
 
 		// Mirror values when the data in the StatefulSet is for the current generation
@@ -860,30 +848,6 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	if instance.IsReady() {
 		instance.Status.Conditions.MarkTrue(condition.ReadyCondition, condition.ReadyMessage)
 	}
-	return ctrl.Result{}, nil
-}
-
-func (r *CinderReconciler) reconcileUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (ctrl.Result, error) {
-	Log := r.GetLogger(ctx)
-
-	Log.Info(fmt.Sprintf("Reconciling Service '%s' update", instance.Name))
-
-	// TODO: should have minor update tasks if required
-	// - delete dbsync hash from status to rerun it?
-
-	Log.Info(fmt.Sprintf("Reconciled Service '%s' update successfully", instance.Name))
-	return ctrl.Result{}, nil
-}
-
-func (r *CinderReconciler) reconcileUpgrade(ctx context.Context, instance *cinderv1beta1.Cinder) (ctrl.Result, error) {
-	Log := r.GetLogger(ctx)
-
-	Log.Info(fmt.Sprintf("Reconciling Service '%s' upgrade", instance.Name))
-
-	// TODO: should have major version upgrade tasks
-	// -delete dbsync hash from status to rerun it?
-
-	Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
 	return ctrl.Result{}, nil
 }
 
@@ -1252,6 +1216,8 @@ func (r *CinderReconciler) ensureDB(
 	h *helper.Helper,
 	instance *cinderv1beta1.Cinder,
 ) (*mariadbv1.Database, ctrl.Result, error) {
+	Log := r.GetLogger(ctx)
+
 	// ensure MariaDBAccount exists.  This account record may be created by
 	// openstack-operator or the cloud operator up front without a specific
 	// MariaDBDatabase configured yet.   Otherwise, a MariaDBAccount CR is
@@ -1319,6 +1285,7 @@ func (r *CinderReconciler) ensureDB(
 		return db, ctrlResult, err
 	}
 	if (ctrlResult != ctrl.Result{}) {
+		Log.Info(fmt.Sprintf("%s... requeueing", condition.DBReadyRunningMessage))
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DBReadyCondition,
 			condition.RequestedReason,
