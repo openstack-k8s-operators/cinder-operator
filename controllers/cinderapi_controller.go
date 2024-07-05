@@ -94,7 +94,7 @@ var keystoneServices = []map[string]string{
 
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cinderapis,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=cinder.openstack.org,resources=cinderapis/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=cinder.openstack.org,resources=cinderapis/finalizers,verbs=update
+//+kubebuilder:rbac:groups=cinder.openstack.org,resources=cinderapis/finalizers,verbs=update;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;create;update;patch;delete;watch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
