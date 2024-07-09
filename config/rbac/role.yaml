@@ -25,6 +25,7 @@ rules:
   - create
   - get
   - list
+  - patch
   - update
   - watch
 - apiGroups:
@@ -80,6 +81,7 @@ rules:
   resources:
   - cinderapis/finalizers
   verbs:
+  - patch
   - update
 - apiGroups:
   - cinder.openstack.org
@@ -106,6 +108,7 @@ rules:
   resources:
   - cinderbackups/finalizers
   verbs:
+  - patch
   - update
 - apiGroups:
   - cinder.openstack.org
@@ -132,6 +135,7 @@ rules:
   resources:
   - cinders/finalizers
   verbs:
+  - patch
   - update
 - apiGroups:
   - cinder.openstack.org
@@ -158,6 +162,7 @@ rules:
   resources:
   - cinderschedulers/finalizers
   verbs:
+  - patch
   - update
 - apiGroups:
   - cinder.openstack.org
@@ -184,6 +189,7 @@ rules:
   resources:
   - cindervolumes/finalizers
   verbs:
+  - patch
   - update
 - apiGroups:
   - cinder.openstack.org
@@ -281,6 +287,7 @@ rules:
   resources:
   - mariadbaccounts/finalizers
   verbs:
+  - patch
   - update
 - apiGroups:
   - mariadb.openstack.org
@@ -322,6 +329,7 @@ rules:
   - create
   - get
   - list
+  - patch
   - update
   - watch
 - apiGroups:
@@ -332,6 +340,7 @@ rules:
   - create
   - get
   - list
+  - patch
   - update
   - watch
 - apiGroups:
