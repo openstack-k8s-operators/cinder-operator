@@ -38,7 +38,6 @@ func StatefulSet(
 	labels map[string]string,
 	annotations map[string]string,
 ) *appsv1.StatefulSet {
-	rootUser := int64(0)
 	cinderUser := int64(cinderv1.CinderUserID)
 	cinderGroup := int64(cinderv1.CinderGroupID)
 
@@ -112,7 +111,7 @@ func StatefulSet(
 							Args:  args,
 							Image: instance.Spec.ContainerImage,
 							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &rootUser,
+								RunAsUser: &cinderUser,
 							},
 							Env:           env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts:  volumeMounts,

@@ -41,6 +41,7 @@ func StatefulSet(
 	annotations map[string]string,
 ) (*appsv1.StatefulSet, error) {
 	runAsUser := int64(0)
+	cinderUser := int64(cinderv1beta1.CinderUserID)
 
 	livenessProbe := &corev1.Probe{
 		// TODO might need tuning
@@ -156,7 +157,7 @@ func StatefulSet(
 							Args:  args,
 							Image: instance.Spec.ContainerImage,
 							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &runAsUser,
+								RunAsUser: &cinderUser,
 							},
 							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts:   volumeMounts,

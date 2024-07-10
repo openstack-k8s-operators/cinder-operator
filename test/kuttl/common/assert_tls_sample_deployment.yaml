@@ -193,6 +193,8 @@ spec:
           name: combined-ca-bundle
           readOnly: true
           subPath: tls-ca-bundle.pem
+        securityContext:
+          runAsUser: 42407
       - command:
         - /usr/local/bin/container-scripts/healthcheck.py
         - scheduler
