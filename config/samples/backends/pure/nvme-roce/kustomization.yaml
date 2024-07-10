@@ -2,6 +2,7 @@ resources:
   - ../../bases/nvmeof
   - ../../bases/multipathd
   - ../../bases/openstack
+  - custom-container.yaml
   - cinder-volume-pure-secrets.yaml
 patches:
   - path: backend.yaml

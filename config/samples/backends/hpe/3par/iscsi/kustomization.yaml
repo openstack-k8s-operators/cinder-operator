@@ -2,6 +2,7 @@ resources:
   - ../../../bases/iscsid
   - ../../../bases/multipathd
   - ../../../bases/openstack
+  - custom-container.yaml
   - cinder-volume-3par-secrets.yaml
 patches:
   - path: backend.yaml
