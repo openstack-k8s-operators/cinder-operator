@@ -68,7 +68,7 @@ spec:
           name: logs
       - args:
         - -c
-        - /usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start
+        - /usr/local/bin/kolla_start
         volumeMounts:
         - mountPath: /etc/machine-id
           name: etc-machine-id
@@ -164,7 +164,7 @@ spec:
       containers:
       - args:
         - -c
-        - /usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start
+        - /usr/local/bin/kolla_start
         volumeMounts:
         - mountPath: /etc/machine-id
           name: etc-machine-id
@@ -264,7 +264,7 @@ spec:
       containers:
       - args:
         - -c
-        - /usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start
+        - /usr/local/bin/kolla_start
         volumeMounts:
         - mountPath: /etc/machine-id
           name: etc-machine-id
