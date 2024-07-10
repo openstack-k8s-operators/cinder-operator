@@ -16,13 +16,13 @@
     {
       "source": "/var/lib/config-data/merged/ssl.conf",
       "dest": "/etc/httpd/conf.d/ssl.conf",
-      "owner": "root",
+      "owner": "cinder",
       "perm": "0644"
     },
     {
       "source": "/var/lib/config-data/tls/certs/*",
       "dest": "/etc/pki/tls/certs/",
-      "owner": "root",
+      "owner": "cinder",
       "perm": "0640",
       "optional": true,
       "merge": true
@@ -30,7 +30,7 @@
     {
       "source": "/var/lib/config-data/tls/private/*",
       "dest": "/etc/pki/tls/private/",
-      "owner": "root",
+      "owner": "cinder",
       "perm": "0600",
       "optional": true,
       "merge": true
@@ -41,6 +41,11 @@
           "path": "/var/log/cinder",
           "owner": "cinder:apache",
           "recurse": true
+      },
+      {
+	  "path": "/etc/httpd/run",
+	  "owner": "cinder:apache",
+	  "recurse": true
       }
   ]
 }
