@@ -20,8 +20,6 @@ spec:
         hpe3par-iscsi:
           networkAttachments:
           - storage
-          # This image exists and was built using the Dockerfile available in the grandparent directory
-          containerImage: quay.io/geguileo/podified-antelope-openstack-cinder-volume-3par:current-podified
           customServiceConfigSecrets:
             - cinder-volume-3par-secrets
           customServiceConfig: |
