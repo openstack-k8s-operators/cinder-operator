@@ -40,7 +40,6 @@ func StatefulSet(
 	usesLVM bool,
 ) *appsv1.StatefulSet {
 	trueVar := true
-	rootUser := int64(0)
 	cinderUser := int64(cinderv1.CinderUserID)
 	cinderGroup := int64(cinderv1.CinderGroupID)
 
@@ -133,7 +132,7 @@ func StatefulSet(
 							Args:  args,
 							Image: instance.Spec.ContainerImage,
 							SecurityContext: &corev1.SecurityContext{
-								RunAsUser:  &rootUser,
+								RunAsUser:  &cinderUser,
 								Privileged: &trueVar,
 							},
 							Env:           env.MergeEnvs([]corev1.EnvVar{}, envVars),
