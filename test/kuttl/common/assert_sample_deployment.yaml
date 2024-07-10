@@ -77,7 +77,7 @@ spec:
           name: logs
       - args:
         - -c
-        - /usr/local/bin/kolla_set_configs && /usr/local/bin/kolla_start
+        - /usr/local/bin/kolla_start
         command:
         - /bin/bash
         imagePullPolicy: IfNotPresent
