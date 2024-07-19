@@ -24,6 +24,8 @@ package v1beta1
 import (
 	"fmt"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +36,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	common_webhook "github.com/openstack-k8s-operators/lib-common/modules/common/webhook"
 )
 
 // CinderDefaults -
@@ -134,6 +138,24 @@ func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
 
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
+
+	// Validate cinderVolume name is valid
+	// CinderVolume name is <cinder name>-volume-<volume name>
+	// The CinderVolume controller creates StatefulSet for volume service to run.
+	// This adds a StatefulSet pod's label
+	// "controller-revision-hash": "<statefulset_name>-<hash>"
+	// to the pod.
+	// The kubernetes label is restricted under 63 char and the revision
+	// hash is an int32, 10 chars + the hyphen. Which results in a default
+	// statefulset max len of 52 chars. The statefulset name also
+	// contain the cinder name and -volume-. So the
+	// max len also need to be reduced bye the length of those.
+	err := common_webhook.ValidateDNS1123Label(
+		basePath.Child("cinderVolumes"),
+		maps.Keys(r.Spec.CinderVolumes),
+		GetCrMaxLengthCorrection(r.Name)) // omit issue with statefulset pod label "controller-revision-hash": "<statefulset_name>-<hash>"
+	allErrs = append(allErrs, err...)
+
 	if err := r.Spec.ValidateCreate(basePath); err != nil {
 		allErrs = append(allErrs, err...)
 	}
@@ -182,6 +204,23 @@ func (r *Cinder) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
+
+	// Validate cinderVolume name is valid
+	// CinderVolume name is <cinder name>-volume-<volume name>
+	// The CinderVolume controller creates StatefulSet for volume service to run.
+	// This adds a StatefulSet pod's label
+	// "controller-revision-hash": "<statefulset_name>-<hash>"
+	// to the pod.
+	// The kubernetes label is restricted under 63 char and the revision
+	// hash is an int32, 10 chars + the hyphen. Which results in a default
+	// statefulset max len of 52 chars. The statefulset name also
+	// contain the cinder name and -volume-. So the
+	// max len also need to be reduced bye the length of those.
+	err := common_webhook.ValidateDNS1123Label(
+		basePath.Child("cinderVolumes"),
+		maps.Keys(r.Spec.CinderVolumes),
+		GetCrMaxLengthCorrection(r.Name)) // omit issue with statefulset pod label "controller-revision-hash": "<statefulset_name>-<hash>"
+	allErrs = append(allErrs, err...)
 
 	if err := r.Spec.ValidateUpdate(oldCinder.Spec, basePath); err != nil {
 		allErrs = append(allErrs, err...)
@@ -239,12 +278,12 @@ func (spec *CinderSpecCore) SetDefaultRouteAnnotations(annotations map[string]st
 	valHAProxy, okHAProxy := annotations[haProxyAnno]
 
 	// Human operator set the HAProxy timeout manually
-	if (!okCinder && okHAProxy) {
+	if !okCinder && okHAProxy {
 		return
 	}
 
 	// Human operator modified the HAProxy timeout manually without removing the Cinder flag
-	if (okCinder && okHAProxy && valCinder != valHAProxy) {
+	if okCinder && okHAProxy && valCinder != valHAProxy {
 		delete(annotations, cinderAnno)
 		return
 	}
@@ -252,4 +291,17 @@ func (spec *CinderSpecCore) SetDefaultRouteAnnotations(annotations map[string]st
 	timeout := fmt.Sprintf("%ds", spec.APITimeout)
 	annotations[cinderAnno] = timeout
 	annotations[haProxyAnno] = timeout
+}
+
+// GetCrMaxLengthCorrection - get correction for ValidateDNS1123Label to get the real max string len of the cinder volume key
+func GetCrMaxLengthCorrection(name string) int {
+	// defaultCrMaxLengthCorrection - DNS1123LabelMaxLength (63) - CrMaxLengthCorrection used in validation to
+	// omit issue with statefulset pod label "controller-revision-hash": "<statefulset_name>-<hash>"
+	// Int32 is a 10 character + hyphen = 11
+	defaultCrMaxLengthCorrection := 11
+
+	// cinder volume name is <cinder name>-volume-<volume name> with this
+	// crMaxLengthCorrection = defaultCrMaxLengthCorrection + len(<cinder name>) + "-volume-"
+
+	return (defaultCrMaxLengthCorrection + len(name) + 8)
 }
