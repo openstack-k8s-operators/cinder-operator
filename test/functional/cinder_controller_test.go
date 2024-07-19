@@ -16,6 +16,7 @@ limitations under the License.
 package functional
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -27,6 +28,7 @@ import (
 	. "github.com/openstack-k8s-operators/lib-common/modules/common/test/helpers"
 
 	corev1 "k8s.io/api/core/v1"
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -788,6 +790,66 @@ var _ = Describe("Cinder Webhook", func() {
 			ContainSubstring(
 				"invalid: spec.cinderAPI.override.service[wrooong]: " +
 					"Invalid value: \"wrooong\": invalid endpoint type: wrooong"),
+		)
+	})
+
+	It("webhooks reject the request - cinderVolume key too long", func() {
+		spec := GetDefaultCinderSpec()
+		raw := map[string]interface{}{
+			"apiVersion": "cinder.openstack.org/v1beta1",
+			"kind":       "Cinder",
+			"metadata": map[string]interface{}{
+				"name":      cinderTest.Instance.Name,
+				"namespace": cinderTest.Instance.Namespace,
+			},
+			"spec": spec,
+		}
+
+		volumeList := map[string]interface{}{
+			"foo-1234567890-1234567890-1234567890-1234567890-1234567890": GetDefaultCinderVolumeSpec(),
+		}
+		spec["cinderVolumes"] = volumeList
+
+		unstructuredObj := &unstructured.Unstructured{Object: raw}
+		_, err := controllerutil.CreateOrPatch(
+			ctx, k8sClient, unstructuredObj, func() error { return nil })
+
+		Expect(err).Should(HaveOccurred())
+		var statusError *k8s_errors.StatusError
+		Expect(errors.As(err, &statusError)).To(BeTrue())
+		Expect(statusError.ErrStatus.Message).To(
+			ContainSubstring(
+				"Invalid value: \"foo-1234567890-1234567890-1234567890-1234567890-1234567890\": must be no more than 32 characters"),
+		)
+	})
+
+	It("webhooks reject the request - cinderVolume wrong key/name", func() {
+		spec := GetDefaultCinderSpec()
+		raw := map[string]interface{}{
+			"apiVersion": "cinder.openstack.org/v1beta1",
+			"kind":       "Cinder",
+			"metadata": map[string]interface{}{
+				"name":      cinderTest.Instance.Name,
+				"namespace": cinderTest.Instance.Namespace,
+			},
+			"spec": spec,
+		}
+
+		volumeList := map[string]interface{}{
+			"foo_bar": GetDefaultCinderVolumeSpec(),
+		}
+		spec["cinderVolumes"] = volumeList
+
+		unstructuredObj := &unstructured.Unstructured{Object: raw}
+		_, err := controllerutil.CreateOrPatch(
+			ctx, k8sClient, unstructuredObj, func() error { return nil })
+
+		Expect(err).Should(HaveOccurred())
+		var statusError *k8s_errors.StatusError
+		Expect(errors.As(err, &statusError)).To(BeTrue())
+		Expect(statusError.ErrStatus.Message).To(
+			ContainSubstring(
+				"Invalid value: \"foo_bar\": a lowercase RFC 1123 label must consist of lower case alphanumeric characters"),
 		)
 	})
 })
