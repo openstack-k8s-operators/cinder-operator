@@ -10,6 +10,7 @@ mounted by the cinder pods using the `extraMounts` feature.
 Create a secret by generating the following file and then apply it using the `oc`
 cli.
 
+```
 ---
 apiVersion: v1
 kind: Secret
@@ -27,7 +28,7 @@ stringData:
     [global]
     fsid = 7a1719e8-9c59-49e2-ae2b-d7eb08c695d4
     mon_host = 10.1.1.2,10.1.1.3,10.1.1.4
-
+```
 
 Add the following to the spec of the Cinder CR and then apply it using the `oc`
 cli.
