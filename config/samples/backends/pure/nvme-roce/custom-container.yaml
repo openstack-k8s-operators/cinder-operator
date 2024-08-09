@@ -1,0 +1,9 @@
+apiVersion: core.openstack.org/v1beta1
+kind: OpenStackVersion
+metadata:
+  name: openstack
+spec:
+  customContainerImages:
+    cinderVolumeImages:
+      # This image exists and was built using the Dockerfile available in the grandparent directory
+      pure-nvme-roce: quay.io/geguileo/podified-antelope-openstack-cinder-volume-3par:current-podified

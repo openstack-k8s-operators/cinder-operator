@@ -20,8 +20,6 @@ spec:
         pure-iscsi:
           networkAttachments:
           - storage
-          # This image exists and was built using the Dockerfile available in the parent directory
-          containerImage: quay.io/geguileo/podified-antelope-openstack-cinder-volume-pure:current-podified
           # Configuration details available at
           # https://pure-storage-openstack-docs.readthedocs.io/en/latest/cinder/ch_cinder-configuration.html
           customServiceConfigSecrets:
