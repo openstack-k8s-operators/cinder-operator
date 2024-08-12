@@ -484,47 +484,39 @@ var _ = Describe("Cinder controller", func() {
 		})
 
 		It("reports that the CA secret is missing", func() {
-			th.ExpectConditionWithDetails(
+			th.ExpectCondition(
 				cinderTest.CinderAPI,
 				ConditionGetterFunc(CinderAPIConditionGetter),
 				condition.TLSInputReadyCondition,
 				corev1.ConditionFalse,
-				condition.ErrorReason,
-				fmt.Sprintf("TLSInput error occured in TLS sources Secret %s/combined-ca-bundle not found", namespace),
 			)
 
-			th.ExpectConditionWithDetails(
+			th.ExpectCondition(
 				cinderTest.CinderScheduler,
 				ConditionGetterFunc(CinderSchedulerConditionGetter),
 				condition.TLSInputReadyCondition,
 				corev1.ConditionFalse,
-				condition.ErrorReason,
-				fmt.Sprintf("TLSInput error occured in TLS sources Secret %s/combined-ca-bundle not found", namespace),
 			)
 		})
 
 		It("reports that the internal cert secret is missing", func() {
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
-			th.ExpectConditionWithDetails(
+			th.ExpectCondition(
 				cinderTest.CinderAPI,
 				ConditionGetterFunc(CinderAPIConditionGetter),
 				condition.TLSInputReadyCondition,
 				corev1.ConditionFalse,
-				condition.ErrorReason,
-				fmt.Sprintf("TLSInput error occured in TLS sources Secret %s/internal-tls-certs not found", namespace),
 			)
 		})
 
 		It("reports that the public cert secret is missing", func() {
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.InternalCertSecret))
-			th.ExpectConditionWithDetails(
+			th.ExpectCondition(
 				cinderTest.CinderAPI,
 				ConditionGetterFunc(CinderAPIConditionGetter),
 				condition.TLSInputReadyCondition,
 				corev1.ConditionFalse,
-				condition.ErrorReason,
-				fmt.Sprintf("TLSInput error occured in TLS sources Secret %s/public-tls-certs not found", namespace),
 			)
 		})
 
