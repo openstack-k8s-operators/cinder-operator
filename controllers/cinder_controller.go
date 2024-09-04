@@ -23,6 +23,7 @@ import (
 
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -540,28 +541,23 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	ospSecret, hash, err := secret.GetSecret(ctx, helper, instance.Spec.Secret, instance.Namespace)
-	if err != nil {
-		if k8s_errors.IsNotFound(err) {
-			Log.Info(fmt.Sprintf("OpenStack secret %s not found", instance.Spec.Secret))
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.InputReadyCondition,
-				condition.RequestedReason,
-				condition.SeverityInfo,
-				condition.InputReadyWaitingMessage))
-			return cinder.ResultRequeue, fmt.Errorf("OpenStack secret %s not found", instance.Spec.Secret)
-		}
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.InputReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.InputReadyErrorMessage,
-			err.Error()))
-		return ctrl.Result{}, err
-	}
-	// Add a prefix to the var name to avoid accidental collision with other non-secret vars.
-	configVars["secret-"+ospSecret.Name] = env.SetValue(hash)
 
+	result, err := verifyServiceSecret(
+		ctx,
+		types.NamespacedName{Namespace: instance.Namespace, Name: instance.Spec.Secret},
+		[]string{
+			instance.Spec.PasswordSelectors.Service,
+		},
+		helper.GetClient(),
+		&instance.Status.Conditions,
+		cinder.NormalDuration,
+		&configVars,
+	)
+	if err != nil {
+		return result, err
+	} else if (result != ctrl.Result{}) {
+		return result, nil
+	}
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 	// run check OpenStack secret - end
 

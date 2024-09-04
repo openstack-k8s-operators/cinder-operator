@@ -342,9 +342,22 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configVars)
+
+	ctrlResult, err := verifyServiceSecret(
+		ctx,
+		types.NamespacedName{Namespace: instance.Namespace, Name: instance.Spec.Secret},
+		[]string{
+			instance.Spec.PasswordSelectors.Service,
+		},
+		helper.GetClient(),
+		&instance.Status.Conditions,
+		cinder.NormalDuration,
+		&configVars,
+	)
 	if err != nil {
 		return ctrlResult, err
+	} else if (ctrlResult != ctrl.Result{}) {
+		return ctrlResult, nil
 	}
 
 	//
