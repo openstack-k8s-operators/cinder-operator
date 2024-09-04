@@ -24,7 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"time"
 
+	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -67,5 +70,45 @@ func verifyServiceSecret(
 		return res, nil
 	}
 	(*envVars)[secretName.Name] = env.SetValue(hash)
+	return ctrl.Result{}, nil
+}
+
+// verifyConfigSecrets - It iterates over the secretNames passed as input and
+// sets the hash of values in the envVars map.
+func verifyConfigSecrets(
+	ctx context.Context,
+	h *helper.Helper,
+	conditionUpdater conditionUpdater,
+	secretNames []string,
+	namespace string,
+	envVars *map[string]env.Setter,
+) (ctrl.Result, error) {
+	var hash string
+	var err error
+	for _, secretName := range secretNames {
+		_, hash, err = secret.GetSecret(ctx, h, secretName, namespace)
+		if err != nil {
+			if k8s_errors.IsNotFound(err) {
+				log.FromContext(ctx).Info(fmt.Sprintf("Secret %s not found", secretName))
+				conditionUpdater.Set(condition.FalseCondition(
+					condition.InputReadyCondition,
+					condition.RequestedReason,
+					condition.SeverityInfo,
+					condition.InputReadyWaitingMessage))
+				return cinder.ResultRequeue, nil
+			}
+			conditionUpdater.Set(condition.FalseCondition(
+				condition.InputReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				condition.InputReadyErrorMessage,
+				err.Error()))
+			return ctrl.Result{}, err
+		}
+		// Add a prefix to the var name to avoid accidental collision with other non-secret
+		// vars. The secret names themselves will be unique.
+		(*envVars)["secret-"+secretName] = env.SetValue(hash)
+	}
+
 	return ctrl.Result{}, nil
 }
