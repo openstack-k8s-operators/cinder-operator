@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -344,43 +343,49 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	//
 	// check for required OpenStack secret holding passwords for service/admin user and add hash to the vars map
 	//
-	ctrlResult, err := r.getSecret(ctx, helper, instance, instance.Spec.Secret, &configVars)
+
+	ctrlResult, err := verifyServiceSecret(
+		ctx,
+		types.NamespacedName{Namespace: instance.Namespace, Name: instance.Spec.Secret},
+		[]string{
+			instance.Spec.PasswordSelectors.Service,
+		},
+		helper.GetClient(),
+		&instance.Status.Conditions,
+		cinder.NormalDuration,
+		&configVars,
+	)
 	if err != nil {
 		return ctrlResult, err
+	} else if (ctrlResult != ctrl.Result{}) {
+		return ctrlResult, nil
 	}
 
 	//
-	// check for required TransportURL secret holding transport URL string
+	// check for required Transport URL and config secrets
 	//
-	ctrlResult, err = r.getSecret(ctx, helper, instance, instance.Spec.TransportURLSecret, &configVars)
-	if err != nil {
-		return ctrlResult, err
-	}
 
-	//
-	// check for required service secrets
-	//
-	for _, secretName := range instance.Spec.CustomServiceConfigSecrets {
-		ctrlResult, err = r.getSecret(ctx, helper, instance, secretName, &configVars)
-		if err != nil {
-			return ctrlResult, err
-		}
-	}
-
-	//
-	// check for required Cinder secrets that should have been created by parent Cinder CR
-	//
 	parentCinderName := cinder.GetOwningCinderName(instance)
-	parentSecrets := []string{
-		fmt.Sprintf("%s-scripts", parentCinderName),
-		fmt.Sprintf("%s-config-data", parentCinderName),
+	secretNames := []string{
+		instance.Spec.TransportURLSecret,                // TransportURLSecret
+		fmt.Sprintf("%s-scripts", parentCinderName),     // ScriptsSecret
+		fmt.Sprintf("%s-config-data", parentCinderName), // ConfigSecret
 	}
+	// Append CustomServiceConfigSecrets that should be checked
+	secretNames = append(secretNames, instance.Spec.CustomServiceConfigSecrets...)
 
-	for _, parentSecret := range parentSecrets {
-		ctrlResult, err = r.getSecret(ctx, helper, instance, parentSecret, &configVars)
-		if err != nil {
-			return ctrlResult, err
-		}
+	ctrlResult, err = verifyConfigSecrets(
+		ctx,
+		helper,
+		&instance.Status.Conditions,
+		secretNames,
+		instance.Namespace,
+		&configVars,
+	)
+	if err != nil {
+		return ctrlResult, err
+	} else if (ctrlResult != ctrl.Result{}) {
+		return ctrlResult, nil
 	}
 
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
@@ -488,7 +493,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 					condition.SeverityInfo,
 					condition.NetworkAttachmentsReadyWaitingMessage,
 					netAtt))
-				return ctrl.Result{RequeueAfter: time.Second * 10}, nil
+				return cinder.ResultRequeue, fmt.Errorf("network-attachment-definition %s not found", netAtt)
 			}
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NetworkAttachmentsReadyCondition,
@@ -542,10 +547,7 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 
 	// Deploy a statefulset
 	ssDef := cindervolume.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, usesLVM)
-	ss := statefulset.NewStatefulSet(
-		ssDef,
-		time.Duration(5)*time.Second,
-	)
+	ss := statefulset.NewStatefulSet(ssDef, cinder.ShortDuration)
 
 	var ssData appsv1.StatefulSet
 	ctrlResult, err = ss.CreateOrPatch(ctx, helper)
@@ -562,9 +564,8 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 		// Wait until the data in the StatefulSet is for the current generation
 		ssData = ss.GetStatefulSet()
 		if ssData.Generation != ssData.Status.ObservedGeneration {
-			ctrlResult = ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}
-			Log.Info(fmt.Sprintf("waiting for Statefulset %s to start reconciling", ssData.Name))
-			err = nil
+			ctrlResult = cinder.ResultRequeue
+			err = fmt.Errorf("waiting for Statefulset %s to start reconciling", ssData.Name)
 		}
 	}
 
@@ -673,41 +674,6 @@ func (r *CinderVolumeReconciler) reconcileUpgrade(ctx context.Context, instance 
 	// -delete dbsync hash from status to rerun it?
 
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' upgrade successfully", instance.Name))
-	return ctrl.Result{}, nil
-}
-
-// getSecret - get the specified secret, and add its hash to envVars
-func (r *CinderVolumeReconciler) getSecret(
-	ctx context.Context,
-	h *helper.Helper,
-	instance *cinderv1beta1.CinderVolume,
-	secretName string,
-	envVars *map[string]env.Setter,
-) (ctrl.Result, error) {
-	secret, hash, err := secret.GetSecret(ctx, h, secretName, instance.Namespace)
-	if err != nil {
-		if k8s_errors.IsNotFound(err) {
-			h.GetLogger().Info(fmt.Sprintf("Secret %s not found", secretName))
-			instance.Status.Conditions.Set(condition.FalseCondition(
-				condition.InputReadyCondition,
-				condition.RequestedReason,
-				condition.SeverityInfo,
-				condition.InputReadyWaitingMessage))
-			return ctrl.Result{RequeueAfter: time.Duration(10) * time.Second}, nil
-		}
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			condition.InputReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.InputReadyErrorMessage,
-			err.Error()))
-		return ctrl.Result{}, err
-	}
-
-	// Add a prefix to the var name to avoid accidental collision with other non-secret
-	// vars. The secret names themselves will be unique.
-	(*envVars)["secret-"+secret.Name] = env.SetValue(hash)
-
 	return ctrl.Result{}, nil
 }
 
