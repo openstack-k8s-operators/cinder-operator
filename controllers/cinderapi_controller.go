@@ -209,7 +209,7 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 
 	// Watch for changes to secrets we don't own. Global secrets
 	// (e.g. TransportURLSecret) are handled by the main cinder controller.
-	secretFn := func(ctx context.Context, o client.Object) []reconcile.Request {
+	secretFn := func(_ context.Context, o client.Object) []reconcile.Request {
 		var namespace string = o.GetNamespace()
 		var secretName string = o.GetName()
 		result := []reconcile.Request{}
