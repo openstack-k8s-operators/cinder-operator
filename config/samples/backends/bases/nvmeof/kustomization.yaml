@@ -1,2 +1,3 @@
 resources:
   - nvme-fabrics.yaml
+  - fix-ocp-nvme.yaml

@@ -1,0 +1,38 @@
+# The OpenShift image has the NVMe hostid and hostnqn hardcoded, so it ends up
+# being the same in all the control plane nodes, which is problematic.
+# This MachineConfig fixes this issue by recreating both files when the hostid
+# doesn't match the system-uuid of the machine it is running on.
+# Bugs:
+#   https://issues.redhat.com/browse/OCPBUGS-34629
+#   https://github.com/openshift/os/issues/1519
+#   https://github.com/openshift/os/pull/1520
+#
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    component: fix-nvme-ids
+    machineconfiguration.openshift.io/role: master
+    service: cinder
+  name: 99-master-cinder-fix-nvme-ids
+spec:
+  config:
+    Systemd:
+      Units:
+      - name: cinder-nvme-fix.service
+        enabled: true
+        Contents: |
+          [Unit]
+          Description=Cinder fix nvme ids
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          Restart=on-failure
+          RestartSec=5
+          ExecStart=bash -c "if ! grep $(/usr/sbin/dmidecode -s system-uuid) /etc/nvme/hostid; then /usr/sbin/dmidecode -s system-uuid > /etc/nvme/hostid; /usr/sbin/nvme gen-hostnqn > /etc/nvme/hostnqn; fi"
+
+          [Install]
+          WantedBy=multi-user.target
+    ignition:
+      version: 3.2.0
