@@ -3,8 +3,8 @@ module github.com/openstack-k8s-operators/cinder-operator/api
 go 1.21
 
 require (
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.4.1-0.20240925091112-d0fa8e528283
-	github.com/openstack-k8s-operators/lib-common/modules/storage v0.4.1-0.20240925091112-d0fa8e528283
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.4.1-0.20241007071524-66e6544525a3
+	github.com/openstack-k8s-operators/lib-common/modules/storage v0.4.1-0.20241007071524-66e6544525a3
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	k8s.io/api v0.29.9
 	k8s.io/apimachinery v0.29.9
@@ -54,7 +54,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.29.2 // indirect
+	k8s.io/apiextensions-apiserver v0.29.9 // indirect
 	k8s.io/client-go v0.29.9 // indirect
 	k8s.io/component-base v0.29.9 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
