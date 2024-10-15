@@ -43,12 +43,12 @@ spec:
   ...
   cinderBackup:
     ...
-    networkAttachents:
+    networkAttachments:
     - storage
   cinderVolume:
     volume1:
       ...
-      networkAttachents:
+      networkAttachments:
       - storage
 ...
 ```
