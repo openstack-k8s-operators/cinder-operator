@@ -143,7 +143,13 @@ func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExt
 
 	for _, exv := range extraVol {
 		for _, vol := range exv.Propagate(svc) {
-			res = append(res, vol.Volumes...)
+			for _, v := range vol.Volumes {
+				convertedVolume := corev1.Volume{
+					Name:         v.Name,
+					VolumeSource: storage.ConvertVolumeSource(&v.VolumeSource),
+				}
+				res = append(res, convertedVolume)
+			}
 		}
 	}
 	return res
