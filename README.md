@@ -11,6 +11,7 @@ running RHEL for computes (and maybe swift).
 
 Some links of interest:
 
+- [Persistent Storage Guide](docs/user-guide/index.md)
 - [OpenStack Kubernetes Operators](https://github.com/openstack-k8s-operators/)
 - [Developer Docs](https://github.com/openstack-k8s-operators/dev-docs)
 - [User Docs](https://openstack-k8s-operators.github.io/openstack-operator/)
