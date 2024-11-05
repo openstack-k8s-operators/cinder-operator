@@ -87,8 +87,14 @@ func StatefulSet(
 	volumes := GetVolumes(
 		cinder.GetOwningCinderName(instance),
 		instance.Name,
-		instance.Spec.ExtraMounts)
-	volumeMounts := GetVolumeMounts(instance.Name, instance.Spec.ExtraMounts, usesLVM)
+		instance.Spec.ExtraMounts,
+		instance.BackendName(),
+	)
+	volumeMounts := GetVolumeMounts(
+		instance.Spec.ExtraMounts,
+		usesLVM,
+		instance.BackendName(),
+	)
 
 	// Add the CA bundle
 	if instance.Spec.TLS.CaBundleSecretName != "" {

@@ -2,7 +2,6 @@ package cindervolume
 
 import (
 	"github.com/openstack-k8s-operators/lib-common/modules/storage"
-	"strings"
 
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
@@ -10,7 +9,7 @@ import (
 )
 
 // GetVolumes -
-func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
+func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts, propagationInstanceName string) []corev1.Volume {
 	var config0644AccessMode int32 = 0644
 
 	volumes := []corev1.Volume{
@@ -26,12 +25,12 @@ func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderE
 	}
 
 	// Set the propagation levels for CinderVolume, including the backend name
-	propagation := append(cinder.CinderVolumePropagation, storage.PropagationType(strings.TrimPrefix(name, "cinder-volume-")))
+	propagation := append(cinder.CinderVolumePropagation, storage.PropagationType(propagationInstanceName))
 	return append(cinder.GetVolumes(parentName, true, extraVol, propagation), volumes...)
 }
 
 // GetVolumeMounts - Cinder Volume VolumeMounts
-func GetVolumeMounts(name string, extraVol []cinderv1beta1.CinderExtraVolMounts, usesLVM bool) []corev1.VolumeMount {
+func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts, usesLVM bool, propagationInstanceName string) []corev1.VolumeMount {
 	var configData string
 	if usesLVM {
 		configData = "cinder-volume-lvm-config.json"
@@ -53,6 +52,6 @@ func GetVolumeMounts(name string, extraVol []cinderv1beta1.CinderExtraVolMounts,
 	}
 
 	// Set the propagation levels for CinderVolume, including the backend name
-	propagation := append(cinder.CinderVolumePropagation, storage.PropagationType(strings.TrimPrefix(name, "cinder-volume-")))
+	propagation := append(cinder.CinderVolumePropagation, storage.PropagationType(propagationInstanceName))
 	return append(cinder.GetVolumeMounts(true, extraVol, propagation), volumeVolumeMounts...)
 }
