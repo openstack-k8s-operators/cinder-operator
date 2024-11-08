@@ -165,12 +165,15 @@ func StatefulSet(
 							LivenessProbe:  livenessProbe,
 						},
 					},
-					Affinity:     cinder.GetPodAffinity(ComponentName),
-					NodeSelector: instance.Spec.NodeSelector,
-					Volumes:      volumes,
+					Affinity: cinder.GetPodAffinity(ComponentName),
+					Volumes:  volumes,
 				},
 			},
 		},
+	}
+
+	if instance.Spec.NodeSelector != nil && len(*instance.Spec.NodeSelector) > 0 {
+		statefulset.Spec.Template.Spec.NodeSelector = *instance.Spec.NodeSelector
 	}
 
 	return statefulset, nil
