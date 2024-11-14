@@ -3,7 +3,7 @@ module github.com/openstack-k8s-operators/cinder-operator/api
 go 1.21
 
 require (
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.5.1-0.20241104140916-71a0e9d9766d
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.5.1-0.20241113144931-ff1fd2dcd04a
 	github.com/openstack-k8s-operators/lib-common/modules/storage v0.5.1-0.20241104140916-71a0e9d9766d
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	k8s.io/api v0.29.10

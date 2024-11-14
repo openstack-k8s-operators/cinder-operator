@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
@@ -617,8 +618,9 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 
 	// Check networks that the DBSync job will use in reconcileInit. The ones from the API service are always enough,
 	// it doesn't need the storage specific ones that volume or backup may have.
+	nadList := []networkv1.NetworkAttachmentDefinition{}
 	for _, netAtt := range instance.Spec.CinderAPI.NetworkAttachments {
-		_, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
+		nad, err := nad.GetNADWithName(ctx, helper, netAtt, instance.Namespace)
 		if err != nil {
 			if k8s_errors.IsNotFound(err) {
 				Log.Info(fmt.Sprintf("network-attachment-definition %s not found", netAtt))
@@ -638,11 +640,15 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 				err.Error()))
 			return ctrl.Result{}, err
 		}
+
+		if nad != nil {
+			nadList = append(nadList, *nad)
+		}
 	}
 
 	instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
 
-	serviceAnnotations, err := nad.CreateNetworksAnnotation(instance.Namespace, instance.Spec.CinderAPI.NetworkAttachments)
+	serviceAnnotations, err := nad.EnsureNetworksAnnotation(nadList)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed create network annotation from %s: %w",
 			instance.Spec.CinderAPI.NetworkAttachments, err)
