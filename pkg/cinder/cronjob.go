@@ -135,7 +135,7 @@ func CronJob(
 		},
 	}
 
-	if instance.Spec.NodeSelector != nil && len(*instance.Spec.NodeSelector) > 0 {
+	if instance.Spec.NodeSelector != nil {
 		cronjob.Spec.JobTemplate.Spec.Template.Spec.NodeSelector = *instance.Spec.NodeSelector
 	}
 
