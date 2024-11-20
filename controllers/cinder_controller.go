@@ -1020,6 +1020,10 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, inst
 		ServiceAccount:     instance.RbacResourceName(),
 	}
 
+	if cinderAPISpec.NodeSelector == nil {
+		cinderAPISpec.NodeSelector = instance.Spec.NodeSelector
+	}
+
 	deployment := &cinderv1beta1.CinderAPI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-api", instance.Name),
@@ -1029,9 +1033,6 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, inst
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = cinderAPISpec
-		if len(deployment.Spec.NodeSelector) == 0 {
-			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
-		}
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {
@@ -1055,6 +1056,10 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context
 		TLS:                     instance.Spec.CinderAPI.TLS.Ca,
 	}
 
+	if cinderSchedulerSpec.NodeSelector == nil {
+		cinderSchedulerSpec.NodeSelector = instance.Spec.NodeSelector
+	}
+
 	deployment := &cinderv1beta1.CinderScheduler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-scheduler", instance.Name),
@@ -1064,9 +1069,6 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = cinderSchedulerSpec
-		if len(deployment.Spec.NodeSelector) == 0 {
-			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
-		}
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {
@@ -1090,6 +1092,10 @@ func (r *CinderReconciler) backupDeploymentCreateOrUpdate(ctx context.Context, i
 		TLS:                  instance.Spec.CinderAPI.TLS.Ca,
 	}
 
+	if cinderBackupSpec.NodeSelector == nil {
+		cinderBackupSpec.NodeSelector = instance.Spec.NodeSelector
+	}
+
 	deployment := &cinderv1beta1.CinderBackup{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-backup", instance.Name),
@@ -1099,9 +1105,6 @@ func (r *CinderReconciler) backupDeploymentCreateOrUpdate(ctx context.Context, i
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = cinderBackupSpec
-		if len(deployment.Spec.NodeSelector) == 0 {
-			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
-		}
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {
@@ -1152,6 +1155,10 @@ func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, i
 		TLS:                  instance.Spec.CinderAPI.TLS.Ca,
 	}
 
+	if cinderVolumeSpec.CinderVolumeTemplate.NodeSelector == nil {
+		cinderVolumeSpec.CinderVolumeTemplate.NodeSelector = instance.Spec.NodeSelector
+	}
+
 	deployment := &cinderv1beta1.CinderVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-volume-%s", instance.Name, name),
@@ -1162,12 +1169,6 @@ func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, i
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = cinderVolumeSpec
-
-		// If NodeSelector is not specified in volumeTemplate, the current
-		// cinder-volume instance inherits the value from the top-level CR
-		if len(volTemplate.NodeSelector) == 0 {
-			deployment.Spec.NodeSelector = instance.Spec.NodeSelector
-		}
 
 		err := controllerutil.SetControllerReference(instance, deployment, r.Scheme)
 		if err != nil {

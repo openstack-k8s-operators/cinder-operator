@@ -51,6 +51,7 @@ type CinderTestData struct {
 	CinderMemcached        types.NamespacedName
 	CinderSA               types.NamespacedName
 	CinderDBSync           types.NamespacedName
+	CinderDBPurge          types.NamespacedName
 	CinderKeystoneService  types.NamespacedName
 	CinderKeystoneEndpoint types.NamespacedName
 	CinderServicePublic    types.NamespacedName
@@ -84,6 +85,10 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		CinderDBSync: types.NamespacedName{
 			Namespace: cinderName.Namespace,
 			Name:      fmt.Sprintf("%s-db-sync", cinderName.Name),
+		},
+		CinderDBPurge: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      "cinder-db-purge",
 		},
 		CinderAPI: types.NamespacedName{
 			Namespace: cinderName.Namespace,

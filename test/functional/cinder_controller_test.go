@@ -665,6 +665,204 @@ var _ = Describe("Cinder controller", func() {
 		})
 	})
 
+	When("A Cinder is created with nodeSelector", func() {
+		BeforeEach(func() {
+			spec := GetDefaultCinderSpec()
+			spec["nodeSelector"] = map[string]interface{}{
+				"foo": "bar",
+			}
+			spec["cinderVolumes"] = map[string]interface{}{
+				"volume1": map[string]interface{}{
+					"containerImage": cinderv1.CinderVolumeContainerImage,
+				},
+			}
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderName).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderVolumes[0])
+		})
+
+		It("sets nodeSelector in resource specs", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetJob(cinderTest.CinderDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(GetCronJob(cinderTest.CinderDBPurge).Spec.JobTemplate.Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("updates nodeSelector in resource specs when changed", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetJob(cinderTest.CinderDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(GetCronJob(cinderTest.CinderDBPurge).Spec.JobTemplate.Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderName)
+				newNodeSelector := map[string]string{
+					"foo2": "bar2",
+				}
+				cinder.Spec.NodeSelector = &newNodeSelector
+				g.Expect(k8sClient.Update(ctx, cinder)).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				th.SimulateJobSuccess(cinderTest.CinderDBSync)
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo2": "bar2"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo2": "bar2"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo2": "bar2"}))
+				g.Expect(th.GetJob(cinderTest.CinderDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo2": "bar2"}))
+				g.Expect(GetCronJob(cinderTest.CinderDBPurge).Spec.JobTemplate.Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo2": "bar2"}))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("removes nodeSelector from resource specs when cleared", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetJob(cinderTest.CinderDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(GetCronJob(cinderTest.CinderDBPurge).Spec.JobTemplate.Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderName)
+				emptyNodeSelector := map[string]string{}
+				cinder.Spec.NodeSelector = &emptyNodeSelector
+				g.Expect(k8sClient.Update(ctx, cinder)).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				th.SimulateJobSuccess(cinderTest.CinderDBSync)
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetJob(cinderTest.CinderDBSync).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(GetCronJob(cinderTest.CinderDBPurge).Spec.JobTemplate.Spec.Template.Spec.NodeSelector).To(BeNil())
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("removes nodeSelector from resource specs when nilled", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetJob(cinderTest.CinderDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(GetCronJob(cinderTest.CinderDBPurge).Spec.JobTemplate.Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderName)
+				cinder.Spec.NodeSelector = nil
+				g.Expect(k8sClient.Update(ctx, cinder)).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				th.SimulateJobSuccess(cinderTest.CinderDBSync)
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetJob(cinderTest.CinderDBSync).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(GetCronJob(cinderTest.CinderDBPurge).Spec.JobTemplate.Spec.Template.Spec.NodeSelector).To(BeNil())
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("allows nodeSelector service override", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetJob(cinderTest.CinderDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(GetCronJob(cinderTest.CinderDBPurge).Spec.JobTemplate.Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderName)
+				apiNodeSelector := map[string]string{
+					"foo": "api",
+				}
+				cinder.Spec.CinderAPI.NodeSelector = &apiNodeSelector
+				schedulerNodeSelector := map[string]string{
+					"foo": "scheduler",
+				}
+				cinder.Spec.CinderScheduler.NodeSelector = &schedulerNodeSelector
+				volumeNodeSelector := map[string]string{
+					"foo": "volume",
+				}
+				volume := cinder.Spec.CinderVolumes["volume1"]
+				volume.NodeSelector = &volumeNodeSelector
+				cinder.Spec.CinderVolumes["volume1"] = volume
+				g.Expect(k8sClient.Update(ctx, cinder)).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				th.SimulateJobSuccess(cinderTest.CinderDBSync)
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "api"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "scheduler"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "volume"}))
+				g.Expect(th.GetJob(cinderTest.CinderDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(GetCronJob(cinderTest.CinderDBPurge).Spec.JobTemplate.Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("allows nodeSelector service override to empty", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(th.GetJob(cinderTest.CinderDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(GetCronJob(cinderTest.CinderDBPurge).Spec.JobTemplate.Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderName)
+				apiNodeSelector := map[string]string{}
+				cinder.Spec.CinderAPI.NodeSelector = &apiNodeSelector
+				schedulerNodeSelector := map[string]string{}
+				cinder.Spec.CinderScheduler.NodeSelector = &schedulerNodeSelector
+				volumeNodeSelector := map[string]string{}
+				volume := cinder.Spec.CinderVolumes["volume1"]
+				volume.NodeSelector = &volumeNodeSelector
+				cinder.Spec.CinderVolumes["volume1"] = volume
+				g.Expect(k8sClient.Update(ctx, cinder)).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				th.SimulateJobSuccess(cinderTest.CinderDBSync)
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(BeNil())
+				g.Expect(th.GetJob(cinderTest.CinderDBSync).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+				g.Expect(GetCronJob(cinderTest.CinderDBPurge).Spec.JobTemplate.Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "bar"}))
+			}, timeout, interval).Should(Succeed())
+		})
+
+	})
+
 	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
 	// that exercise standard account create / update patterns that should be
 	// common to all controllers that ensure MariaDBAccount CRs.
