@@ -19,6 +19,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	. "github.com/onsi/gomega" //revive:disable:dot-imports
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -224,6 +225,14 @@ func GetCinderScheduler(name types.NamespacedName) *cinderv1.CinderScheduler {
 
 func GetCinderVolume(name types.NamespacedName) *cinderv1.CinderVolume {
 	instance := &cinderv1.CinderVolume{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance
+}
+
+func GetCronJob(name types.NamespacedName) *batchv1.CronJob {
+	instance := &batchv1.CronJob{}
 	Eventually(func(g Gomega) {
 		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
 	}, timeout, interval).Should(Succeed())
