@@ -51,6 +51,19 @@ type CinderAPITemplate struct {
 	ContainerImage string `json:"containerImage"`
 
 	CinderAPITemplateCore `json:",inline"`
+
+	// +kubebuilder:validation:Optional
+	// HttpdCustomization - customize the httpd service
+	HttpdCustomization HttpdCustomization `json:"httpdCustomization,omitempty"`
+}
+
+// HttpdCustomization -
+type HttpdCustomization struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=4
+	// +kubebuilder:validation:Minimum=1
+	// ProcessNumber - Number of processes running in Cinder API
+	ProcessNumber *int32 `json:"processNumber"`
 }
 
 // APIOverrideSpec to override the generated manifest of several child resources.
