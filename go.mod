@@ -8,12 +8,12 @@ require (
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.5
 	github.com/onsi/ginkgo/v2 v2.20.1
 	github.com/onsi/gomega v1.34.1
-	github.com/openstack-k8s-operators/infra-operator/apis v0.5.1-0.20241106062833-6ba8f6c612c7
-	github.com/openstack-k8s-operators/keystone-operator/api v0.5.1-0.20241106094500-2e94eb1e34a5
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.5.1-0.20241113144931-ff1fd2dcd04a
-	github.com/openstack-k8s-operators/lib-common/modules/storage v0.5.1-0.20241104140916-71a0e9d9766d
-	github.com/openstack-k8s-operators/lib-common/modules/test v0.5.1-0.20241104140916-71a0e9d9766d
-	github.com/openstack-k8s-operators/mariadb-operator/api v0.5.1-0.20241106141725-340c4d78fef0
+	github.com/openstack-k8s-operators/infra-operator/apis v0.5.1-0.20241203172824-056de6061f53
+	github.com/openstack-k8s-operators/keystone-operator/api v0.5.1-0.20241206120549-c7da0ef24931
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.5.1-0.20241114091812-6dc9fd0961dc
+	github.com/openstack-k8s-operators/lib-common/modules/storage v0.5.1-0.20241114091812-6dc9fd0961dc
+	github.com/openstack-k8s-operators/lib-common/modules/test v0.5.1-0.20241114091812-6dc9fd0961dc
+	github.com/openstack-k8s-operators/mariadb-operator/api v0.5.1-0.20241203152706-2e3a8e132a13
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	k8s.io/api v0.29.10
 	k8s.io/apimachinery v0.29.10
@@ -52,7 +52,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/openshift/api v3.9.0+incompatible // indirect
-	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.5.1-0.20241104140916-71a0e9d9766d // indirect
+	github.com/openstack-k8s-operators/lib-common/modules/openstack v0.5.1-0.20241114091812-6dc9fd0961dc // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.19.0 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
