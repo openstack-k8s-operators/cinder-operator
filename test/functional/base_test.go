@@ -296,3 +296,37 @@ func CinderVolumeNotExists(name types.NamespacedName) {
 		g.Expect(k8s_errors.IsNotFound(err)).To(BeTrue())
 	}, timeout, interval).Should(Succeed())
 }
+
+// GetExtraMounts - Utility function that simulates extraMounts pointing
+// to a Ceph secret
+func GetExtraMounts() []map[string]interface{} {
+	return []map[string]interface{}{
+		{
+			"name":   cinderTest.Instance.Name,
+			"region": "az0",
+			"extraVol": []map[string]interface{}{
+				{
+					"extraVolType": CinderCephExtraMountsSecretName,
+					"propagation": []string{
+						"CinderVolume",
+					},
+					"volumes": []map[string]interface{}{
+						{
+							"name": CinderCephExtraMountsSecretName,
+							"secret": map[string]interface{}{
+								"secretName": CinderCephExtraMountsSecretName,
+							},
+						},
+					},
+					"mounts": []map[string]interface{}{
+						{
+							"name":      CinderCephExtraMountsSecretName,
+							"mountPath": CinderCephExtraMountsPath,
+							"readOnly":  true,
+						},
+					},
+				},
+			},
+		},
+	}
+}
