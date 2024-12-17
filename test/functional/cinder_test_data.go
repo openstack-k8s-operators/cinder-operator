@@ -33,6 +33,10 @@ const (
 	InternalCertSecretName = "internal-tls-certs"
 	//CABundleSecretName -
 	CABundleSecretName = "combined-ca-bundle"
+	// CinderCephExtraMountsPath -
+	CinderCephExtraMountsPath = "/etc/ceph"
+	// CinderCephExtraMountsSecretName -
+	CinderCephExtraMountsSecretName = "ceph"
 )
 
 // CinderTestData is the data structure used to provide input data to envTest
