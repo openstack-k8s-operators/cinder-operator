@@ -1,0 +1,42 @@
+---
+- job:
+    name: cinder-operator-kuttl
+    parent: cifmw-base-multinode-kuttl
+    attempts: 1
+    required-projects:
+      - github.com/openstack-k8s-operators/cinder-operator
+    irrelevant-files:
+      - .*/*.md
+      - ^\..*$
+      - ^LICENSE$
+      - ^OWNERS$
+      - ^OWNERS_ALIASES$
+      - ^PROJECT$
+      - ^README.md$
+      - tests?\/functional
+    vars:
+      cifmw_kuttl_tests_operator_list:
+        - cinder
+
+- job:
+    name: cinder-operator-tempest
+    parent: podified-multinode-hci-deployment-crc-1comp-backends
+    vars:
+      cifmw_test_operator_concurrency: 3
+      cifmw_test_operator_tempest_include_list: |
+        ^tempest.api.volume.
+        ^tempest.scenario.test_encrypted_cinder_volumes..*
+        ^tempest.scenario.test_stamp_pattern..*
+        ^tempest.scenario.test_volume_..*
+        ^cinder_tempest_plugin..*
+      # plain/cryptsetup volume encryption tests are not supported
+      # with the ceph backend
+      cifmw_test_operator_tempest_exclude_list: |
+        test_encrypted_cinder_volumes_cryptsetup
+      cifmw_test_operator_tempest_tempestconf_config:
+        overrides: |
+          compute-feature-enabled.attach_encrypted_volume True
+          volume-feature-enabled.extend_attached_encrypted_volume True
+          volume-feature-enabled.extend_attached_volume True
+          volume-feature-enabled.volume_revert True
+          volume.storage_protocol 'ceph'
