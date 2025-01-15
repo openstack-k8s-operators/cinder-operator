@@ -1,0 +1,14 @@
+---
+- project:
+    name: openstack-k8s-operators/cinder-operator
+    github-check:
+      jobs:
+        - openstack-k8s-operators-content-provider
+        - cinder-operator-kuttl:
+            dependencies:
+              - openstack-k8s-operators-content-provider
+            voting: false
+        - cinder-operator-tempest:
+            dependencies:
+              - openstack-k8s-operators-content-provider
+            voting: false
