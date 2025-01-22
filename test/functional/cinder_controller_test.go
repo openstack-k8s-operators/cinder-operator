@@ -863,6 +863,68 @@ var _ = Describe("Cinder controller", func() {
 
 	})
 
+	When("Cinder CR instance is built with ExtraMounts", func() {
+		BeforeEach(func() {
+			rawSpec := map[string]interface{}{
+				"secret":              SecretName,
+				"databaseInstance":    "openstack",
+				"rabbitMqClusterName": "rabbitmq",
+				"extraMounts":         GetExtraMounts(),
+				"cinderAPI": map[string]interface{}{
+					"containerImage": cinderv1.CinderAPIContainerImage,
+				},
+				"cinderScheduler": map[string]interface{}{
+					"containerImage": cinderv1.CinderSchedulerContainerImage,
+				},
+				"cinderVolumes": map[string]interface{}{
+					"volume1": map[string]interface{}{
+						"containerImage": cinderv1.CinderVolumeContainerImage,
+					},
+				},
+			}
+
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, rawSpec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			keystoneAPIName := keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPIName)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+		})
+
+		It("Check the extraMounts of the resulting StatefulSets", func() {
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
+			// Retrieve the generated resources
+			volume := cinderTest.CinderVolumes[0]
+			th.SimulateStatefulSetReplicaReady(volume)
+			ss := th.GetStatefulSet(volume)
+			// Check the resulting deployment replicas
+			Expect(int(*ss.Spec.Replicas)).To(Equal(1))
+			// Assert Volume exists in the StatefulSet
+			th.AssertVolumeExists(CinderCephExtraMountsSecretName, ss.Spec.Template.Spec.Volumes)
+			// Get the cinder-volume container
+			Expect(ss.Spec.Template.Spec.Containers).To(HaveLen(2))
+			container := ss.Spec.Template.Spec.Containers[1]
+			// Inspect VolumeMounts and make sure we have the Ceph MountPath
+			// provided through extraMounts
+			th.AssertVolumeMountExists(CinderCephExtraMountsSecretName, "", container.VolumeMounts)
+		})
+	})
 	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
 	// that exercise standard account create / update patterns that should be
 	// common to all controllers that ensure MariaDBAccount CRs.
