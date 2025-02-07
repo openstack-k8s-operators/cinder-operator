@@ -311,6 +311,18 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		return err
 	}
 
+	// index httpdOverrideSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &cinderv1beta1.CinderAPI{}, httpdCustomServiceConfigSecretField, func(rawObj client.Object) []string {
+		// Extract the secret name from the spec, if one is provided
+		cr := rawObj.(*cinderv1beta1.CinderAPI)
+		if cr.Spec.HttpdCustomization.CustomConfigSecret == nil {
+			return nil
+		}
+		return []string{*cr.Spec.HttpdCustomization.CustomConfigSecret}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.CinderAPI{}).
 		Owns(&keystonev1.KeystoneService{}).
@@ -1002,6 +1014,12 @@ func (r *CinderAPIReconciler) generateServiceConfigs(
 	}
 	customData[cinder.DefaultsConfigFileName] = string(cinderSecret.Data[cinder.DefaultsConfigFileName])
 	customData[cinder.CustomConfigFileName] = string(cinderSecret.Data[cinder.CustomConfigFileName])
+	//customData[common.TemplateParameters] = string(cinderSecret.Data[common.TemplateParameters])
+	//for _, key := range maps.Keys(cinderSecret.Data) {
+	//	if strings.HasPrefix(key, "httpd_custom_") {
+	//		customData[key] = string(cinderSecret.Data[key])
+	//	}
+	//}
 
 	customSecrets := ""
 	for _, secretName := range instance.Spec.CustomServiceConfigSecrets {

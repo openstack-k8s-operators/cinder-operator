@@ -10,7 +10,7 @@ require (
 	github.com/onsi/gomega v1.34.1
 	github.com/openstack-k8s-operators/infra-operator/apis v0.5.1-0.20241213080025-18e54a028c8b
 	github.com/openstack-k8s-operators/keystone-operator/api v0.5.1-0.20241212135809-dc78e7221d12
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.5.1-0.20241216113837-d172b3ac0f4e
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.5.1-0.20250116145727-01a8948d5dd7
 	github.com/openstack-k8s-operators/lib-common/modules/storage v0.5.1-0.20241216113837-d172b3ac0f4e
 	github.com/openstack-k8s-operators/lib-common/modules/test v0.5.1-0.20241216113837-d172b3ac0f4e
 	github.com/openstack-k8s-operators/mariadb-operator/api v0.5.1-0.20241212160155-4e7d8f749820
@@ -22,7 +22,10 @@ require (
 	sigs.k8s.io/controller-runtime v0.17.6
 )
 
-require github.com/openstack-k8s-operators/cinder-operator/api v0.0.0-00010101000000-000000000000
+require (
+	github.com/openstack-k8s-operators/cinder-operator/api v0.0.0-00010101000000-000000000000
+	gopkg.in/yaml.v2 v2.4.0
+)
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -73,7 +76,6 @@ require (
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.29.10 // indirect
 	k8s.io/component-base v0.29.10 // indirect

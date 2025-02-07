@@ -61,6 +61,7 @@ type CinderTestData struct {
 	CinderServicePublic    types.NamespacedName
 	CinderServiceInternal  types.NamespacedName
 	CinderConfigSecret     types.NamespacedName
+	CinderAPIConfigSecret  types.NamespacedName
 	CinderConfigScripts    types.NamespacedName
 	Cinder                 types.NamespacedName
 	CinderAPI              types.NamespacedName
@@ -135,6 +136,10 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		CinderConfigSecret: types.NamespacedName{
 			Namespace: cinderName.Namespace,
 			Name:      fmt.Sprintf("%s-%s", cinderName.Name, "config-data"),
+		},
+		CinderAPIConfigSecret: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      fmt.Sprintf("%s-api-%s", cinderName.Name, "config-data"),
 		},
 		CinderConfigScripts: types.NamespacedName{
 			Namespace: cinderName.Namespace,

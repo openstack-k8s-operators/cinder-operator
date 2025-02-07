@@ -36,6 +36,7 @@ import (
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
+	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	util "github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
@@ -925,6 +926,76 @@ var _ = Describe("Cinder controller", func() {
 			th.AssertVolumeMountExists(CinderCephExtraMountsSecretName, "", container.VolumeMounts)
 		})
 	})
+
+	When("A CinderAPI is created with HttpdCustomization.CustomConfigSecret", func() {
+
+		BeforeEach(func() {
+			customServiceConfigSecretName := types.NamespacedName{Name: "foo", Namespace: cinderTest.Instance.Namespace}
+			customConfig := []byte(`CustomParam "foo"
+CustomKeystonePublicURL "{{ .KeystonePublicURL }}"`)
+			th.CreateSecret(
+				customServiceConfigSecretName,
+				map[string][]byte{
+					"bar.conf": customConfig,
+				},
+			)
+			spec := GetDefaultCinderSpec()
+			apiSpec := GetDefaultCinderAPISpec()
+			apiSpec["httpdCustomization"] = map[string]interface{}{
+				"customConfigSecret": customServiceConfigSecretName.Name,
+			}
+			spec["cinderAPI"] = apiSpec
+
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderName).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+		})
+
+		It("it renders the custom template and adds it to the cinder-config-data secret", func() {
+			scrt := th.GetSecret(cinderTest.CinderConfigSecret)
+			Expect(scrt).ShouldNot(BeNil())
+			Expect(scrt.Data).Should(HaveKey(common.TemplateParameters))
+			configData := string(scrt.Data[common.TemplateParameters])
+			keystonePublicURL := "http://keystone-public-openstack.testing"
+			Expect(configData).Should(ContainSubstring(fmt.Sprintf("KeystonePublicURL: %s", keystonePublicURL)))
+
+			for _, cfg := range []string{"httpd_custom_internal_bar.conf", "httpd_custom_public_bar.conf"} {
+				Expect(scrt.Data).Should(HaveKey(cfg))
+				configData := string(scrt.Data[cfg])
+				Expect(configData).Should(ContainSubstring("CustomParam \"foo\""))
+				Expect(configData).Should(ContainSubstring(fmt.Sprintf("CustomKeystonePublicURL \"%s\"", keystonePublicURL)))
+			}
+
+			scrt = th.GetSecret(cinderTest.CinderAPIConfigSecret)
+			Expect(scrt).ShouldNot(BeNil())
+			for _, cfg := range []string{"httpd_custom_internal_bar.conf", "httpd_custom_public_bar.conf"} {
+				Expect(scrt.Data).Should(HaveKey(cfg))
+				configData := string(scrt.Data[cfg])
+				Expect(configData).Should(ContainSubstring("CustomParam \"foo\""))
+				Expect(configData).Should(ContainSubstring(fmt.Sprintf("CustomKeystonePublicURL \"%s\"", keystonePublicURL)))
+			}
+		})
+	})
+
 	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
 	// that exercise standard account create / update patterns that should be
 	// common to all controllers that ensure MariaDBAccount CRs.
