@@ -19,14 +19,17 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"k8s.io/apimachinery/pkg/types"
 	"time"
 
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/labels"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -111,4 +114,65 @@ func verifyConfigSecrets(
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// ensureCinderTopology - when a Topology CR is referenced, remove the
+// finalizer from a previous referenced Topology (if any), and retrieve the
+// newly referenced topology object
+func ensureCinderTopology(
+	ctx context.Context,
+	helper *helper.Helper,
+	tpRef *topologyv1.TopoRef,
+	lastAppliedTopology *topologyv1.TopoRef,
+	finalizer string,
+	selector string,
+) (*topologyv1.Topology, error) {
+
+	var podTopology *topologyv1.Topology
+	var err error
+
+	// Remove (if present) the finalizer from a previously referenced topology
+	//
+	// 1. a topology reference is removed (tpRef == nil) from the Cinder Component
+	//    subCR and the finalizer should be deleted from the last applied topology
+	//    (lastAppliedTopology != "")
+	// 2. a topology reference is updated in the Cinder Component CR (tpRef != nil)
+	//    and the finalizer should be removed from the previously
+	//    referenced topology (tpRef.Name != lastAppliedTopology.Name)
+	if (tpRef == nil && lastAppliedTopology.Name != "") ||
+		(tpRef != nil && tpRef.Name != lastAppliedTopology.Name) {
+		_, err = topologyv1.EnsureDeletedTopologyRef(
+			ctx,
+			helper,
+			lastAppliedTopology,
+			finalizer,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// TopologyRef is passed as input, get the Topology object
+	if tpRef != nil {
+		// no Namespace is provided, default to instance.Namespace
+		if tpRef.Namespace == "" {
+			tpRef.Namespace = helper.GetBeforeObject().GetNamespace()
+		}
+		// Build a defaultLabelSelector (component=cinder-[api|backup|scheduler|volume])
+		defaultLabelSelector := labels.GetSingleLabelSelector(
+			common.ComponentSelector,
+			selector,
+		)
+		// Retrieve the referenced Topology
+		podTopology, _, err = topologyv1.EnsureTopologyRef(
+			ctx,
+			helper,
+			tpRef,
+			finalizer,
+			&defaultLabelSelector,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return podTopology, nil
 }

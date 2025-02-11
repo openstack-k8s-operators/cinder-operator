@@ -18,6 +18,7 @@ package cinderscheduler
 import (
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	cinder "github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -37,6 +38,7 @@ func StatefulSet(
 	configHash string,
 	labels map[string]string,
 	annotations map[string]string,
+	topology *topologyv1.Topology,
 ) *appsv1.StatefulSet {
 	cinderUser := int64(cinderv1.CinderUserID)
 	cinderGroup := int64(cinderv1.CinderGroupID)
@@ -130,8 +132,7 @@ func StatefulSet(
 							VolumeMounts: volumeMounts,
 						},
 					},
-					Affinity: cinder.GetPodAffinity(ComponentName),
-					Volumes:  volumes,
+					Volumes: volumes,
 				},
 			},
 		},
@@ -139,6 +140,24 @@ func StatefulSet(
 
 	if instance.Spec.NodeSelector != nil {
 		statefulset.Spec.Template.Spec.NodeSelector = *instance.Spec.NodeSelector
+	}
+
+	if topology != nil {
+		// Get the Topology .Spec
+		ts := topology.Spec
+		// Process TopologySpreadConstraints if defined in the referenced Topology
+		if ts.TopologySpreadConstraints != nil {
+			statefulset.Spec.Template.Spec.TopologySpreadConstraints = *topology.Spec.TopologySpreadConstraints
+		}
+		// Process Affinity if defined in the referenced Topology
+		if ts.Affinity != nil {
+			statefulset.Spec.Template.Spec.Affinity = ts.Affinity
+		}
+	} else {
+		// If possible two pods of the same service should not
+		// run on the same worker node. If this is not possible
+		// the get still created on the same worker node.
+		statefulset.Spec.Template.Spec.Affinity = cinder.GetPodAffinity(ComponentName)
 	}
 
 	return statefulset
