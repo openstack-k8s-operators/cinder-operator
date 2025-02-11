@@ -41,6 +41,7 @@ import (
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	cinderbackup "github.com/openstack-k8s-operators/cinder-operator/pkg/cinderbackup"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
@@ -87,6 +88,7 @@ func (r *CinderBackupReconciler) GetLogger(ctx context.Context) logr.Logger {
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;create;update;patch;delete;watch
 // +kubebuilder:rbac:groups=k8s.cni.cncf.io,resources=network-attachment-definitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=topology.openstack.org,resources=topologies,verbs=get;list;watch;update
 
 // Reconcile -
 func (r *CinderBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
@@ -172,6 +174,12 @@ func (r *CinderBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Handle service delete
 	if !instance.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, instance, helper)
+	}
+
+	// Init Topology condition if there's a reference
+	if instance.Spec.TopologyRef != nil {
+		c := condition.UnknownCondition(condition.TopologyReadyCondition, condition.InitReason, condition.TopologyReadyInitMessage)
+		cl.Set(c)
 	}
 
 	// Handle non-deleted clusters
@@ -261,6 +269,18 @@ func (r *CinderBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 		return err
 	}
 
+	// index topologyField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &cinderv1beta1.CinderBackup{}, topologyField, func(rawObj client.Object) []string {
+		// Extract the topology name from the spec, if one is provided
+		cr := rawObj.(*cinderv1beta1.CinderBackup)
+		if cr.Spec.TopologyRef == nil {
+			return nil
+		}
+		return []string{cr.Spec.TopologyRef.Name}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.CinderBackup{}).
 		Owns(&appsv1.StatefulSet{}).
@@ -272,6 +292,9 @@ func (r *CinderBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
+		Watches(&topologyv1.Topology{},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
 
@@ -317,6 +340,19 @@ func (r *CinderBackupReconciler) reconcileDelete(ctx context.Context, instance *
 	// Service is deleted so remove the finalizer.
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' delete successfully", instance.Name))
+
+	// Remove finalizer on the Topology CR
+	if ctrlResult, err := topologyv1.EnsureDeletedTopologyRef(
+		ctx,
+		helper,
+		&topologyv1.TopoRef{
+			Name:      instance.Status.LastAppliedTopology,
+			Namespace: instance.Namespace,
+		},
+		instance.Name,
+	); err != nil {
+		return ctrlResult, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -514,8 +550,46 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 	// normal reconcile tasks
 	//
 
+	//
+	// Handle Topology
+	//
+	lastTopologyRef := topologyv1.TopoRef{
+		Name:      instance.Status.LastAppliedTopology,
+		Namespace: instance.Namespace,
+	}
+	topology, err := ensureCinderTopology(
+		ctx,
+		helper,
+		instance.Spec.TopologyRef,
+		&lastTopologyRef,
+		instance.Name,
+		cinderbackup.ComponentName,
+	)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.TopologyReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.TopologyReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, fmt.Errorf("waiting for Topology requirements: %w", err)
+	}
+
+	// If TopologyRef is present and ensureCinderTopology returned a valid
+	// topology object, set .Status.LastAppliedTopology to the referenced one
+	// and mark the condition as true
+	if instance.Spec.TopologyRef != nil {
+		// update the Status with the last retrieved Topology name
+		instance.Status.LastAppliedTopology = instance.Spec.TopologyRef.Name
+		// update the TopologyRef associated condition
+		instance.Status.Conditions.MarkTrue(condition.TopologyReadyCondition, condition.TopologyReadyMessage)
+	} else {
+		// remove LastAppliedTopology from the .Status
+		instance.Status.LastAppliedTopology = ""
+	}
+
 	// Deploy a statefulset
-	ssDef := cinderbackup.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations)
+	ssDef := cinderbackup.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, topology)
 	ss := statefulset.NewStatefulSet(ssDef, cinder.ShortDuration)
 
 	var ssData appsv1.StatefulSet

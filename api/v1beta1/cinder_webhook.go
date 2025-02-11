@@ -28,6 +28,7 @@ import (
 
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -139,6 +140,8 @@ func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
 
+	allErrs = r.Spec.ValidateCinderTopology(basePath, r.Namespace)
+
 	// Validate cinderVolume name is valid
 	// CinderVolume name is <cinder name>-volume-<volume name>
 	// The CinderVolume controller creates StatefulSet for volume service to run.
@@ -204,6 +207,8 @@ func (r *Cinder) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
+
+	allErrs = r.Spec.ValidateCinderTopology(basePath, r.Namespace)
 
 	// Validate cinderVolume name is valid
 	// CinderVolume name is <cinder name>-volume-<volume name>
@@ -304,4 +309,55 @@ func GetCrMaxLengthCorrection(name string) int {
 	// crMaxLengthCorrection = defaultCrMaxLengthCorrection + len(<cinder name>) + "-volume-"
 
 	return (defaultCrMaxLengthCorrection + len(name) + 8)
+}
+
+// ValidateCinderTopology - Returns an ErrorList if the Topology is referenced
+// on a different namespace
+func (spec *CinderSpec) ValidateCinderTopology(basePath *field.Path, namespace string) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// When a TopologyRef CR is referenced, fail if a different Namespace is
+	// referenced because is not supported
+	if spec.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to CinderAPI, fail
+	// if a different Namespace is referenced because not supported
+	if spec.CinderAPI.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.CinderAPI.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to CinderScheduler,
+	// fail if a different Namespace is referenced because not supported
+	if spec.CinderScheduler.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.CinderScheduler.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to an instance of
+	// CinderVolumes, fail if a different Namespace is referenced because not
+	// supported
+	for _, ms := range spec.CinderVolumes {
+		if ms.TopologyRef != nil {
+			if err := topologyv1.ValidateTopologyNamespace(ms.TopologyRef.Namespace, *basePath, namespace); err != nil {
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to CinderBackup, fail
+	// if a different Namespace is referenced because not supported
+	if spec.CinderBackup.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.CinderBackup.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	return allErrs
 }

@@ -112,6 +112,9 @@ type CinderAPIStatus struct {
 	// controller has not started processing the latest changes, and the status
 	// and its conditions are likely stale.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// LastAppliedTopology - the last applied Topology
+	LastAppliedTopology string `json:"lastAppliedTopology,omitempty"`
 }
 
 //+kubebuilder:object:root=true
