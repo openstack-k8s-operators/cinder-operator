@@ -34,6 +34,13 @@
       "perm": "0600",
       "optional": true,
       "merge": true
+    },
+    {
+      "source": "/var/lib/config-data/merged/httpd_custom_*",
+      "dest": "/etc/httpd/conf/",
+      "owner": "root",
+      "perm": "0444",
+      "optional": true
     }
   ],
   "permissions": [
