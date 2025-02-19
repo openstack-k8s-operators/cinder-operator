@@ -709,11 +709,11 @@ var _ = Describe("Cinder controller", func() {
 		It("sets topology in CR status", func() {
 			Eventually(func(g Gomega) {
 				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
-				g.Expect(cinderAPI.Status.LastAppliedTopology).To(Equal(cinderTest.CinderTopologies[0].Name))
+				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
 				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
-				g.Expect(cinderScheduler.Status.LastAppliedTopology).To(Equal(cinderTest.CinderTopologies[0].Name))
+				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
 				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
-				g.Expect(cinderVolume.Status.LastAppliedTopology).To(Equal(cinderTest.CinderTopologies[0].Name))
+				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
 			}, timeout, interval).Should(Succeed())
 		})
 		It("sets Topology in resource specs", func() {
@@ -735,11 +735,11 @@ var _ = Describe("Cinder controller", func() {
 
 			Eventually(func(g Gomega) {
 				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
-				g.Expect(cinderAPI.Status.LastAppliedTopology).To(Equal(cinderTest.CinderTopologies[1].Name))
+				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
 				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
-				g.Expect(cinderScheduler.Status.LastAppliedTopology).To(Equal(cinderTest.CinderTopologies[1].Name))
+				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
 				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
-				g.Expect(cinderVolume.Status.LastAppliedTopology).To(Equal(cinderTest.CinderTopologies[1].Name))
+				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
 			}, timeout, interval).Should(Succeed())
 		})
 		It("overrides topology when the reference changes", func() {
@@ -762,11 +762,11 @@ var _ = Describe("Cinder controller", func() {
 
 			Eventually(func(g Gomega) {
 				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
-				g.Expect(cinderAPI.Status.LastAppliedTopology).To(Equal(cinderTest.CinderTopologies[1].Name))
+				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
 				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
-				g.Expect(cinderScheduler.Status.LastAppliedTopology).To(Equal(cinderTest.CinderTopologies[2].Name))
+				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[2].Name))
 				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
-				g.Expect(cinderVolume.Status.LastAppliedTopology).To(Equal(cinderTest.CinderTopologies[3].Name))
+				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[3].Name))
 			}, timeout, interval).Should(Succeed())
 		})
 		It("removes topologyRef from the spec", func() {
@@ -779,11 +779,11 @@ var _ = Describe("Cinder controller", func() {
 
 			Eventually(func(g Gomega) {
 				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
-				g.Expect(cinderAPI.Status.LastAppliedTopology).Should(BeEmpty())
+				g.Expect(cinderAPI.Status.LastAppliedTopology).Should(BeNil())
 				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
-				g.Expect(cinderScheduler.Status.LastAppliedTopology).Should(BeEmpty())
+				g.Expect(cinderScheduler.Status.LastAppliedTopology).Should(BeNil())
 				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
-				g.Expect(cinderVolume.Status.LastAppliedTopology).Should(BeEmpty())
+				g.Expect(cinderVolume.Status.LastAppliedTopology).Should(BeNil())
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {

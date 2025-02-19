@@ -21,6 +21,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 )
 
 // CinderAPITemplate defines the input parameters for the Cinder API service
@@ -114,7 +115,7 @@ type CinderAPIStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// LastAppliedTopology - the last applied Topology
-	LastAppliedTopology string `json:"lastAppliedTopology,omitempty"`
+	LastAppliedTopology *topologyv1.TopoRef `json:"lastAppliedTopology,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -151,4 +152,19 @@ func (instance CinderAPI) IsReady() bool {
 		instance.Status.ReadyCount == *instance.Spec.Replicas &&
 		(instance.Status.Conditions.IsTrue(condition.DeploymentReadyCondition) ||
 			(instance.Status.Conditions.IsFalse(condition.DeploymentReadyCondition) && *instance.Spec.Replicas == 0))
+}
+
+// GetSpecTopologyRef - Returns the LastAppliedTopology Set in the Status
+func (instance *CinderAPI) GetSpecTopologyRef() *topologyv1.TopoRef {
+	return instance.Spec.TopologyRef
+}
+
+// GetLastAppliedTopology - Returns the LastAppliedTopology Set in the Status
+func (instance *CinderAPI) GetLastAppliedTopology() *topologyv1.TopoRef {
+	return instance.Status.LastAppliedTopology
+}
+
+// SetLastAppliedTopology - Sets the LastAppliedTopology value in the Status
+func (instance *CinderAPI) SetLastAppliedTopology(topologyRef *topologyv1.TopoRef) {
+	instance.Status.LastAppliedTopology = topologyRef
 }

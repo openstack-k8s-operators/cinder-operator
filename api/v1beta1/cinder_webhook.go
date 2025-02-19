@@ -140,8 +140,6 @@ func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
 
-	allErrs = r.Spec.ValidateCinderTopology(basePath, r.Namespace)
-
 	// Validate cinderVolume name is valid
 	// CinderVolume name is <cinder name>-volume-<volume name>
 	// The CinderVolume controller creates StatefulSet for volume service to run.
@@ -159,7 +157,7 @@ func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
 		GetCrMaxLengthCorrection(r.Name)) // omit issue with statefulset pod label "controller-revision-hash": "<statefulset_name>-<hash>"
 	allErrs = append(allErrs, err...)
 
-	if err := r.Spec.ValidateCreate(basePath); err != nil {
+	if err := r.Spec.ValidateCreate(basePath, r.Namespace); err != nil {
 		allErrs = append(allErrs, err...)
 	}
 
@@ -174,25 +172,27 @@ func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
 
 // ValidateCreate - Exported function wrapping non-exported validate functions,
 // this function can be called externally to validate an cinder spec.
-func (r *CinderSpec) ValidateCreate(basePath *field.Path) field.ErrorList {
+func (spec *CinderSpec) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("cinderAPI").Child("override").Child("service"),
-		r.CinderAPI.Override.Service)...)
+		spec.CinderAPI.Override.Service)...)
 
+	allErrs = append(allErrs, spec.ValidateCinderTopology(basePath, namespace)...)
 	return allErrs
 }
 
-func (r *CinderSpecCore) ValidateCreate(basePath *field.Path) field.ErrorList {
+func (spec *CinderSpecCore) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("cinderAPI").Child("override").Child("service"),
-		r.CinderAPI.Override.Service)...)
+		spec.CinderAPI.Override.Service)...)
 
+	allErrs = append(allErrs, spec.ValidateCinderTopology(basePath, namespace)...)
 	return allErrs
 }
 
@@ -208,8 +208,6 @@ func (r *Cinder) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 	var allErrs field.ErrorList
 	basePath := field.NewPath("spec")
 
-	allErrs = r.Spec.ValidateCinderTopology(basePath, r.Namespace)
-
 	// Validate cinderVolume name is valid
 	// CinderVolume name is <cinder name>-volume-<volume name>
 	// The CinderVolume controller creates StatefulSet for volume service to run.
@@ -227,7 +225,7 @@ func (r *Cinder) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 		GetCrMaxLengthCorrection(r.Name)) // omit issue with statefulset pod label "controller-revision-hash": "<statefulset_name>-<hash>"
 	allErrs = append(allErrs, err...)
 
-	if err := r.Spec.ValidateUpdate(oldCinder.Spec, basePath); err != nil {
+	if err := r.Spec.ValidateUpdate(oldCinder.Spec, basePath, r.Namespace); err != nil {
 		allErrs = append(allErrs, err...)
 	}
 
@@ -242,25 +240,27 @@ func (r *Cinder) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 
 // ValidateUpdate - Exported function wrapping non-exported validate functions,
 // this function can be called externally to validate an cinder spec.
-func (r *CinderSpec) ValidateUpdate(old CinderSpec, basePath *field.Path) field.ErrorList {
+func (spec *CinderSpec) ValidateUpdate(old CinderSpec, basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("cinderAPI").Child("override").Child("service"),
-		r.CinderAPI.Override.Service)...)
+		spec.CinderAPI.Override.Service)...)
 
+	allErrs = append(allErrs, spec.ValidateCinderTopology(basePath, namespace)...)
 	return allErrs
 }
 
-func (r *CinderSpecCore) ValidateUpdate(old CinderSpecCore, basePath *field.Path) field.ErrorList {
+func (spec *CinderSpecCore) ValidateUpdate(old CinderSpecCore, basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("cinderAPI").Child("override").Child("service"),
-		r.CinderAPI.Override.Service)...)
+		spec.CinderAPI.Override.Service)...)
 
+	allErrs = append(allErrs, spec.ValidateCinderTopology(basePath, namespace)...)
 	return allErrs
 }
 
@@ -309,6 +309,57 @@ func GetCrMaxLengthCorrection(name string) int {
 	// crMaxLengthCorrection = defaultCrMaxLengthCorrection + len(<cinder name>) + "-volume-"
 
 	return (defaultCrMaxLengthCorrection + len(name) + 8)
+}
+
+// ValidateCinderTopology - Returns an ErrorList if the Topology is referenced
+// on a different namespace
+func (spec *CinderSpecCore) ValidateCinderTopology(basePath *field.Path, namespace string) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// When a TopologyRef CR is referenced, fail if a different Namespace is
+	// referenced because is not supported
+	if spec.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to CinderAPI, fail
+	// if a different Namespace is referenced because not supported
+	if spec.CinderAPI.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.CinderAPI.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to CinderScheduler,
+	// fail if a different Namespace is referenced because not supported
+	if spec.CinderScheduler.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.CinderScheduler.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to an instance of
+	// CinderVolumes, fail if a different Namespace is referenced because not
+	// supported
+	for _, ms := range spec.CinderVolumes {
+		if ms.TopologyRef != nil {
+			if err := topologyv1.ValidateTopologyNamespace(ms.TopologyRef.Namespace, *basePath, namespace); err != nil {
+				allErrs = append(allErrs, err)
+			}
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to CinderBackup, fail
+	// if a different Namespace is referenced because not supported
+	if spec.CinderBackup.TopologyRef != nil {
+		if err := topologyv1.ValidateTopologyNamespace(spec.CinderBackup.TopologyRef.Namespace, *basePath, namespace); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	return allErrs
 }
 
 // ValidateCinderTopology - Returns an ErrorList if the Topology is referenced
