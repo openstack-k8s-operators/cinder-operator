@@ -72,6 +72,7 @@ type CinderTestData struct {
 	InternalCertSecret     types.NamespacedName
 	PublicCertSecret       types.NamespacedName
 	Database               types.NamespacedName
+	CinderTopologies       []types.NamespacedName
 }
 
 // GetCinderTestData is a function that initialize the CinderTestData
@@ -185,6 +186,27 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		Database: types.NamespacedName{
 			Namespace: cinderName.Namespace,
 			Name:      cinder.DatabaseName,
+		},
+		// A set of topologies to Test how the reference is propagated to the
+		// resulting StatefulSets and if a potential override produces the
+		// expected values
+		CinderTopologies: []types.NamespacedName{
+			{
+				Namespace: cinderName.Namespace,
+				Name:      fmt.Sprintf("%s-global-topology", cinderName.Name),
+			},
+			{
+				Namespace: cinderName.Namespace,
+				Name:      fmt.Sprintf("%s-api-topology", cinderName.Name),
+			},
+			{
+				Namespace: cinderName.Namespace,
+				Name:      fmt.Sprintf("%s-scheduler-topology", cinderName.Name),
+			},
+			{
+				Namespace: cinderName.Namespace,
+				Name:      fmt.Sprintf("%s-volume-topology", cinderName.Name),
+			},
 		},
 	}
 }

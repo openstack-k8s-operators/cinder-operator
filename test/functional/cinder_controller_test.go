@@ -664,6 +664,138 @@ var _ = Describe("Cinder controller", func() {
 			}, timeout, interval).Should(Succeed())
 		})
 	})
+	When("Cinder is created with topologyRef", func() {
+		BeforeEach(func() {
+			// Build the topology Spec
+			topologySpec := GetSampleTopologySpec()
+			// Create Test Topologies
+			for _, t := range cinderTest.CinderTopologies {
+				CreateTopology(t, topologySpec)
+			}
+			spec := GetDefaultCinderSpec()
+			spec["topologyRef"] = map[string]interface{}{
+				"name": cinderTest.CinderTopologies[0].Name,
+			}
+			// Override topologyRef for cinderVolume subCR
+			spec["cinderVolumes"] = map[string]interface{}{
+				"volume1": map[string]interface{}{},
+			}
+
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderName).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderVolumes[0])
+		})
+		It("sets topology in CR status", func() {
+			Eventually(func(g Gomega) {
+				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
+				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
+				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
+				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
+				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
+				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
+			}, timeout, interval).Should(Succeed())
+		})
+		It("sets Topology in resource specs", func() {
+			Eventually(func(g Gomega) {
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.Affinity).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.Affinity).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.Affinity).To(BeNil())
+			}, timeout, interval).Should(Succeed())
+		})
+		It("updates topology when the reference changes", func() {
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				cinder.Spec.TopologyRef.Name = cinderTest.CinderTopologies[1].Name
+				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
+				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
+				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
+				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
+				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
+				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
+			}, timeout, interval).Should(Succeed())
+		})
+		It("overrides topology when the reference changes", func() {
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				//Patch CinderAPI Spec
+				newAPI := GetCinderAPISpec(cinderTest.CinderAPI)
+				newAPI.TopologyRef.Name = cinderTest.CinderTopologies[1].Name
+				cinder.Spec.CinderAPI = newAPI
+				//Patch CinderScheduler Spec
+				newSch := GetCinderSchedulerSpec(cinderTest.CinderScheduler)
+				newSch.TopologyRef.Name = cinderTest.CinderTopologies[2].Name
+				cinder.Spec.CinderScheduler = newSch
+				// Patch CinderVolume (volume1) Spec
+				newVol := GetCinderVolumeSpec(cinderTest.CinderVolumes[0])
+				newVol.TopologyRef.Name = cinderTest.CinderTopologies[3].Name
+				cinder.Spec.CinderVolumes["volume1"] = newVol
+				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
+				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
+				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
+				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[2].Name))
+				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
+				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[3].Name))
+			}, timeout, interval).Should(Succeed())
+		})
+		It("removes topologyRef from the spec", func() {
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				// Remove the TopologyRef from the existing Cinder .Spec
+				cinder.Spec.TopologyRef = nil
+				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
+				g.Expect(cinderAPI.Status.LastAppliedTopology).Should(BeNil())
+				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
+				g.Expect(cinderScheduler.Status.LastAppliedTopology).Should(BeNil())
+				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
+				g.Expect(cinderVolume.Status.LastAppliedTopology).Should(BeNil())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.TopologySpreadConstraints).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.Affinity).ToNot(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.TopologySpreadConstraints).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.Affinity).ToNot(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.TopologySpreadConstraints).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.Affinity).ToNot(BeNil())
+			}, timeout, interval).Should(Succeed())
+		})
+	})
 
 	When("A Cinder is created with nodeSelector", func() {
 		BeforeEach(func() {
@@ -1102,6 +1234,33 @@ var _ = Describe("Cinder Webhook", func() {
 		Expect(statusError.ErrStatus.Message).To(
 			ContainSubstring(
 				"Invalid value: \"foo_bar\": a lowercase RFC 1123 label must consist of lower case alphanumeric characters"),
+		)
+	})
+
+	It("rejects a wrong TopologyRef on a different namespace", func() {
+		spec := GetDefaultCinderSpec()
+		// Reference a top-level topology
+		spec["topologyRef"] = map[string]interface{}{
+			"name":      cinderTest.CinderTopologies[0].Name,
+			"namespace": "foo",
+		}
+		raw := map[string]interface{}{
+			"apiVersion": "cinder.openstack.org/v1beta1",
+			"kind":       "Cinder",
+			"metadata": map[string]interface{}{
+				"name":      cinderTest.Instance.Name,
+				"namespace": cinderTest.Instance.Namespace,
+			},
+			"spec": spec,
+		}
+
+		unstructuredObj := &unstructured.Unstructured{Object: raw}
+		_, err := controllerutil.CreateOrPatch(
+			th.Ctx, th.K8sClient, unstructuredObj, func() error { return nil })
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(
+			ContainSubstring(
+				"Invalid value: \"namespace\": Customizing namespace field is not supported"),
 		)
 	})
 })

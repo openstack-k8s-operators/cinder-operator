@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -111,4 +112,21 @@ func verifyConfigSecrets(
 	}
 
 	return ctrl.Result{}, nil
+}
+
+type topologyGetter interface {
+	GetLastAppliedTopology() *topologyv1.TopoRef
+}
+
+// GetLastTopologyRef - Returns a TopoRef object that can be passed to the
+// Handle topology logic
+func GetLastAppliedTopologyRef(t topologyGetter, ns string) *topologyv1.TopoRef {
+	lastAppliedTopologyName := ""
+	if l := t.GetLastAppliedTopology(); l != nil {
+		lastAppliedTopologyName = l.Name
+	}
+	return &topologyv1.TopoRef{
+		Name:      lastAppliedTopologyName,
+		Namespace: ns,
+	}
 }

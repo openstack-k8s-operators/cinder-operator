@@ -223,6 +223,30 @@ func GetCinderScheduler(name types.NamespacedName) *cinderv1.CinderScheduler {
 	return instance
 }
 
+func GetCinderAPISpec(name types.NamespacedName) cinderv1.CinderAPITemplate {
+	instance := &cinderv1.CinderAPI{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance.Spec.CinderAPITemplate
+}
+
+func GetCinderSchedulerSpec(name types.NamespacedName) cinderv1.CinderSchedulerTemplate {
+	instance := &cinderv1.CinderScheduler{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance.Spec.CinderSchedulerTemplate
+}
+
+func GetCinderVolumeSpec(name types.NamespacedName) cinderv1.CinderVolumeTemplate {
+	instance := &cinderv1.CinderVolume{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance.Spec.CinderVolumeTemplate
+}
+
 func GetCinderVolume(name types.NamespacedName) *cinderv1.CinderVolume {
 	instance := &cinderv1.CinderVolume{}
 	Eventually(func(g Gomega) {
@@ -329,4 +353,41 @@ func GetExtraMounts() []map[string]interface{} {
 			},
 		},
 	}
+}
+
+// Topology functions
+
+// GetSampleTopologySpec - A sample (and opinionated) Topology Spec used to
+// test Cinder components
+func GetSampleTopologySpec() map[string]interface{} {
+	// Build the topology Spec
+	topologySpec := map[string]interface{}{
+		"topologySpreadConstraints": []map[string]interface{}{
+			{
+				"maxSkew":           1,
+				"topologyKey":       corev1.LabelHostname,
+				"whenUnsatisfiable": "ScheduleAnyway",
+				"labelSelector": map[string]interface{}{
+					"matchLabels": map[string]interface{}{
+						"service": cinderName.Name,
+					},
+				},
+			},
+		},
+	}
+	return topologySpec
+}
+
+// CreateTopology - Creates a Topology CR based on the spec passed as input
+func CreateTopology(topology types.NamespacedName, spec map[string]interface{}) client.Object {
+	raw := map[string]interface{}{
+		"apiVersion": "topology.openstack.org/v1beta1",
+		"kind":       "Topology",
+		"metadata": map[string]interface{}{
+			"name":      topology.Name,
+			"namespace": topology.Namespace,
+		},
+		"spec": spec,
+	}
+	return th.CreateUnstructured(raw)
 }

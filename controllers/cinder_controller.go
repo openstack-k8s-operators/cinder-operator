@@ -234,18 +234,21 @@ const (
 	caBundleSecretNameField = ".spec.tls.caBundleSecretName"
 	tlsAPIInternalField     = ".spec.tls.api.internal.secretName"
 	tlsAPIPublicField       = ".spec.tls.api.public.secretName"
+	topologyField           = ".spec.topologyRef.Name"
 )
 
 var (
 	commonWatchFields = []string{
 		passwordSecretField,
 		caBundleSecretNameField,
+		topologyField,
 	}
 	cinderAPIWatchFields = []string{
 		passwordSecretField,
 		caBundleSecretNameField,
 		tlsAPIInternalField,
 		tlsAPIPublicField,
+		topologyField,
 	}
 )
 
@@ -1024,6 +1027,12 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, inst
 		cinderAPISpec.NodeSelector = instance.Spec.NodeSelector
 	}
 
+	// If topology is not present in the underlying CinderAPI Spec,
+	// inherit from the top-level CR
+	if cinderAPISpec.TopologyRef == nil {
+		cinderAPISpec.TopologyRef = instance.Spec.TopologyRef
+	}
+
 	deployment := &cinderv1beta1.CinderAPI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-api", instance.Name),
@@ -1058,6 +1067,12 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context
 
 	if cinderSchedulerSpec.NodeSelector == nil {
 		cinderSchedulerSpec.NodeSelector = instance.Spec.NodeSelector
+	}
+
+	// If topology is not present in the underlying Scheduler Spec
+	// inherit from the top-level CR
+	if cinderSchedulerSpec.TopologyRef == nil {
+		cinderSchedulerSpec.TopologyRef = instance.Spec.TopologyRef
 	}
 
 	deployment := &cinderv1beta1.CinderScheduler{
@@ -1159,6 +1174,9 @@ func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, i
 		cinderVolumeSpec.CinderVolumeTemplate.NodeSelector = instance.Spec.NodeSelector
 	}
 
+	if cinderVolumeSpec.CinderVolumeTemplate.TopologyRef == nil {
+		cinderVolumeSpec.CinderVolumeTemplate.TopologyRef = instance.Spec.TopologyRef
+	}
 	deployment := &cinderv1beta1.CinderVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-volume-%s", instance.Name, name),
