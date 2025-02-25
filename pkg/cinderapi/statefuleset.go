@@ -18,6 +18,7 @@ package cinderapi
 import (
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	cinder "github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
@@ -39,6 +40,7 @@ func StatefulSet(
 	configHash string,
 	labels map[string]string,
 	annotations map[string]string,
+	topology *topologyv1.Topology,
 ) (*appsv1.StatefulSet, error) {
 	runAsUser := int64(0)
 	cinderUser := int64(cinderv1beta1.CinderUserID)
@@ -166,8 +168,7 @@ func StatefulSet(
 							LivenessProbe:  livenessProbe,
 						},
 					},
-					Affinity: cinder.GetPodAffinity(ComponentName),
-					Volumes:  volumes,
+					Volumes: volumes,
 				},
 			},
 		},
@@ -175,6 +176,15 @@ func StatefulSet(
 
 	if instance.Spec.NodeSelector != nil {
 		statefulset.Spec.Template.Spec.NodeSelector = *instance.Spec.NodeSelector
+	}
+
+	if topology != nil {
+		topology.ApplyTo(&statefulset.Spec.Template)
+	} else {
+		// If possible two pods of the same service should not
+		// run on the same worker node. If this is not possible
+		// the get still created on the same worker node.
+		statefulset.Spec.Template.Spec.Affinity = cinder.GetPodAffinity(ComponentName)
 	}
 
 	return statefulset, nil
