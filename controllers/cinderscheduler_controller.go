@@ -554,10 +554,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 		instance,      // topologyHandler
 		instance.Name, // finalizer
 		&instance.Status.Conditions,
-		labels.GetSingleLabelSelector(
-			common.ComponentSelector,
-			cinderscheduler.ComponentName,
-		),
+		labels.GetLabelSelector(serviceLabels),
 	)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
