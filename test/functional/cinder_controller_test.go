@@ -709,10 +709,13 @@ var _ = Describe("Cinder controller", func() {
 		It("sets topology in CR status", func() {
 			Eventually(func(g Gomega) {
 				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
+				g.Expect(cinderAPI.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
 				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
+				g.Expect(cinderScheduler.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
 				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
+				g.Expect(cinderVolume.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
 			}, timeout, interval).Should(Succeed())
 		})
@@ -735,10 +738,13 @@ var _ = Describe("Cinder controller", func() {
 
 			Eventually(func(g Gomega) {
 				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
+				g.Expect(cinderAPI.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
 				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
+				g.Expect(cinderScheduler.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
 				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
+				g.Expect(cinderVolume.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
 			}, timeout, interval).Should(Succeed())
 		})
@@ -762,10 +768,13 @@ var _ = Describe("Cinder controller", func() {
 
 			Eventually(func(g Gomega) {
 				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
+				g.Expect(cinderAPI.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
 				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
+				g.Expect(cinderScheduler.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[2].Name))
 				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
+				g.Expect(cinderVolume.Status.LastAppliedTopology).ToNot(BeNil())
 				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[3].Name))
 			}, timeout, interval).Should(Succeed())
 		})
