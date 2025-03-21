@@ -1246,30 +1246,71 @@ var _ = Describe("Cinder Webhook", func() {
 		)
 	})
 
-	It("rejects a wrong TopologyRef on a different namespace", func() {
-		spec := GetDefaultCinderSpec()
-		// Reference a top-level topology
-		spec["topologyRef"] = map[string]interface{}{
-			"name":      cinderTest.CinderTopologies[0].Name,
-			"namespace": "foo",
-		}
-		raw := map[string]interface{}{
-			"apiVersion": "cinder.openstack.org/v1beta1",
-			"kind":       "Cinder",
-			"metadata": map[string]interface{}{
-				"name":      cinderTest.Instance.Name,
-				"namespace": cinderTest.Instance.Namespace,
-			},
-			"spec": spec,
-		}
+	DescribeTable("rejects wrong topology for",
+		func(serviceNameFunc func() (string, string)) {
 
-		unstructuredObj := &unstructured.Unstructured{Object: raw}
-		_, err := controllerutil.CreateOrPatch(
-			th.Ctx, th.K8sClient, unstructuredObj, func() error { return nil })
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(
-			ContainSubstring(
-				"Invalid value: \"namespace\": Customizing namespace field is not supported"),
-		)
-	})
+			component, errorPath := serviceNameFunc()
+			expectedErrorMessage := fmt.Sprintf("spec.%s.namespace: Invalid value: \"namespace\": Customizing namespace field is not supported", errorPath)
+
+			spec := GetDefaultCinderSpec()
+			// API and Scheduler
+			if component != "top-level" && component != "volume0" {
+				spec[component] = map[string]interface{}{
+					"topologyRef": map[string]interface{}{
+						"name":      "bar",
+						"namespace": "foo",
+					},
+				}
+			}
+			// cinderVolumes volume0
+			if component == "volume0" {
+				volumeList := map[string]interface{}{
+					"volume0": map[string]interface{}{
+						"topologyRef": map[string]interface{}{
+							"name":      "foo",
+							"namespace": "bar",
+						},
+					},
+				}
+				spec["cinderVolumes"] = volumeList
+				// top-level topologyRef
+			} else {
+				spec["topologyRef"] = map[string]interface{}{
+					"name":      "bar",
+					"namespace": "foo",
+				}
+			}
+			// Build the cinder CR
+			raw := map[string]interface{}{
+				"apiVersion": "cinder.openstack.org/v1beta1",
+				"kind":       "Cinder",
+				"metadata": map[string]interface{}{
+					"name":      cinderTest.Instance.Name,
+					"namespace": cinderTest.Instance.Namespace,
+				},
+				"spec": spec,
+			}
+			unstructuredObj := &unstructured.Unstructured{Object: raw}
+			_, err := controllerutil.CreateOrPatch(
+				th.Ctx, th.K8sClient, unstructuredObj, func() error { return nil })
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(
+				ContainSubstring(expectedErrorMessage))
+		},
+		Entry("top-level topologyRef", func() (string, string) {
+			return "top-level", "topologyRef"
+		}),
+		Entry("cinderAPI topologyRef", func() (string, string) {
+			component := "cinderAPI"
+			return component, fmt.Sprintf("%s.topologyRef", component)
+		}),
+		Entry("cinderScheduler topologyRef", func() (string, string) {
+			component := "cinderScheduler"
+			return component, fmt.Sprintf("%s.topologyRef", component)
+		}),
+		Entry("cinderVolume volume0 topologyRef", func() (string, string) {
+			instance := "volume0"
+			return instance, fmt.Sprintf("cinderVolumes[%s].topologyRef", instance)
+		}),
+	)
 })
