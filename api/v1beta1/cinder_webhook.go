@@ -318,97 +318,72 @@ func (spec *CinderSpecCore) ValidateCinderTopology(basePath *field.Path, namespa
 
 	// When a TopologyRef CR is referenced, fail if a different Namespace is
 	// referenced because is not supported
-	if spec.TopologyRef != nil {
-		if err := topologyv1.ValidateTopologyNamespace(spec.TopologyRef.Namespace, *basePath, namespace); err != nil {
-			allErrs = append(allErrs, err)
-		}
-	}
+	allErrs = append(allErrs, topologyv1.ValidateTopologyRef(
+		spec.TopologyRef, *basePath.Child("topologyRef"), namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to CinderAPI, fail
 	// if a different Namespace is referenced because not supported
-	if spec.CinderAPI.TopologyRef != nil {
-		if err := topologyv1.ValidateTopologyNamespace(spec.CinderAPI.TopologyRef.Namespace, *basePath, namespace); err != nil {
-			allErrs = append(allErrs, err)
-		}
-	}
+	apiPath := basePath.Child("cinderAPI")
+	allErrs = append(allErrs,
+		spec.CinderAPI.ValidateTopology(apiPath, namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to CinderScheduler,
 	// fail if a different Namespace is referenced because not supported
-	if spec.CinderScheduler.TopologyRef != nil {
-		if err := topologyv1.ValidateTopologyNamespace(spec.CinderScheduler.TopologyRef.Namespace, *basePath, namespace); err != nil {
-			allErrs = append(allErrs, err)
-		}
-	}
+	scPath := basePath.Child("cinderScheduler")
+	allErrs = append(allErrs,
+		spec.CinderScheduler.ValidateTopology(scPath, namespace)...)
+
+	// When a TopologyRef CR is referenced with an override to CinderBackup,
+	// fail if a different Namespace is referenced because not supported
+	bkPath := basePath.Child("cinderBackup")
+	allErrs = append(allErrs,
+		spec.CinderBackup.ValidateTopology(bkPath, namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to an instance of
 	// CinderVolumes, fail if a different Namespace is referenced because not
 	// supported
-	for _, ms := range spec.CinderVolumes {
-		if ms.TopologyRef != nil {
-			if err := topologyv1.ValidateTopologyNamespace(ms.TopologyRef.Namespace, *basePath, namespace); err != nil {
-				allErrs = append(allErrs, err)
-			}
-		}
+	for k, ms := range spec.CinderVolumes {
+		path := basePath.Child("cinderVolumes").Key(k)
+		allErrs = append(allErrs, ms.ValidateTopology(path, namespace)...)
 	}
-
-	// When a TopologyRef CR is referenced with an override to CinderBackup, fail
-	// if a different Namespace is referenced because not supported
-	if spec.CinderBackup.TopologyRef != nil {
-		if err := topologyv1.ValidateTopologyNamespace(spec.CinderBackup.TopologyRef.Namespace, *basePath, namespace); err != nil {
-			allErrs = append(allErrs, err)
-		}
-	}
-
 	return allErrs
 }
 
 // ValidateCinderTopology - Returns an ErrorList if the Topology is referenced
 // on a different namespace
+// TODO: Remove this function when refactoring CinderSpec to include CinderSpecCore
 func (spec *CinderSpec) ValidateCinderTopology(basePath *field.Path, namespace string) field.ErrorList {
 	var allErrs field.ErrorList
 
 	// When a TopologyRef CR is referenced, fail if a different Namespace is
 	// referenced because is not supported
-	if spec.TopologyRef != nil {
-		if err := topologyv1.ValidateTopologyNamespace(spec.TopologyRef.Namespace, *basePath, namespace); err != nil {
-			allErrs = append(allErrs, err)
-		}
-	}
+	allErrs = append(allErrs, topologyv1.ValidateTopologyRef(
+		spec.TopologyRef, *basePath.Child("topologyRef"), namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to CinderAPI, fail
 	// if a different Namespace is referenced because not supported
-	if spec.CinderAPI.TopologyRef != nil {
-		if err := topologyv1.ValidateTopologyNamespace(spec.CinderAPI.TopologyRef.Namespace, *basePath, namespace); err != nil {
-			allErrs = append(allErrs, err)
-		}
-	}
+	apiPath := basePath.Child("cinderAPI")
+	allErrs = append(allErrs,
+		spec.CinderAPI.ValidateTopology(apiPath, namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to CinderScheduler,
 	// fail if a different Namespace is referenced because not supported
-	if spec.CinderScheduler.TopologyRef != nil {
-		if err := topologyv1.ValidateTopologyNamespace(spec.CinderScheduler.TopologyRef.Namespace, *basePath, namespace); err != nil {
-			allErrs = append(allErrs, err)
-		}
-	}
+	scPath := basePath.Child("cinderScheduler")
+	allErrs = append(allErrs,
+		spec.CinderScheduler.ValidateTopology(scPath, namespace)...)
+
+	// When a TopologyRef CR is referenced with an override to CinderBackup,
+	// fail if a different Namespace is referenced because not supported
+	bkPath := basePath.Child("cinderBackup")
+	allErrs = append(allErrs,
+		spec.CinderBackup.ValidateTopology(bkPath, namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to an instance of
 	// CinderVolumes, fail if a different Namespace is referenced because not
 	// supported
-	for _, ms := range spec.CinderVolumes {
-		if ms.TopologyRef != nil {
-			if err := topologyv1.ValidateTopologyNamespace(ms.TopologyRef.Namespace, *basePath, namespace); err != nil {
-				allErrs = append(allErrs, err)
-			}
-		}
+	for k, ms := range spec.CinderVolumes {
+		path := basePath.Child("cinderVolumes").Key(k)
+		allErrs = append(allErrs, ms.ValidateTopology(path, namespace)...)
 	}
-
-	// When a TopologyRef CR is referenced with an override to CinderBackup, fail
-	// if a different Namespace is referenced because not supported
-	if spec.CinderBackup.TopologyRef != nil {
-		if err := topologyv1.ValidateTopologyNamespace(spec.CinderBackup.TopologyRef.Namespace, *basePath, namespace); err != nil {
-			allErrs = append(allErrs, err)
-		}
-	}
-
 	return allErrs
 }
