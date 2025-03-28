@@ -19,16 +19,17 @@ import (
 	"golang.org/x/exp/maps"
 
 	. "github.com/onsi/gomega" //revive:disable:dot-imports
+	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
+	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
-	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 )
 
 func CreateCinderSecret(namespace string, name string) *corev1.Secret {
@@ -357,9 +358,11 @@ func GetExtraMounts() []map[string]interface{} {
 
 // Topology functions
 
-// GetSampleTopologySpec - A sample (and opinionated) Topology Spec used to
-// test Cinder components
-func GetSampleTopologySpec() map[string]interface{} {
+// GetSampleTopologySpec - An opinionated Topology Spec sample used to
+// test Service components. It returns both the user input representation
+// in the form of map[string]string, and the Golang expected representation
+// used in the test asserts.
+func GetSampleTopologySpec(label string) (map[string]interface{}, []corev1.TopologySpreadConstraint) {
 	// Build the topology Spec
 	topologySpec := map[string]interface{}{
 		"topologySpreadConstraints": []map[string]interface{}{
@@ -369,13 +372,26 @@ func GetSampleTopologySpec() map[string]interface{} {
 				"whenUnsatisfiable": "ScheduleAnyway",
 				"labelSelector": map[string]interface{}{
 					"matchLabels": map[string]interface{}{
-						"service": cinderName.Name,
+						"component": label,
 					},
 				},
 			},
 		},
 	}
-	return topologySpec
+	// Build the topologyObj representation
+	topologySpecObj := []corev1.TopologySpreadConstraint{
+		{
+			MaxSkew:           1,
+			TopologyKey:       corev1.LabelHostname,
+			WhenUnsatisfiable: corev1.ScheduleAnyway,
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"component": label,
+				},
+			},
+		},
+	}
+	return topologySpec, topologySpecObj
 }
 
 // CreateTopology - Creates a Topology CR based on the spec passed as input
@@ -390,4 +406,13 @@ func CreateTopology(topology types.NamespacedName, spec map[string]interface{}) 
 		"spec": spec,
 	}
 	return th.CreateUnstructured(raw)
+}
+
+// GetTopology - Returns the referenced Topology
+func GetTopology(name types.NamespacedName) *topologyv1.Topology {
+	instance := &topologyv1.Topology{}
+	Eventually(func(g Gomega) {
+		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
+	}, timeout, interval).Should(Succeed())
+	return instance
 }
