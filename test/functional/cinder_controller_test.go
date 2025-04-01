@@ -36,6 +36,7 @@ import (
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	util "github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
@@ -665,16 +666,26 @@ var _ = Describe("Cinder controller", func() {
 		})
 	})
 	When("Cinder is created with topologyRef", func() {
+		var topologyRef, topologyRefAlt *topologyv1.TopoRef
 		BeforeEach(func() {
-			// Build the topology Spec
-			topologySpec := GetSampleTopologySpec()
 			// Create Test Topologies
 			for _, t := range cinderTest.CinderTopologies {
+				// Build the topology Spec
+				topologySpec, _ := GetSampleTopologySpec(t.Name)
 				CreateTopology(t, topologySpec)
 			}
 			spec := GetDefaultCinderSpec()
+
+			topologyRef = &topologyv1.TopoRef{
+				Name:      cinderTest.CinderTopologies[0].Name,
+				Namespace: cinderTest.CinderTopologies[0].Namespace,
+			}
+			topologyRefAlt = &topologyv1.TopoRef{
+				Name:      cinderTest.CinderTopologies[1].Name,
+				Namespace: cinderTest.CinderTopologies[1].Namespace,
+			}
 			spec["topologyRef"] = map[string]interface{}{
-				"name": cinderTest.CinderTopologies[0].Name,
+				"name": topologyRef.Name,
 			}
 			// Override topologyRef for cinderVolume subCR
 			spec["cinderVolumes"] = map[string]interface{}{
@@ -707,45 +718,97 @@ var _ = Describe("Cinder controller", func() {
 			th.SimulateStatefulSetReplicaReady(cinderTest.CinderVolumes[0])
 		})
 		It("sets topology in CR status", func() {
+			expectedTopology := &topologyv1.TopoRef{
+				Name:      topologyRef.Name,
+				Namespace: topologyRef.Namespace,
+			}
+			var finalizers []string
 			Eventually(func(g Gomega) {
+				tp := GetTopology(types.NamespacedName{
+					Name:      expectedTopology.Name,
+					Namespace: expectedTopology.Namespace,
+				})
+				g.Expect(tp.GetFinalizers()).To(HaveLen(3))
+				finalizers = tp.GetFinalizers()
+
 				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
 				g.Expect(cinderAPI.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
+				g.Expect(cinderAPI.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/cinderapi-%s", cinderAPI.Name)))
+
 				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
 				g.Expect(cinderScheduler.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
+				g.Expect(cinderScheduler.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/cinderscheduler-%s", cinderScheduler.Name)))
+
 				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
 				g.Expect(cinderVolume.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[0].Name))
+				g.Expect(cinderVolume.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/cindervolume-%s", cinderVolume.Name)))
 			}, timeout, interval).Should(Succeed())
 		})
 		It("sets Topology in resource specs", func() {
 			Eventually(func(g Gomega) {
-				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				_, expectedTopologySpecObj := GetSampleTopologySpec(topologyRef.Name)
 				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.Affinity).To(BeNil())
-				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.TopologySpreadConstraints).To(Equal(expectedTopologySpecObj))
 				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.Affinity).To(BeNil())
-				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.TopologySpreadConstraints).To(Equal(expectedTopologySpecObj))
 				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.Affinity).To(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.TopologySpreadConstraints).ToNot(BeNil())
+				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.TopologySpreadConstraints).To(Equal(expectedTopologySpecObj))
 			}, timeout, interval).Should(Succeed())
 		})
 		It("updates topology when the reference changes", func() {
+			expectedTopology := &topologyv1.TopoRef{
+				Name:      topologyRefAlt.Name,
+				Namespace: topologyRefAlt.Namespace,
+			}
+			var finalizers []string
 			Eventually(func(g Gomega) {
 				cinder := GetCinder(cinderTest.Instance)
-				cinder.Spec.TopologyRef.Name = cinderTest.CinderTopologies[1].Name
+				cinder.Spec.TopologyRef.Name = expectedTopology.Name
 				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
+				tp := GetTopology(types.NamespacedName{
+					Name:      expectedTopology.Name,
+					Namespace: expectedTopology.Namespace,
+				})
+				finalizers = tp.GetFinalizers()
+				g.Expect(finalizers).To(HaveLen(3))
+
 				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
 				g.Expect(cinderAPI.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
+				g.Expect(cinderAPI.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/cinderapi-%s", cinderAPI.Name)))
+
 				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
 				g.Expect(cinderScheduler.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
+				g.Expect(cinderScheduler.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/cinderscheduler-%s", cinderScheduler.Name)))
+
 				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
 				g.Expect(cinderVolume.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
+				g.Expect(cinderVolume.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/cindervolume-%s", cinderVolume.Name)))
+
+				// Get the previous topology and verify there are no finalizers
+				// anymore
+				tp = GetTopology(types.NamespacedName{
+					Name:      cinderTest.CinderTopologies[0].Name,
+					Namespace: cinderTest.CinderTopologies[0].Namespace,
+				})
+				g.Expect(tp.GetFinalizers()).To(BeEmpty())
 			}, timeout, interval).Should(Succeed())
 		})
 		It("overrides topology when the reference changes", func() {
@@ -767,15 +830,60 @@ var _ = Describe("Cinder controller", func() {
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
+				expectedTopology := &topologyv1.TopoRef{
+					Name:      cinderTest.CinderTopologies[1].Name,
+					Namespace: cinderTest.CinderTopologies[1].Namespace,
+				}
+				tp := GetTopology(types.NamespacedName{
+					Name:      expectedTopology.Name,
+					Namespace: expectedTopology.Namespace,
+				})
+				finalizers := tp.GetFinalizers()
+				g.Expect(finalizers).To(HaveLen(1))
+
 				cinderAPI := GetCinderAPI(cinderTest.CinderAPI)
 				g.Expect(cinderAPI.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(cinderAPI.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[1].Name))
+				g.Expect(cinderAPI.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/cinderapi-%s", cinderAPI.Name)))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				expectedTopology := &topologyv1.TopoRef{
+					Name:      cinderTest.CinderTopologies[2].Name,
+					Namespace: cinderTest.CinderTopologies[2].Namespace,
+				}
+				tp := GetTopology(types.NamespacedName{
+					Name:      expectedTopology.Name,
+					Namespace: expectedTopology.Namespace,
+				})
+				finalizers := tp.GetFinalizers()
+				g.Expect(finalizers).To(HaveLen(1))
+
 				cinderScheduler := GetCinderScheduler(cinderTest.CinderScheduler)
 				g.Expect(cinderScheduler.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(cinderScheduler.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[2].Name))
+				g.Expect(cinderScheduler.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/cinderscheduler-%s", cinderScheduler.Name)))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				expectedTopology := &topologyv1.TopoRef{
+					Name:      cinderTest.CinderTopologies[3].Name,
+					Namespace: cinderTest.CinderTopologies[3].Namespace,
+				}
+				tp := GetTopology(types.NamespacedName{
+					Name:      expectedTopology.Name,
+					Namespace: expectedTopology.Namespace,
+				})
+				finalizers := tp.GetFinalizers()
+				g.Expect(finalizers).To(HaveLen(1))
+
 				cinderVolume := GetCinderVolume(cinderTest.CinderVolumes[0])
 				g.Expect(cinderVolume.Status.LastAppliedTopology).ToNot(BeNil())
-				g.Expect(cinderVolume.Status.LastAppliedTopology.Name).To(Equal(cinderTest.CinderTopologies[3].Name))
+				g.Expect(cinderVolume.Status.LastAppliedTopology).To(Equal(expectedTopology))
+				g.Expect(finalizers).To(ContainElement(
+					fmt.Sprintf("openstack.org/cindervolume-%s", cinderVolume.Name)))
 			}, timeout, interval).Should(Succeed())
 		})
 		It("removes topologyRef from the spec", func() {
@@ -802,6 +910,17 @@ var _ = Describe("Cinder controller", func() {
 				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.Affinity).ToNot(BeNil())
 				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.TopologySpreadConstraints).To(BeNil())
 				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.Affinity).ToNot(BeNil())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				for _, topology := range cinderTest.CinderTopologies {
+					// Get the current topology and verify there are no finalizers
+					tp := GetTopology(types.NamespacedName{
+						Name:      topology.Name,
+						Namespace: topology.Namespace,
+					})
+					g.Expect(tp.GetFinalizers()).To(BeEmpty())
+				}
 			}, timeout, interval).Should(Succeed())
 		})
 	})
