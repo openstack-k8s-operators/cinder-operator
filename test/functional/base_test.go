@@ -20,7 +20,6 @@ import (
 
 	. "github.com/onsi/gomega" //revive:disable:dot-imports
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
-	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -392,27 +391,4 @@ func GetSampleTopologySpec(label string) (map[string]interface{}, []corev1.Topol
 		},
 	}
 	return topologySpec, topologySpecObj
-}
-
-// CreateTopology - Creates a Topology CR based on the spec passed as input
-func CreateTopology(topology types.NamespacedName, spec map[string]interface{}) client.Object {
-	raw := map[string]interface{}{
-		"apiVersion": "topology.openstack.org/v1beta1",
-		"kind":       "Topology",
-		"metadata": map[string]interface{}{
-			"name":      topology.Name,
-			"namespace": topology.Namespace,
-		},
-		"spec": spec,
-	}
-	return th.CreateUnstructured(raw)
-}
-
-// GetTopology - Returns the referenced Topology
-func GetTopology(name types.NamespacedName) *topologyv1.Topology {
-	instance := &topologyv1.Topology{}
-	Eventually(func(g Gomega) {
-		g.Expect(k8sClient.Get(ctx, name, instance)).Should(Succeed())
-	}, timeout, interval).Should(Succeed())
-	return instance
 }
