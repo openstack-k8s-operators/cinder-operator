@@ -672,7 +672,7 @@ var _ = Describe("Cinder controller", func() {
 			for _, t := range cinderTest.CinderTopologies {
 				// Build the topology Spec
 				topologySpec, _ := GetSampleTopologySpec(t.Name)
-				CreateTopology(t, topologySpec)
+				infra.CreateTopology(t, topologySpec)
 			}
 			spec := GetDefaultCinderSpec()
 
@@ -724,7 +724,7 @@ var _ = Describe("Cinder controller", func() {
 			}
 			var finalizers []string
 			Eventually(func(g Gomega) {
-				tp := GetTopology(types.NamespacedName{
+				tp := infra.GetTopology(types.NamespacedName{
 					Name:      expectedTopology.Name,
 					Namespace: expectedTopology.Namespace,
 				})
@@ -777,7 +777,7 @@ var _ = Describe("Cinder controller", func() {
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
-				tp := GetTopology(types.NamespacedName{
+				tp := infra.GetTopology(types.NamespacedName{
 					Name:      expectedTopology.Name,
 					Namespace: expectedTopology.Namespace,
 				})
@@ -804,7 +804,7 @@ var _ = Describe("Cinder controller", func() {
 
 				// Get the previous topology and verify there are no finalizers
 				// anymore
-				tp = GetTopology(types.NamespacedName{
+				tp = infra.GetTopology(types.NamespacedName{
 					Name:      cinderTest.CinderTopologies[0].Name,
 					Namespace: cinderTest.CinderTopologies[0].Namespace,
 				})
@@ -834,7 +834,7 @@ var _ = Describe("Cinder controller", func() {
 					Name:      cinderTest.CinderTopologies[1].Name,
 					Namespace: cinderTest.CinderTopologies[1].Namespace,
 				}
-				tp := GetTopology(types.NamespacedName{
+				tp := infra.GetTopology(types.NamespacedName{
 					Name:      expectedTopology.Name,
 					Namespace: expectedTopology.Namespace,
 				})
@@ -853,7 +853,7 @@ var _ = Describe("Cinder controller", func() {
 					Name:      cinderTest.CinderTopologies[2].Name,
 					Namespace: cinderTest.CinderTopologies[2].Namespace,
 				}
-				tp := GetTopology(types.NamespacedName{
+				tp := infra.GetTopology(types.NamespacedName{
 					Name:      expectedTopology.Name,
 					Namespace: expectedTopology.Namespace,
 				})
@@ -872,7 +872,7 @@ var _ = Describe("Cinder controller", func() {
 					Name:      cinderTest.CinderTopologies[3].Name,
 					Namespace: cinderTest.CinderTopologies[3].Namespace,
 				}
-				tp := GetTopology(types.NamespacedName{
+				tp := infra.GetTopology(types.NamespacedName{
 					Name:      expectedTopology.Name,
 					Namespace: expectedTopology.Namespace,
 				})
@@ -915,7 +915,7 @@ var _ = Describe("Cinder controller", func() {
 			Eventually(func(g Gomega) {
 				for _, topology := range cinderTest.CinderTopologies {
 					// Get the current topology and verify there are no finalizers
-					tp := GetTopology(types.NamespacedName{
+					tp := infra.GetTopology(types.NamespacedName{
 						Name:      topology.Name,
 						Namespace: topology.Namespace,
 					})
