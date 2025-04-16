@@ -98,7 +98,7 @@ func (r *CinderSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// Fetch the CinderScheduler instance
 	instance := &cinderv1beta1.CinderScheduler{}
-	err := r.Client.Get(ctx, req.NamespacedName, instance)
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -200,8 +200,8 @@ func (r *CinderSchedulerReconciler) SetupWithManager(ctx context.Context, mgr ct
 	// Watch for changes to secrets we don't own. Global secrets
 	// (e.g. TransportURLSecret) are handled by the main cinder controller.
 	secretFn := func(_ context.Context, o client.Object) []reconcile.Request {
-		var namespace string = o.GetNamespace()
-		var secretName string = o.GetName()
+		var namespace = o.GetNamespace()
+		var secretName = o.GetName()
 		result := []reconcile.Request{}
 
 		// get all scheduler CRs
@@ -209,7 +209,7 @@ func (r *CinderSchedulerReconciler) SetupWithManager(ctx context.Context, mgr ct
 		listOpts := []client.ListOption{
 			client.InNamespace(namespace),
 		}
-		if err := r.Client.List(context.Background(), schedulers, listOpts...); err != nil {
+		if err := r.List(context.Background(), schedulers, listOpts...); err != nil {
 			Log.Error(err, "Unable to retrieve scheduler CRs %v")
 			return nil
 		}
@@ -437,7 +437,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 					condition.TLSInputReadyCondition,
 					condition.RequestedReason,
 					condition.SeverityInfo,
-					fmt.Sprintf(condition.TLSInputReadyWaitingMessage, instance.Spec.TLS.CaBundleSecretName)))
+					condition.TLSInputReadyWaitingMessage, instance.Spec.TLS.CaBundleSecretName))
 				return ctrl.Result{}, nil
 			}
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -521,7 +521,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 					condition.SeverityInfo,
 					condition.NetworkAttachmentsReadyWaitingMessage,
 					netAtt))
-				return cinder.ResultRequeue, fmt.Errorf("network-attachment-definition %s not found", netAtt)
+				return cinder.ResultRequeue, fmt.Errorf("%w: %s", ErrNetworkAttachmentNotFound, netAtt)
 			}
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NetworkAttachmentsReadyCondition,
@@ -599,7 +599,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 		ssData = ss.GetStatefulSet()
 		if ssData.Generation != ssData.Status.ObservedGeneration {
 			ctrlResult = cinder.ResultRequeue
-			err = fmt.Errorf("waiting for Statefulset %s to start reconciling", ssData.Name)
+			err = fmt.Errorf("%w: %s", ErrStatefulSetWaiting, ssData.Name)
 		}
 	}
 
@@ -649,7 +649,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	if networkReady {
 		instance.Status.Conditions.MarkTrue(condition.NetworkAttachmentsReadyCondition, condition.NetworkAttachmentsReadyMessage)
 	} else {
-		err := fmt.Errorf("not all pods have interfaces with ips as configured in NetworkAttachments: %s", instance.Spec.NetworkAttachments)
+		err := fmt.Errorf("%w: %s", ErrNetworkAttachmentConfig, instance.Spec.NetworkAttachments)
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.NetworkAttachmentsReadyCondition,
 			condition.ErrorReason,

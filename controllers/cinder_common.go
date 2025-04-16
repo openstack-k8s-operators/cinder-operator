@@ -14,15 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package controllers implements the cinder-operator Kubernetes controllers.
 package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
+
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	"k8s.io/apimachinery/pkg/types"
-	"time"
 
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
@@ -33,6 +36,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+// Common static errors for all cinder controllers
+var (
+	ErrNetworkAttachmentWaiting  = errors.New("network attachment waiting")
+	ErrNetworkAttachmentNotFound = errors.New("network-attachment-definition not found")
+	ErrStatefulSetWaiting        = errors.New("waiting for StatefulSet to start reconciling")
+	ErrNetworkAttachmentConfig   = errors.New("not all pods have interfaces with ips as configured in NetworkAttachments")
 )
 
 type conditionUpdater interface {

@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package cinder contains cinder service constants and configuration.
 package cinder
 
 import (
@@ -71,10 +72,13 @@ const (
 	// by the cinder operator
 	Cinder storage.PropagationType = "Cinder"
 
-	ShortDuration  = time.Duration(5) * time.Second
+	// ShortDuration is a short duration for quick retries
+	ShortDuration = time.Duration(5) * time.Second
+	// NormalDuration is the normal duration for standard retries
 	NormalDuration = time.Duration(10) * time.Second
 )
 
+// ResultRequeue is the standard requeue result with normal duration
 var ResultRequeue = ctrl.Result{RequeueAfter: NormalDuration}
 
 // DbsyncPropagation keeps track of the DBSync Service Propagation Type
