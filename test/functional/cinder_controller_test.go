@@ -483,13 +483,13 @@ var _ = Describe("Cinder controller", func() {
 			sched := GetCinderScheduler(cinderTest.CinderScheduler)
 			volume := GetCinderVolume(cinderTest.CinderVolumes[0])
 			// Check CinderAPI NADs
-			Expect(api.Spec.NetworkAttachments).To(Equal(cinder.Spec.CinderAPI.CinderServiceTemplate.NetworkAttachments))
+			Expect(api.Spec.NetworkAttachments).To(Equal(cinder.Spec.CinderAPI.NetworkAttachments))
 			// Check CinderScheduler NADs
-			Expect(sched.Spec.NetworkAttachments).To(Equal(cinder.Spec.CinderScheduler.CinderServiceTemplate.NetworkAttachments))
+			Expect(sched.Spec.NetworkAttachments).To(Equal(cinder.Spec.CinderScheduler.NetworkAttachments))
 			// Check CinderVolume exists
 			CinderVolumeExists(cinderTest.CinderVolumes[0])
 			// Check CinderVolume NADs
-			Expect(volume.Spec.NetworkAttachments).To(Equal(volume.Spec.CinderServiceTemplate.NetworkAttachments))
+			Expect(volume.Spec.NetworkAttachments).To(Equal(volume.Spec.NetworkAttachments))
 
 			// As the internal endpoint has service override configured it
 			// gets a LoadBalancer Service with MetalLB annotations

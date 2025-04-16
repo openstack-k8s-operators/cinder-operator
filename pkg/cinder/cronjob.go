@@ -17,7 +17,6 @@ package cinder
 
 import (
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
-	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 
 	"fmt"
 
@@ -84,7 +83,7 @@ func CronJob(
 		cronJobVolumeMounts = append(cronJobVolumeMounts, instance.Spec.CinderAPI.TLS.CreateVolumeMounts(nil)...)
 	}
 
-	cronJobExtraMounts := []cinderv1beta1.CinderExtraVolMounts{}
+	cronJobExtraMounts := []cinderv1.CinderExtraVolMounts{}
 
 	cronjob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{

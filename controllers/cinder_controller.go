@@ -130,7 +130,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 
 	// Fetch the Cinder instance
 	instance := &cinderv1beta1.Cinder{}
-	err := r.Client.Get(ctx, req.NamespacedName, instance)
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -247,7 +247,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 // fields to index to reconcile when change
 const (
 	passwordSecretField     = ".spec.secret"
-	caBundleSecretNameField = ".spec.tls.caBundleSecretName"
+	caBundleSecretNameField = ".spec.tls.caBundleSecretName" // #nosec G101
 	tlsAPIInternalField     = ".spec.tls.api.internal.secretName"
 	tlsAPIPublicField       = ".spec.tls.api.public.secretName"
 	topologyField           = ".spec.topologyRef.Name"
@@ -291,7 +291,7 @@ func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		listOpts := []client.ListOption{
 			client.InNamespace(o.GetNamespace()),
 		}
-		if err := r.Client.List(ctx, cinders, listOpts...); err != nil {
+		if err := r.List(ctx, cinders, listOpts...); err != nil {
 			Log.Error(err, "Unable to retrieve Cinder CRs %v")
 			return nil
 		}
@@ -327,7 +327,7 @@ func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		listOpts := []client.ListOption{
 			client.InNamespace(o.GetNamespace()),
 		}
-		if err := r.Client.List(ctx, cinders, listOpts...); err != nil {
+		if err := r.List(ctx, cinders, listOpts...); err != nil {
 			Log.Error(err, "Unable to retrieve Cinder CRs %w")
 			return nil
 		}
@@ -383,7 +383,7 @@ func (r *CinderReconciler) findObjectForSrc(ctx context.Context, src client.Obje
 	listOps := &client.ListOptions{
 		Namespace: src.GetNamespace(),
 	}
-	err := r.Client.List(ctx, crList, listOps)
+	err := r.List(ctx, crList, listOps)
 	if err != nil {
 		Log.Error(err, fmt.Sprintf("listing %s for namespace: %s", crList.GroupVersionKind().Kind, src.GetNamespace()))
 		return requests
@@ -736,7 +736,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 					condition.SeverityInfo,
 					condition.NetworkAttachmentsReadyWaitingMessage,
 					netAtt))
-				return cinder.ResultRequeue, fmt.Errorf(condition.NetworkAttachmentsReadyWaitingMessage, netAtt)
+				return cinder.ResultRequeue, fmt.Errorf("%w: %s", ErrNetworkAttachmentWaiting, netAtt)
 			}
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NetworkAttachmentsReadyCondition,
@@ -981,7 +981,7 @@ func (r *CinderReconciler) generateServiceConfigs(
 	labels := labels.GetLabels(instance, labels.GetGroupLabel(cinder.ServiceName), serviceLabels)
 
 	var tlsCfg *tls.Service
-	if instance.Spec.CinderAPI.TLS.Ca.CaBundleSecretName != "" {
+	if instance.Spec.CinderAPI.TLS.CaBundleSecretName != "" {
 		tlsCfg = &tls.Service{}
 	}
 
@@ -1297,7 +1297,7 @@ func (r *CinderReconciler) backupCleanupDeployment(ctx context.Context, instance
 		},
 	}
 	key := client.ObjectKeyFromObject(deployment)
-	err := r.Client.Get(ctx, key, deployment)
+	err := r.Get(ctx, key, deployment)
 
 	if k8s_errors.IsNotFound(err) {
 		// Nothing to clean up
@@ -1305,12 +1305,12 @@ func (r *CinderReconciler) backupCleanupDeployment(ctx context.Context, instance
 	}
 
 	if err != nil {
-		return fmt.Errorf("Error looking for '%s' deployment in '%s' namespace: %w", deployment.Name, instance.Namespace, err)
+		return fmt.Errorf("error looking for '%s' deployment in '%s' namespace: %w", deployment.Name, instance.Namespace, err)
 	}
 
-	err = r.Client.Delete(ctx, deployment)
+	err = r.Delete(ctx, deployment)
 	if err != nil && !k8s_errors.IsNotFound(err) {
-		return fmt.Errorf("Error cleaning up %s: %w", deployment.Name, err)
+		return fmt.Errorf("error cleaning up %s: %w", deployment.Name, err)
 	}
 
 	return nil
@@ -1328,12 +1328,12 @@ func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, i
 		MemcachedInstance:    &instance.Spec.MemcachedInstance,
 	}
 
-	if cinderVolumeSpec.CinderVolumeTemplate.NodeSelector == nil {
-		cinderVolumeSpec.CinderVolumeTemplate.NodeSelector = instance.Spec.NodeSelector
+	if cinderVolumeSpec.NodeSelector == nil {
+		cinderVolumeSpec.NodeSelector = instance.Spec.NodeSelector
 	}
 
-	if cinderVolumeSpec.CinderVolumeTemplate.TopologyRef == nil {
-		cinderVolumeSpec.CinderVolumeTemplate.TopologyRef = instance.Spec.TopologyRef
+	if cinderVolumeSpec.TopologyRef == nil {
+		cinderVolumeSpec.TopologyRef = instance.Spec.TopologyRef
 	}
 
 	deployment := &cinderv1beta1.CinderVolume{
@@ -1373,7 +1373,7 @@ func (r *CinderReconciler) volumeCleanupDeployments(ctx context.Context, instanc
 	listOpts := []client.ListOption{
 		client.InNamespace(instance.Namespace),
 	}
-	if err := r.Client.List(ctx, volumes, listOpts...); err != nil {
+	if err := r.List(ctx, volumes, listOpts...); err != nil {
 		Log.Error(err, "Unable to retrieve volume CRs %v")
 		return nil
 	}
@@ -1387,9 +1387,9 @@ func (r *CinderReconciler) volumeCleanupDeployments(ctx context.Context, instanc
 		// Delete the volume if it's no longer in the spec
 		_, exists := instance.Spec.CinderVolumes[volume.BackendName()]
 		if !exists && volume.DeletionTimestamp.IsZero() {
-			err := r.Client.Delete(ctx, &volume)
+			err := r.Delete(ctx, &volume)
 			if err != nil && !k8s_errors.IsNotFound(err) {
-				err = fmt.Errorf("Error cleaning up %s: %w", volume.Name, err)
+				err = fmt.Errorf("error cleaning up %s: %w", volume.Name, err)
 				return err
 			}
 		}

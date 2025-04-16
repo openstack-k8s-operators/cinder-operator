@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package cinderapi contains cinder API constants and configuration.
 package cinderapi
 
 const (
