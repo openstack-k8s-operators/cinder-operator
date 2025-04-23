@@ -17,11 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 )
 
 // CinderAPITemplate defines the input parameters for the Cinder API service
@@ -84,6 +84,11 @@ type CinderAPISpec struct {
 	// +kubebuilder:validation:Required
 	// ServiceAccount - service account name used internally to provide Cinder services the default SA name
 	ServiceAccount string `json:"serviceAccount"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=memcached
+	// Memcached instance name.
+	MemcachedInstance *string `json:"memcachedInstance"`
 }
 
 // CinderAPIStatus defines the observed state of CinderAPI
