@@ -563,11 +563,11 @@ var _ = Describe("Cinder controller", func() {
 
 			// cert volumeMounts
 			container := d.Spec.Template.Spec.Containers[1]
-			th.AssertVolumeMountExists(cinderTest.InternalCertSecret.Name, "tls.key", container.VolumeMounts)
-			th.AssertVolumeMountExists(cinderTest.InternalCertSecret.Name, "tls.crt", container.VolumeMounts)
-			th.AssertVolumeMountExists(cinderTest.PublicCertSecret.Name, "tls.key", container.VolumeMounts)
-			th.AssertVolumeMountExists(cinderTest.PublicCertSecret.Name, "tls.crt", container.VolumeMounts)
-			th.AssertVolumeMountExists(cinderTest.CABundleSecret.Name, "tls-ca-bundle.pem", container.VolumeMounts)
+			th.AssertVolumeMountPathExists(cinderTest.InternalCertSecret.Name, "", "tls.key", container.VolumeMounts)
+			th.AssertVolumeMountPathExists(cinderTest.InternalCertSecret.Name, "", "tls.crt", container.VolumeMounts)
+			th.AssertVolumeMountPathExists(cinderTest.PublicCertSecret.Name, "", "tls.key", container.VolumeMounts)
+			th.AssertVolumeMountPathExists(cinderTest.PublicCertSecret.Name, "", "tls.crt", container.VolumeMounts)
+			th.AssertVolumeMountPathExists(cinderTest.CABundleSecret.Name, "", "tls-ca-bundle.pem", container.VolumeMounts)
 
 			Expect(container.ReadinessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))
 			Expect(container.LivenessProbe.HTTPGet.Scheme).To(Equal(corev1.URISchemeHTTPS))
@@ -599,7 +599,7 @@ var _ = Describe("Cinder controller", func() {
 
 			// cert volumeMounts
 			container := ss.Spec.Template.Spec.Containers[1]
-			th.AssertVolumeMountExists(cinderTest.CABundleSecret.Name, "tls-ca-bundle.pem", container.VolumeMounts)
+			th.AssertVolumeMountPathExists(cinderTest.CABundleSecret.Name, "", "tls-ca-bundle.pem", container.VolumeMounts)
 		})
 		It("Creates CinderVolume", func() {
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
@@ -1182,7 +1182,8 @@ var _ = Describe("Cinder controller", func() {
 			container := ss.Spec.Template.Spec.Containers[1]
 			// Inspect VolumeMounts and make sure we have the Ceph MountPath
 			// provided through extraMounts
-			th.AssertVolumeMountExists(CinderCephExtraMountsSecretName, "", container.VolumeMounts)
+			th.AssertVolumeMountPathExists(CinderCephExtraMountsSecretName,
+				CinderCephExtraMountsPath, "", container.VolumeMounts)
 		})
 	})
 	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
