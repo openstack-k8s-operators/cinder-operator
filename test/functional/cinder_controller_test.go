@@ -46,6 +46,12 @@ var _ = Describe("Cinder controller", func() {
 	var memcachedSpec memcachedv1.MemcachedSpec
 
 	BeforeEach(func() {
+		// lib-common uses OPERATOR_TEMPLATES env var to locate the "templates"
+		// directory of the operator. We need to set them othervise lib-common
+		// will fail to generate the ConfigMap as it does not find common.sh
+		err := os.Setenv("OPERATOR_TEMPLATES", "../../templates")
+		Expect(err).NotTo(HaveOccurred())
+
 		memcachedSpec = memcachedv1.MemcachedSpec{
 			MemcachedSpecCore: memcachedv1.MemcachedSpecCore{
 				Replicas: ptr.To(int32(3)),
@@ -302,6 +308,53 @@ var _ = Describe("Cinder controller", func() {
 		It("Assert Services are created", func() {
 			th.AssertServiceExists(cinderTest.CinderServicePublic)
 			th.AssertServiceExists(cinderTest.CinderServiceInternal)
+		})
+	})
+	Context("Cinder is fully deployed", func() {
+		keystoneAPIName := types.NamespacedName{}
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, GetDefaultCinderSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(th.DeleteInstance, CreateCinderAPI(cinderTest.Instance, GetDefaultCinderAPISpec()))
+			DeferCleanup(th.DeleteInstance, CreateCinderScheduler(cinderTest.Instance, GetDefaultCinderSchedulerSpec()))
+			DeferCleanup(th.DeleteInstance, CreateCinderVolume(cinderTest.Instance, GetDefaultCinderVolumeSpec()))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderName).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			keystoneAPIName = keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPIName)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+		})
+
+		It("updates the KeystoneAuthURL if keystone internal endpoint changes", func() {
+			newInternalEndpoint := "https://keystone-internal"
+
+			keystone.UpdateKeystoneAPIEndpoint(keystoneAPIName, "internal", newInternalEndpoint)
+			logger.Info("Reconfigured")
+
+			Eventually(func(g Gomega) {
+				confSecret := th.GetSecret(cinderTest.CinderConfigSecret)
+				g.Expect(confSecret).ShouldNot(BeNil())
+
+				conf := confSecret.Data["00-global-defaults.conf"]
+				g.Expect(string(conf)).Should(
+					ContainSubstring("auth_url = %s", newInternalEndpoint))
+			}, timeout, interval).Should(Succeed())
+
 		})
 	})
 	When("Cinder CR instance is deleted", func() {
