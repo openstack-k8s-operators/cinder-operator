@@ -1239,6 +1239,104 @@ var _ = Describe("Cinder controller", func() {
 				CinderCephExtraMountsPath, "", container.VolumeMounts)
 		})
 	})
+
+	When("Cinder instance has notifications enabled", func() {
+		BeforeEach(func() {
+			rawSpec := map[string]interface{}{
+				"secret":                  SecretName,
+				"databaseInstance":        "openstack",
+				"rabbitMqClusterName":     "rabbitmq",
+				"notificationBusInstance": "rabbitmq",
+				"cinderAPI": map[string]interface{}{
+					"containerImage": cinderv1.CinderAPIContainerImage,
+				},
+				"cinderScheduler": map[string]interface{}{
+					"containerImage": cinderv1.CinderSchedulerContainerImage,
+				},
+				"cinderVolumes": map[string]interface{}{
+					"volume1": map[string]interface{}{
+						"containerImage": cinderv1.CinderVolumeContainerImage,
+					},
+				},
+			}
+
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, rawSpec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			keystoneAPIName := keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPIName)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+		})
+		It("Checks the status contains the notifications TransportURL entry", func() {
+			th.ExpectCondition(
+				cinderTest.Instance,
+				ConditionGetterFunc(CinderConditionGetter),
+				condition.NotificationBusInstanceReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				g.Expect(cinder.Status.TransportURLSecret).ToNot(Equal(""))
+				g.Expect(cinder.Status.NotificationURLSecret).ToNot(BeNil())
+				g.Expect(cinder.Status.TransportURLSecret).To(Equal(
+					*cinder.Status.NotificationURLSecret))
+			}, timeout, interval).Should(Succeed())
+		})
+		It("overrides cinder CR notifications", func() {
+			// add new-rabbit in cinder CR
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.NotificationSecretName))
+
+			// update cinder CR to point to the new (dedicated) rabbit instance
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				*cinder.Spec.NotificationBusInstance = "rabbitmq-notification"
+				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			th.ExpectCondition(
+				cinderTest.Instance,
+				ConditionGetterFunc(CinderConditionGetter),
+				condition.NotificationBusInstanceReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				g.Expect(*cinder.Status.NotificationURLSecret).ToNot(
+					Equal(cinder.Status.TransportURLSecret))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("updates cinder CR and disable notifications", func() {
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				cinder.Spec.NotificationBusInstance = nil
+				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				g.Expect(cinder.Status.NotificationURLSecret).To(BeNil())
+				g.Expect(cinder.Status.TransportURLSecret).ToNot(Equal(""))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
 	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
 	// that exercise standard account create / update patterns that should be
 	// common to all controllers that ensure MariaDBAccount CRs.

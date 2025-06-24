@@ -134,6 +134,10 @@ func verifyConfigSecrets(
 	var hash string
 	var err error
 	for _, secretName := range secretNames {
+		// Do not try to GetSecret if the current element is empty
+		if secretName == "" {
+			continue
+		}
 		_, hash, err = secret.GetSecret(ctx, h, secretName, namespace)
 		if err != nil {
 			if k8s_errors.IsNotFound(err) {

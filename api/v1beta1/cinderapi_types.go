@@ -77,6 +77,9 @@ type CinderAPISpec struct {
 	// Secret containing RabbitMq transport URL
 	TransportURLSecret string `json:"transportURLSecret"`
 
+	// Secret containing Notification transport URL
+	NotificationURLSecret string `json:"notificationURLSecret,omitempty"`
+
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials
 	ExtraMounts []CinderExtraVolMounts `json:"extraMounts,omitempty"`
