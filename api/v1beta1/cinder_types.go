@@ -110,6 +110,11 @@ type CinderSpecBase struct {
 	// TopologyRef to apply the Topology defined by the associated CR referenced
 	// by name
 	TopologyRef *topologyv1.TopoRef `json:"topologyRef,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// RabbitMQ instance name used to request a transportURL that is used for
+	// notification purposes
+	NotificationBusInstance *string `json:"notificationBusInstance,omitempty"`
 }
 
 // CinderSpecCore the same as CinderSpec without ContainerImage references
@@ -164,8 +169,11 @@ type CinderStatus struct {
 	// Cinder Database Hostname
 	DatabaseHostname string `json:"databaseHostname,omitempty"`
 
-	// TransportURLSecret - Secret containing RabbitMQ transportURL
+	// TransportURLSecret - Secret containing RabbitMQ transportURL entries
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
+
+	// NotificationURLSecret - Secret containing RabbitMQ notificationURL
+	NotificationURLSecret *string `json:"notificationURLSecret,omitempty"`
 
 	// API endpoints
 	APIEndpoints map[string]map[string]string `json:"apiEndpoints,omitempty"`

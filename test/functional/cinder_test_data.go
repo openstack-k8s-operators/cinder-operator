@@ -41,38 +41,40 @@ const (
 
 // CinderTestData is the data structure used to provide input data to envTest
 type CinderTestData struct {
-	RabbitmqClusterName    string
-	RabbitmqSecretName     string
-	MemcachedInstance      string
-	CinderDataBaseAccount  string
-	CinderPassword         string
-	CinderServiceUser      string
-	DatabaseHostname       string
-	Instance               types.NamespacedName
-	CinderRole             types.NamespacedName
-	CinderRoleBinding      types.NamespacedName
-	CinderTransportURL     types.NamespacedName
-	CinderMemcached        types.NamespacedName
-	CinderSA               types.NamespacedName
-	CinderDBSync           types.NamespacedName
-	CinderDBPurge          types.NamespacedName
-	CinderKeystoneService  types.NamespacedName
-	CinderKeystoneEndpoint types.NamespacedName
-	CinderServicePublic    types.NamespacedName
-	CinderServiceInternal  types.NamespacedName
-	CinderConfigSecret     types.NamespacedName
-	CinderConfigScripts    types.NamespacedName
-	Cinder                 types.NamespacedName
-	CinderAPI              types.NamespacedName
-	CinderScheduler        types.NamespacedName
-	CinderVolumes          []types.NamespacedName
-	InternalAPINAD         types.NamespacedName
-	ContainerImage         string
-	CABundleSecret         types.NamespacedName
-	InternalCertSecret     types.NamespacedName
-	PublicCertSecret       types.NamespacedName
-	Database               types.NamespacedName
-	CinderTopologies       []types.NamespacedName
+	RabbitmqClusterName            string
+	RabbitmqSecretName             string
+	MemcachedInstance              string
+	NotificationSecretName         string
+	CinderDataBaseAccount          string
+	CinderPassword                 string
+	CinderServiceUser              string
+	DatabaseHostname               string
+	Instance                       types.NamespacedName
+	CinderRole                     types.NamespacedName
+	CinderRoleBinding              types.NamespacedName
+	CinderTransportURL             types.NamespacedName
+	CinderTransportURLNotification types.NamespacedName
+	CinderMemcached                types.NamespacedName
+	CinderSA                       types.NamespacedName
+	CinderDBSync                   types.NamespacedName
+	CinderDBPurge                  types.NamespacedName
+	CinderKeystoneService          types.NamespacedName
+	CinderKeystoneEndpoint         types.NamespacedName
+	CinderServicePublic            types.NamespacedName
+	CinderServiceInternal          types.NamespacedName
+	CinderConfigSecret             types.NamespacedName
+	CinderConfigScripts            types.NamespacedName
+	Cinder                         types.NamespacedName
+	CinderAPI                      types.NamespacedName
+	CinderScheduler                types.NamespacedName
+	CinderVolumes                  []types.NamespacedName
+	InternalAPINAD                 types.NamespacedName
+	ContainerImage                 string
+	CABundleSecret                 types.NamespacedName
+	InternalCertSecret             types.NamespacedName
+	PublicCertSecret               types.NamespacedName
+	Database                       types.NamespacedName
+	CinderTopologies               []types.NamespacedName
 }
 
 // GetCinderTestData is a function that initialize the CinderTestData
@@ -129,6 +131,10 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 			Namespace: cinderName.Namespace,
 			Name:      fmt.Sprintf("%s-cinder-transport", cinderName.Name),
 		},
+		CinderTransportURLNotification: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      fmt.Sprintf("%s-cinder-transport-notification", cinderName.Name),
+		},
 		CinderMemcached: types.NamespacedName{
 			Namespace: cinderName.Namespace,
 			Name:      MemcachedInstance,
@@ -162,10 +168,11 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 			Namespace: cinderName.Namespace,
 			Name:      "internalapi",
 		},
-		RabbitmqClusterName:   "rabbitmq",
-		RabbitmqSecretName:    "rabbitmq-secret",
-		MemcachedInstance:     MemcachedInstance,
-		CinderDataBaseAccount: "cinder",
+		RabbitmqClusterName:    "rabbitmq",
+		RabbitmqSecretName:     "rabbitmq-secret",
+		NotificationSecretName: "rabbitmq-notifications-secret",
+		MemcachedInstance:      MemcachedInstance,
+		CinderDataBaseAccount:  "cinder",
 		// Password used for both db and service
 		CinderPassword:    "12345678",
 		CinderServiceUser: "cinder",

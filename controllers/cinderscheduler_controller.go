@@ -392,6 +392,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 
 	parentCinderName := cinder.GetOwningCinderName(instance)
 	secretNames := []string{
+		instance.Spec.NotificationURLSecret,             // NotificationURLSecret
 		instance.Spec.TransportURLSecret,                // TransportURLSecret
 		fmt.Sprintf("%s-scripts", parentCinderName),     // ScriptsSecret
 		fmt.Sprintf("%s-config-data", parentCinderName), // ConfigSecret
