@@ -773,7 +773,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	//
 
 	// deploy cinder-api
-	cinderAPI, op, err := r.apiDeploymentCreateOrUpdate(ctx, instance)
+	cinderAPI, op, err := r.apiDeploymentCreateOrUpdate(ctx, instance, memcached)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			cinderv1beta1.CinderAPIReadyCondition,
@@ -802,7 +802,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	}
 
 	// deploy cinder-scheduler
-	cinderScheduler, op, err := r.schedulerDeploymentCreateOrUpdate(ctx, instance)
+	cinderScheduler, op, err := r.schedulerDeploymentCreateOrUpdate(ctx, instance, memcached)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			cinderv1beta1.CinderSchedulerReadyCondition,
@@ -834,7 +834,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// so there's no need to deploy it unless it's required.
 	var backupCondition *condition.Condition
 	if *instance.Spec.CinderBackup.Replicas > 0 {
-		cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(ctx, instance)
+		cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(ctx, instance, memcached)
 		if err != nil {
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				cinderv1beta1.CinderBackupReadyCondition,
@@ -877,7 +877,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	var volumeCondition *condition.Condition
 	waitingGenerationMatch := false
 	for name, volume := range instance.Spec.CinderVolumes {
-		cinderVolume, op, err := r.volumeDeploymentCreateOrUpdate(ctx, instance, name, volume)
+		cinderVolume, op, err := r.volumeDeploymentCreateOrUpdate(ctx, instance, name, volume, memcached)
 		if err != nil {
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				cinderv1beta1.CinderVolumeReadyCondition,
@@ -1030,7 +1030,15 @@ func (r *CinderReconciler) generateServiceConfigs(
 		instance.Status.DatabaseHostname,
 		cinder.DatabaseName)
 	templateParameters["MemcachedServersWithInet"] = memcached.GetMemcachedServerListWithInetString()
+	templateParameters["MemcachedServers"] = memcached.GetMemcachedServerListString()
 	templateParameters["TimeOut"] = instance.Spec.APITimeout
+
+	// MTLS
+	if memcached.GetMemcachedMTLSSecret() != "" {
+		templateParameters["MemcachedAuthCert"] = fmt.Sprint(memcachedv1.CertMountPath())
+		templateParameters["MemcachedAuthKey"] = fmt.Sprint(memcachedv1.KeyMountPath())
+		templateParameters["MemcachedAuthCa"] = fmt.Sprint(memcachedv1.CaMountPath())
+	}
 
 	// create httpd  vhost template parameters
 	httpdVhostConfig := map[string]interface{}{}
@@ -1145,7 +1153,7 @@ func (r *CinderReconciler) transportURLCreateOrUpdate(
 	return transportURL, op, err
 }
 
-func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderAPI, controllerutil.OperationResult, error) {
+func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, memcached *memcachedv1.Memcached) (*cinderv1beta1.CinderAPI, controllerutil.OperationResult, error) {
 	cinderAPISpec := cinderv1beta1.CinderAPISpec{
 		CinderTemplate:     instance.Spec.CinderTemplate,
 		CinderAPITemplate:  instance.Spec.CinderAPI,
@@ -1163,6 +1171,12 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, inst
 	// inherit from the top-level CR
 	if cinderAPISpec.TopologyRef == nil {
 		cinderAPISpec.TopologyRef = instance.Spec.TopologyRef
+	}
+
+	// If memcached is not present in the underlying CinderAPI Spec,
+	// inherit from the top-level CR (only when MTLS is in use)
+	if memcached.GetMemcachedMTLSSecret() != "" {
+		cinderAPISpec.MemcachedInstance = &instance.Spec.MemcachedInstance
 	}
 
 	deployment := &cinderv1beta1.CinderAPI{
@@ -1190,7 +1204,7 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, inst
 	return deployment, op, err
 }
 
-func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderScheduler, controllerutil.OperationResult, error) {
+func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, memcached *memcachedv1.Memcached) (*cinderv1beta1.CinderScheduler, controllerutil.OperationResult, error) {
 	cinderSchedulerSpec := cinderv1beta1.CinderSchedulerSpec{
 		CinderTemplate:          instance.Spec.CinderTemplate,
 		CinderSchedulerTemplate: instance.Spec.CinderScheduler,
@@ -1209,6 +1223,12 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context
 	// inherit from the top-level CR
 	if cinderSchedulerSpec.TopologyRef == nil {
 		cinderSchedulerSpec.TopologyRef = instance.Spec.TopologyRef
+	}
+
+	// If memcached is not present in the underlying CinderScheduler Spec,
+	// inherit from the top-level CR (only when MTLS is in use)
+	if memcached.GetMemcachedMTLSSecret() != "" {
+		cinderSchedulerSpec.MemcachedInstance = &instance.Spec.MemcachedInstance
 	}
 
 	deployment := &cinderv1beta1.CinderScheduler{
@@ -1236,7 +1256,7 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context
 	return deployment, op, err
 }
 
-func (r *CinderReconciler) backupDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder) (*cinderv1beta1.CinderBackup, controllerutil.OperationResult, error) {
+func (r *CinderReconciler) backupDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, memcached *memcachedv1.Memcached) (*cinderv1beta1.CinderBackup, controllerutil.OperationResult, error) {
 	cinderBackupSpec := cinderv1beta1.CinderBackupSpec{
 		CinderTemplate:       instance.Spec.CinderTemplate,
 		CinderBackupTemplate: instance.Spec.CinderBackup,
@@ -1245,6 +1265,12 @@ func (r *CinderReconciler) backupDeploymentCreateOrUpdate(ctx context.Context, i
 		TransportURLSecret:   instance.Status.TransportURLSecret,
 		ServiceAccount:       instance.RbacResourceName(),
 		TLS:                  instance.Spec.CinderAPI.TLS.Ca,
+	}
+
+	// If memcached is not present in the underlying CinderBackup Spec,
+	// inherit from the top-level CR (only when MTLS is in use)
+	if memcached.GetMemcachedMTLSSecret() != "" {
+		cinderBackupSpec.MemcachedInstance = &instance.Spec.MemcachedInstance
 	}
 
 	if cinderBackupSpec.NodeSelector == nil {
@@ -1303,7 +1329,7 @@ func (r *CinderReconciler) backupCleanupDeployment(ctx context.Context, instance
 	return nil
 }
 
-func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, name string, volTemplate cinderv1beta1.CinderVolumeTemplate) (*cinderv1beta1.CinderVolume, controllerutil.OperationResult, error) {
+func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, instance *cinderv1beta1.Cinder, name string, volTemplate cinderv1beta1.CinderVolumeTemplate, memcached *memcachedv1.Memcached) (*cinderv1beta1.CinderVolume, controllerutil.OperationResult, error) {
 	cinderVolumeSpec := cinderv1beta1.CinderVolumeSpec{
 		CinderTemplate:       instance.Spec.CinderTemplate,
 		CinderVolumeTemplate: volTemplate,
@@ -1321,6 +1347,13 @@ func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, i
 	if cinderVolumeSpec.CinderVolumeTemplate.TopologyRef == nil {
 		cinderVolumeSpec.CinderVolumeTemplate.TopologyRef = instance.Spec.TopologyRef
 	}
+
+	// If memcached is not present in the underlying CinderVolume Spec,
+	// inherit from the top-level CR (only when MTLS is in use)
+	if memcached.GetMemcachedMTLSSecret() != "" {
+		cinderVolumeSpec.MemcachedInstance = &instance.Spec.MemcachedInstance
+	}
+
 	deployment := &cinderv1beta1.CinderVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-volume-%s", instance.Name, name),
