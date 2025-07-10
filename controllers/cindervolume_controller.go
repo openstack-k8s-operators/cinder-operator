@@ -42,6 +42,7 @@ import (
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
 	"github.com/openstack-k8s-operators/cinder-operator/pkg/cindervolume"
+	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
@@ -91,6 +92,7 @@ func (r *CinderVolumeReconciler) GetLogger(ctx context.Context) logr.Logger {
 // +kubebuilder:rbac:groups=security.openshift.io,namespace=openstack,resources=securitycontextconstraints,resourceNames=privileged,verbs=use
 // +kubebuilder:rbac:groups=k8s.cni.cncf.io,resources=network-attachment-definitions,verbs=get;list;watch
 // +kubebuilder:rbac:groups=topology.openstack.org,resources=topologies,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=memcached.openstack.org,resources=memcacheds,verbs=get;list;watch
 
 // Reconcile -
 func (r *CinderVolumeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
@@ -576,8 +578,13 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 		return ctrl.Result{}, fmt.Errorf("waiting for Topology requirements: %w", err)
 	}
 
+	memcached, err := memcachedv1.GetMemcachedByName(ctx, helper, *instance.Spec.MemcachedInstance, instance.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Deploy a statefulset
-	ssDef := cindervolume.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, usesLVM, topology)
+	ssDef := cindervolume.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, usesLVM, topology, memcached)
 	ss := statefulset.NewStatefulSet(ssDef, cinder.ShortDuration)
 
 	var ssData appsv1.StatefulSet
