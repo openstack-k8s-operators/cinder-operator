@@ -308,7 +308,7 @@ func (r *CinderBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 func (r *CinderBackupReconciler) findObjectsForSrc(ctx context.Context, src client.Object) []reconcile.Request {
 	requests := []reconcile.Request{}
 
-	l := log.FromContext(ctx).WithName("Controllers").WithName("CinderBackup")
+	Log := r.GetLogger(ctx)
 
 	for _, field := range commonWatchFields {
 		crList := &cinderv1beta1.CinderBackupList{}
@@ -318,12 +318,12 @@ func (r *CinderBackupReconciler) findObjectsForSrc(ctx context.Context, src clie
 		}
 		err := r.List(ctx, crList, listOps)
 		if err != nil {
-			l.Error(err, fmt.Sprintf("listing %s for field: %s - %s", crList.GroupVersionKind().Kind, field, src.GetNamespace()))
+			Log.Error(err, fmt.Sprintf("listing %s for field: %s - %s", crList.GroupVersionKind().Kind, field, src.GetNamespace()))
 			return requests
 		}
 
 		for _, item := range crList.Items {
-			l.Info(fmt.Sprintf("input source %s changed, reconcile: %s - %s", src.GetName(), item.GetName(), item.GetNamespace()))
+			Log.Info(fmt.Sprintf("input source %s changed, reconcile: %s - %s", src.GetName(), item.GetName(), item.GetNamespace()))
 
 			requests = append(requests,
 				reconcile.Request{
