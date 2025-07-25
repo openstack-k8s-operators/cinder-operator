@@ -60,8 +60,8 @@ type CinderSchedulerSpec struct {
 	// Secret containing RabbitMq transport URL
 	TransportURLSecret string `json:"transportURLSecret"`
 
-	// Secret containing Notification transport URL
-	NotificationURLSecret string `json:"notificationURLSecret,omitempty"`
+	// Secret containing Notifications transport URL
+	NotificationsURLSecret string `json:"notificationsURLSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// ExtraMounts containing conf files and credentials

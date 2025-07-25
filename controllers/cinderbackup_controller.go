@@ -396,7 +396,7 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 
 	parentCinderName := cinder.GetOwningCinderName(instance)
 	secretNames := []string{
-		instance.Spec.NotificationURLSecret,             // NotificationURLSecret
+		instance.Spec.NotificationsURLSecret,            // NotificationsURLSecret
 		instance.Spec.TransportURLSecret,                // TransportURLSecret
 		fmt.Sprintf("%s-scripts", parentCinderName),     // ScriptsSecret
 		fmt.Sprintf("%s-config-data", parentCinderName), // ConfigSecret

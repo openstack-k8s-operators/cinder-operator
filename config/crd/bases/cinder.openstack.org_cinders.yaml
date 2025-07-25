@@ -1830,7 +1830,7 @@ spec:
                   NodeSelector here acts as a default value and can be overridden by service
                   specific NodeSelector Settings.
                 type: object
-              notificationBusInstance:
+              notificationsBusInstance:
                 description: |-
                   RabbitMQ instance name used to request a transportURL that is used for
                   notification purposes
@@ -1975,8 +1975,8 @@ spec:
                   type: string
                 description: Map of hashes to track e.g. job status
                 type: object
-              notificationURLSecret:
-                description: NotificationURLSecret - Secret containing RabbitMQ notificationURL
+              notificationsURLSecret:
+                description: NotificationsURLSecret - Secret containing RabbitMQ notificationsURL
                 type: string
               observedGeneration:
                 description: |-
