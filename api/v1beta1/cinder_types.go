@@ -114,7 +114,7 @@ type CinderSpecBase struct {
 	// +kubebuilder:validation:Optional
 	// RabbitMQ instance name used to request a transportURL that is used for
 	// notification purposes
-	NotificationBusInstance *string `json:"notificationBusInstance,omitempty"`
+	NotificationsBusInstance *string `json:"notificationsBusInstance,omitempty"`
 }
 
 // CinderSpecCore the same as CinderSpec without ContainerImage references
@@ -172,8 +172,8 @@ type CinderStatus struct {
 	// TransportURLSecret - Secret containing RabbitMQ transportURL entries
 	TransportURLSecret string `json:"transportURLSecret,omitempty"`
 
-	// NotificationURLSecret - Secret containing RabbitMQ notificationURL
-	NotificationURLSecret *string `json:"notificationURLSecret,omitempty"`
+	// NotificationsURLSecret - Secret containing RabbitMQ notificationsURL
+	NotificationsURLSecret *string `json:"notificationsURLSecret,omitempty"`
 
 	// API endpoints
 	APIEndpoints map[string]map[string]string `json:"apiEndpoints,omitempty"`

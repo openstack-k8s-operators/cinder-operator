@@ -1243,10 +1243,10 @@ var _ = Describe("Cinder controller", func() {
 	When("Cinder instance has notifications enabled", func() {
 		BeforeEach(func() {
 			rawSpec := map[string]interface{}{
-				"secret":                  SecretName,
-				"databaseInstance":        "openstack",
-				"rabbitMqClusterName":     "rabbitmq",
-				"notificationBusInstance": "rabbitmq",
+				"secret":                   SecretName,
+				"databaseInstance":         "openstack",
+				"rabbitMqClusterName":      "rabbitmq",
+				"notificationsBusInstance": "rabbitmq",
 				"cinderAPI": map[string]interface{}{
 					"containerImage": cinderv1.CinderAPIContainerImage,
 				},
@@ -1293,9 +1293,9 @@ var _ = Describe("Cinder controller", func() {
 			Eventually(func(g Gomega) {
 				cinder := GetCinder(cinderTest.Instance)
 				g.Expect(cinder.Status.TransportURLSecret).ToNot(Equal(""))
-				g.Expect(cinder.Status.NotificationURLSecret).ToNot(BeNil())
+				g.Expect(cinder.Status.NotificationsURLSecret).ToNot(BeNil())
 				g.Expect(cinder.Status.TransportURLSecret).To(Equal(
-					*cinder.Status.NotificationURLSecret))
+					*cinder.Status.NotificationsURLSecret))
 			}, timeout, interval).Should(Succeed())
 		})
 		It("overrides cinder CR notifications", func() {
@@ -1305,7 +1305,7 @@ var _ = Describe("Cinder controller", func() {
 			// update cinder CR to point to the new (dedicated) rabbit instance
 			Eventually(func(g Gomega) {
 				cinder := GetCinder(cinderTest.Instance)
-				*cinder.Spec.NotificationBusInstance = "rabbitmq-notification"
+				*cinder.Spec.NotificationsBusInstance = "rabbitmq-notification"
 				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
 
@@ -1318,7 +1318,7 @@ var _ = Describe("Cinder controller", func() {
 
 			Eventually(func(g Gomega) {
 				cinder := GetCinder(cinderTest.Instance)
-				g.Expect(*cinder.Status.NotificationURLSecret).ToNot(
+				g.Expect(*cinder.Status.NotificationsURLSecret).ToNot(
 					Equal(cinder.Status.TransportURLSecret))
 			}, timeout, interval).Should(Succeed())
 		})
@@ -1326,13 +1326,13 @@ var _ = Describe("Cinder controller", func() {
 		It("updates cinder CR and disable notifications", func() {
 			Eventually(func(g Gomega) {
 				cinder := GetCinder(cinderTest.Instance)
-				cinder.Spec.NotificationBusInstance = nil
+				cinder.Spec.NotificationsBusInstance = nil
 				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
 			}, timeout, interval).Should(Succeed())
 
 			Eventually(func(g Gomega) {
 				cinder := GetCinder(cinderTest.Instance)
-				g.Expect(cinder.Status.NotificationURLSecret).To(BeNil())
+				g.Expect(cinder.Status.NotificationsURLSecret).To(BeNil())
 				g.Expect(cinder.Status.TransportURLSecret).ToNot(Equal(""))
 			}, timeout, interval).Should(Succeed())
 		})
