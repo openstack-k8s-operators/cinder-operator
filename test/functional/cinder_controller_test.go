@@ -1418,6 +1418,166 @@ var _ = Describe("Cinder controller", func() {
 
 })
 
+var _ = Describe("Cinder with RabbitMQ Quorum Queues", func() {
+	var memcachedSpec memcachedv1.MemcachedSpec
+
+	BeforeEach(func() {
+		err := os.Setenv("OPERATOR_TEMPLATES", "../../templates")
+		Expect(err).NotTo(HaveOccurred())
+
+		memcachedSpec = memcachedv1.MemcachedSpec{
+			MemcachedSpecCore: memcachedv1.MemcachedSpecCore{
+				Replicas: ptr.To(int32(3)),
+			},
+		}
+	})
+
+	When("Cinder is created with quorum queues enabled", func() {
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, GetDefaultCinderSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, infra.CreateTransportURLSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName, true))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+
+		It("should generate config with quorum queue settings when enabled", func() {
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			Eventually(func(g Gomega) {
+				configSecret := th.GetSecret(cinderTest.CinderConfigSecret)
+				g.Expect(configSecret).ShouldNot(BeNil())
+
+				conf := configSecret.Data["00-global-defaults.conf"]
+				configString := string(conf)
+				g.Expect(configString).Should(ContainSubstring("[oslo_messaging_rabbit]"))
+				g.Expect(configString).Should(ContainSubstring("rabbit_quorum_queue=true"))
+				g.Expect(configString).Should(ContainSubstring("rabbit_transient_quorum_queue=true"))
+				g.Expect(configString).Should(ContainSubstring("amqp_durable_queues=true"))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("Cinder quorum queues are toggled from disabled to enabled", func() {
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, GetDefaultCinderSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, infra.CreateTransportURLSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName, false))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+
+		It("should update config when quorum queues are enabled after being disabled", func() {
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			// Verify config without quorum queue settings when disabled
+			Eventually(func(g Gomega) {
+				configSecret := th.GetSecret(cinderTest.CinderConfigSecret)
+				g.Expect(configSecret).ShouldNot(BeNil())
+
+				conf := configSecret.Data["00-global-defaults.conf"]
+				configString := string(conf)
+				g.Expect(configString).Should(ContainSubstring("[oslo_messaging_rabbit]"))
+				g.Expect(configString).ShouldNot(ContainSubstring("rabbit_quorum_queue=true"))
+				g.Expect(configString).ShouldNot(ContainSubstring("rabbit_transient_quorum_queue=true"))
+				g.Expect(configString).ShouldNot(ContainSubstring("amqp_durable_queues=true"))
+			}, timeout, interval).Should(Succeed())
+
+			// Enable quorum queues by updating the secret
+			secret := th.GetSecret(types.NamespacedName{
+				Namespace: cinderTest.Instance.Namespace,
+				Name:      cinderTest.RabbitmqSecretName,
+			})
+			secret.Data["quorumqueues"] = []byte("true")
+			Expect(k8sClient.Update(ctx, &secret)).Should(Succeed())
+
+			// Verify config with quorum queue settings when enabled
+			Eventually(func(g Gomega) {
+				configSecret := th.GetSecret(cinderTest.CinderConfigSecret)
+				g.Expect(configSecret).ShouldNot(BeNil())
+
+				conf := configSecret.Data["00-global-defaults.conf"]
+				configString := string(conf)
+				g.Expect(configString).Should(ContainSubstring("[oslo_messaging_rabbit]"))
+				g.Expect(configString).Should(ContainSubstring("rabbit_quorum_queue=true"))
+				g.Expect(configString).Should(ContainSubstring("rabbit_transient_quorum_queue=true"))
+				g.Expect(configString).Should(ContainSubstring("amqp_durable_queues=true"))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("Cinder is created without quorum queue setting in secret", func() {
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, GetDefaultCinderSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+
+		It("should generate config without quorum queue settings when not specified", func() {
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			Eventually(func(g Gomega) {
+				configSecret := th.GetSecret(cinderTest.CinderConfigSecret)
+				g.Expect(configSecret).ShouldNot(BeNil())
+
+				conf := configSecret.Data["00-global-defaults.conf"]
+				configString := string(conf)
+				g.Expect(configString).Should(ContainSubstring("[oslo_messaging_rabbit]"))
+				g.Expect(configString).ShouldNot(ContainSubstring("rabbit_quorum_queue=true"))
+				g.Expect(configString).ShouldNot(ContainSubstring("rabbit_transient_quorum_queue=true"))
+				g.Expect(configString).ShouldNot(ContainSubstring("amqp_durable_queues=true"))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+})
+
 var _ = Describe("Cinder Webhook", func() {
 
 	BeforeEach(func() {

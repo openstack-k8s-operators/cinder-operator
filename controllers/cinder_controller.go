@@ -1014,6 +1014,7 @@ func (r *CinderReconciler) generateServiceConfigs(
 		return err
 	}
 	transportURLSecretData := string(transportURLSecret.Data["transport_url"])
+	transportURLQuorumQueues := string(transportURLSecret.Data["quorumqueues"]) == "true"
 
 	databaseAccount := db.GetAccount()
 	dbSecret := db.GetSecret()
@@ -1032,6 +1033,7 @@ func (r *CinderReconciler) generateServiceConfigs(
 	templateParameters["MemcachedServersWithInet"] = memcached.GetMemcachedServerListWithInetString()
 	templateParameters["MemcachedServers"] = memcached.GetMemcachedServerListString()
 	templateParameters["TimeOut"] = instance.Spec.APITimeout
+	templateParameters["QuorumQueues"] = transportURLQuorumQueues
 
 	// MTLS
 	if memcached.GetMemcachedMTLSSecret() != "" {

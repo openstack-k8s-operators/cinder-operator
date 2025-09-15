@@ -133,7 +133,7 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		},
 		CinderTransportURLNotification: types.NamespacedName{
 			Namespace: cinderName.Namespace,
-			Name:      fmt.Sprintf("%s-cinder-transport-notification", cinderName.Name),
+			Name:      fmt.Sprintf("%s-cinder-transport-notifications", cinderName.Name),
 		},
 		CinderMemcached: types.NamespacedName{
 			Namespace: cinderName.Namespace,
