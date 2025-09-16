@@ -1158,7 +1158,7 @@ For example to get the iSCSI backend sample configuration into a
 
 ```bash
 oc kustomize \
-  https://github.com/openstack-k8s-operators/cinder-operator.git/config/samples/backends/lvm/iscsi?ref=main \
+  https://github.com/openstack-k8s-operators/cinder-operator/tree/main/config/samples/backends/lvm/iscsi \
   > ~/openstack-deployment.yaml
 ```
 
