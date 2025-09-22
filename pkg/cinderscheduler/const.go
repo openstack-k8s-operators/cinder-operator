@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package cinderscheduler contains cinder scheduler constants and configuration.
 package cinderscheduler
 
 const (
