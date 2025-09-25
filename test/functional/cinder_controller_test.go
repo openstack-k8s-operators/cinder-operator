@@ -395,8 +395,8 @@ var _ = Describe("Cinder controller", func() {
 		BeforeEach(func() {
 			nad := th.CreateNetworkAttachmentDefinition(cinderTest.InternalAPINAD)
 			DeferCleanup(th.DeleteInstance, nad)
-			serviceOverride := map[string]interface{}{}
-			serviceOverride["internal"] = map[string]interface{}{
+			serviceOverride := map[string]any{}
+			serviceOverride["internal"] = map[string]any{
 				"metadata": map[string]map[string]string{
 					"annotations": {
 						"metallb.universe.tf/address-pool":     "osp-internalapi",
@@ -408,28 +408,28 @@ var _ = Describe("Cinder controller", func() {
 						"service":  "nova",
 					},
 				},
-				"spec": map[string]interface{}{
+				"spec": map[string]any{
 					"type": "LoadBalancer",
 				},
 			}
 
-			rawSpec := map[string]interface{}{
+			rawSpec := map[string]any{
 				"secret":              SecretName,
 				"databaseInstance":    "openstack",
 				"rabbitMqClusterName": "rabbitmq",
-				"cinderAPI": map[string]interface{}{
+				"cinderAPI": map[string]any{
 					"containerImage":     cinderv1.CinderAPIContainerImage,
 					"networkAttachments": []string{"internalapi"},
-					"override": map[string]interface{}{
+					"override": map[string]any{
 						"service": serviceOverride,
 					},
 				},
-				"cinderScheduler": map[string]interface{}{
+				"cinderScheduler": map[string]any{
 					"containerImage":     cinderv1.CinderSchedulerContainerImage,
 					"networkAttachments": []string{"internalapi"},
 				},
-				"cinderVolumes": map[string]interface{}{
-					"volume1": map[string]interface{}{
+				"cinderVolumes": map[string]any{
+					"volume1": map[string]any{
 						"containerImage":     cinderv1.CinderVolumeContainerImage,
 						"networkAttachments": []string{"internalapi"},
 					},
@@ -737,12 +737,12 @@ var _ = Describe("Cinder controller", func() {
 				Name:      cinderTest.CinderTopologies[1].Name,
 				Namespace: cinderTest.CinderTopologies[1].Namespace,
 			}
-			spec["topologyRef"] = map[string]interface{}{
+			spec["topologyRef"] = map[string]any{
 				"name": topologyRef.Name,
 			}
 			// Override topologyRef for cinderVolume subCR
-			spec["cinderVolumes"] = map[string]interface{}{
-				"volume1": map[string]interface{}{},
+			spec["cinderVolumes"] = map[string]any{
+				"volume1": map[string]any{},
 			}
 
 			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
@@ -981,11 +981,11 @@ var _ = Describe("Cinder controller", func() {
 	When("A Cinder is created with nodeSelector", func() {
 		BeforeEach(func() {
 			spec := GetDefaultCinderSpec()
-			spec["nodeSelector"] = map[string]interface{}{
+			spec["nodeSelector"] = map[string]any{
 				"foo": "bar",
 			}
-			spec["cinderVolumes"] = map[string]interface{}{
-				"volume1": map[string]interface{}{
+			spec["cinderVolumes"] = map[string]any{
+				"volume1": map[string]any{
 					"containerImage": cinderv1.CinderVolumeContainerImage,
 				},
 			}
@@ -1178,19 +1178,19 @@ var _ = Describe("Cinder controller", func() {
 
 	When("Cinder CR instance is built with ExtraMounts", func() {
 		BeforeEach(func() {
-			rawSpec := map[string]interface{}{
+			rawSpec := map[string]any{
 				"secret":              SecretName,
 				"databaseInstance":    "openstack",
 				"rabbitMqClusterName": "rabbitmq",
 				"extraMounts":         GetExtraMounts(),
-				"cinderAPI": map[string]interface{}{
+				"cinderAPI": map[string]any{
 					"containerImage": cinderv1.CinderAPIContainerImage,
 				},
-				"cinderScheduler": map[string]interface{}{
+				"cinderScheduler": map[string]any{
 					"containerImage": cinderv1.CinderSchedulerContainerImage,
 				},
-				"cinderVolumes": map[string]interface{}{
-					"volume1": map[string]interface{}{
+				"cinderVolumes": map[string]any{
+					"volume1": map[string]any{
 						"containerImage": cinderv1.CinderVolumeContainerImage,
 					},
 				},
@@ -1242,19 +1242,19 @@ var _ = Describe("Cinder controller", func() {
 
 	When("Cinder instance has notifications enabled", func() {
 		BeforeEach(func() {
-			rawSpec := map[string]interface{}{
+			rawSpec := map[string]any{
 				"secret":                   SecretName,
 				"databaseInstance":         "openstack",
 				"rabbitMqClusterName":      "rabbitmq",
 				"notificationsBusInstance": "rabbitmq",
-				"cinderAPI": map[string]interface{}{
+				"cinderAPI": map[string]any{
 					"containerImage": cinderv1.CinderAPIContainerImage,
 				},
-				"cinderScheduler": map[string]interface{}{
+				"cinderScheduler": map[string]any{
 					"containerImage": cinderv1.CinderSchedulerContainerImage,
 				},
-				"cinderVolumes": map[string]interface{}{
-					"volume1": map[string]interface{}{
+				"cinderVolumes": map[string]any{
+					"volume1": map[string]any{
 						"containerImage": cinderv1.CinderVolumeContainerImage,
 					},
 				},
@@ -1588,18 +1588,18 @@ var _ = Describe("Cinder Webhook", func() {
 	It("rejects with wrong CinderAPI service override endpoint type", func() {
 		spec := GetDefaultCinderSpec()
 		apiSpec := GetDefaultCinderAPISpec()
-		apiSpec["override"] = map[string]interface{}{
-			"service": map[string]interface{}{
-				"internal": map[string]interface{}{},
-				"wrooong":  map[string]interface{}{},
+		apiSpec["override"] = map[string]any{
+			"service": map[string]any{
+				"internal": map[string]any{},
+				"wrooong":  map[string]any{},
 			},
 		}
 		spec["cinderAPI"] = apiSpec
 
-		raw := map[string]interface{}{
+		raw := map[string]any{
 			"apiVersion": "cinder.openstack.org/v1beta1",
 			"kind":       "Cinder",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      cinderTest.Instance.Name,
 				"namespace": cinderTest.Instance.Namespace,
 			},
@@ -1619,17 +1619,17 @@ var _ = Describe("Cinder Webhook", func() {
 
 	It("webhooks reject the request - cinderVolume key too long", func() {
 		spec := GetDefaultCinderSpec()
-		raw := map[string]interface{}{
+		raw := map[string]any{
 			"apiVersion": "cinder.openstack.org/v1beta1",
 			"kind":       "Cinder",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      cinderTest.Instance.Name,
 				"namespace": cinderTest.Instance.Namespace,
 			},
 			"spec": spec,
 		}
 
-		volumeList := map[string]interface{}{
+		volumeList := map[string]any{
 			"foo-1234567890-1234567890-1234567890-1234567890-1234567890": GetDefaultCinderVolumeSpec(),
 		}
 		spec["cinderVolumes"] = volumeList
@@ -1649,17 +1649,17 @@ var _ = Describe("Cinder Webhook", func() {
 
 	It("webhooks reject the request - cinderVolume wrong key/name", func() {
 		spec := GetDefaultCinderSpec()
-		raw := map[string]interface{}{
+		raw := map[string]any{
 			"apiVersion": "cinder.openstack.org/v1beta1",
 			"kind":       "Cinder",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name":      cinderTest.Instance.Name,
 				"namespace": cinderTest.Instance.Namespace,
 			},
 			"spec": spec,
 		}
 
-		volumeList := map[string]interface{}{
+		volumeList := map[string]any{
 			"foo_bar": GetDefaultCinderVolumeSpec(),
 		}
 		spec["cinderVolumes"] = volumeList
@@ -1686,8 +1686,8 @@ var _ = Describe("Cinder Webhook", func() {
 			spec := GetDefaultCinderSpec()
 			// API and Scheduler
 			if component != "top-level" && component != "volume0" {
-				spec[component] = map[string]interface{}{
-					"topologyRef": map[string]interface{}{
+				spec[component] = map[string]any{
+					"topologyRef": map[string]any{
 						"name":      "bar",
 						"namespace": "foo",
 					},
@@ -1695,9 +1695,9 @@ var _ = Describe("Cinder Webhook", func() {
 			}
 			// cinderVolumes volume0
 			if component == "volume0" {
-				volumeList := map[string]interface{}{
-					"volume0": map[string]interface{}{
-						"topologyRef": map[string]interface{}{
+				volumeList := map[string]any{
+					"volume0": map[string]any{
+						"topologyRef": map[string]any{
 							"name":      "foo",
 							"namespace": "bar",
 						},
@@ -1706,16 +1706,16 @@ var _ = Describe("Cinder Webhook", func() {
 				spec["cinderVolumes"] = volumeList
 				// top-level topologyRef
 			} else {
-				spec["topologyRef"] = map[string]interface{}{
+				spec["topologyRef"] = map[string]any{
 					"name":      "bar",
 					"namespace": "foo",
 				}
 			}
 			// Build the cinder CR
-			raw := map[string]interface{}{
+			raw := map[string]any{
 				"apiVersion": "cinder.openstack.org/v1beta1",
 				"kind":       "Cinder",
-				"metadata": map[string]interface{}{
+				"metadata": map[string]any{
 					"name":      cinderTest.Instance.Name,
 					"namespace": cinderTest.Instance.Namespace,
 				},
