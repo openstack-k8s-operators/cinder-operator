@@ -1082,7 +1082,7 @@ func (r *CinderAPIReconciler) generateServiceConfigs(
 	}
 	customData[cinder.CustomServiceConfigSecretsFileName] = customSecrets
 
-	templateParameters := map[string]interface{}{
+	templateParameters := map[string]any{
 		"LogFile": cinderapi.LogFile,
 	}
 

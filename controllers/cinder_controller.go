@@ -1019,7 +1019,7 @@ func (r *CinderReconciler) generateServiceConfigs(
 	databaseAccount := db.GetAccount()
 	dbSecret := db.GetSecret()
 
-	templateParameters := make(map[string]interface{})
+	templateParameters := make(map[string]any)
 	templateParameters["ServiceUser"] = instance.Spec.ServiceUser
 	templateParameters["ServicePassword"] = string(ospSecret.Data[instance.Spec.PasswordSelectors.Service])
 	templateParameters["KeystoneInternalURL"] = keystoneInternalURL
@@ -1043,9 +1043,9 @@ func (r *CinderReconciler) generateServiceConfigs(
 	}
 
 	// create httpd  vhost template parameters
-	httpdVhostConfig := map[string]interface{}{}
+	httpdVhostConfig := map[string]any{}
 	for _, endpt := range []service.Endpoint{service.EndpointInternal, service.EndpointPublic} {
-		endptConfig := map[string]interface{}{}
+		endptConfig := map[string]any{}
 		endptConfig["ServerName"] = fmt.Sprintf("%s-%s.%s.svc", cinder.ServiceName, endpt.String(), instance.Namespace)
 		endptConfig["TLS"] = false // default TLS to false, and set it bellow to true if enabled
 		if instance.Spec.CinderAPI.TLS.API.Enabled(endpt) {

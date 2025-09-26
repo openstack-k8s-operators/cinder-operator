@@ -46,14 +46,14 @@ func CreateCinderMessageBusSecret(namespace string, name string) *corev1.Secret 
 	s := th.CreateSecret(
 		types.NamespacedName{Namespace: namespace, Name: name},
 		map[string][]byte{
-			"transport_url": []byte(fmt.Sprintf("rabbit://%s/fake", name)),
+			"transport_url": fmt.Appendf(nil, "rabbit://%s/fake", name),
 		},
 	)
 	logger.Info("Secret created", "name", name)
 	return s
 }
 
-func CreateUnstructured(rawObj map[string]interface{}) *unstructured.Unstructured {
+func CreateUnstructured(rawObj map[string]any) *unstructured.Unstructured {
 	logger.Info("Creating", "raw", rawObj)
 	unstructuredObj := &unstructured.Unstructured{Object: rawObj}
 	_, err := controllerutil.CreateOrPatch(
@@ -62,15 +62,15 @@ func CreateUnstructured(rawObj map[string]interface{}) *unstructured.Unstructure
 	return unstructuredObj
 }
 
-func GetCinderEmptySpec() map[string]interface{} {
-	return map[string]interface{}{
+func GetCinderEmptySpec() map[string]any {
+	return map[string]any{
 		"databaseInstance": "openstack",
 		"secret":           SecretName,
 	}
 }
 
-func GetDefaultCinderSpec() map[string]interface{} {
-	return map[string]interface{}{
+func GetDefaultCinderSpec() map[string]any {
+	return map[string]any{
 		"databaseInstance": "openstack",
 		"secret":           SecretName,
 		"cinderAPI":        GetDefaultCinderAPISpec(),
@@ -79,8 +79,8 @@ func GetDefaultCinderSpec() map[string]interface{} {
 	}
 }
 
-func GetTLSCinderSpec() map[string]interface{} {
-	return map[string]interface{}{
+func GetTLSCinderSpec() map[string]any {
+	return map[string]any{
 		"databaseInstance": "openstack",
 		"secret":           SecretName,
 		"cinderAPI":        GetTLSCinderAPISpec(),
@@ -89,8 +89,8 @@ func GetTLSCinderSpec() map[string]interface{} {
 	}
 }
 
-func GetDefaultCinderAPISpec() map[string]interface{} {
-	return map[string]interface{}{
+func GetDefaultCinderAPISpec() map[string]any {
+	return map[string]any{
 		"secret":             SecretName,
 		"replicas":           1,
 		"containerImage":     cinderTest.ContainerImage,
@@ -100,15 +100,15 @@ func GetDefaultCinderAPISpec() map[string]interface{} {
 	}
 }
 
-func GetTLSCinderAPISpec() map[string]interface{} {
+func GetTLSCinderAPISpec() map[string]any {
 	spec := GetDefaultCinderAPISpec()
-	maps.Copy(spec, map[string]interface{}{
-		"tls": map[string]interface{}{
-			"api": map[string]interface{}{
-				"internal": map[string]interface{}{
+	maps.Copy(spec, map[string]any{
+		"tls": map[string]any{
+			"api": map[string]any{
+				"internal": map[string]any{
 					"secretName": InternalCertSecretName,
 				},
-				"public": map[string]interface{}{
+				"public": map[string]any{
 					"secretName": PublicCertSecretName,
 				},
 			},
@@ -119,8 +119,8 @@ func GetTLSCinderAPISpec() map[string]interface{} {
 	return spec
 }
 
-func GetDefaultCinderSchedulerSpec() map[string]interface{} {
-	return map[string]interface{}{
+func GetDefaultCinderSchedulerSpec() map[string]any {
+	return map[string]any{
 		"secret":             SecretName,
 		"replicas":           1,
 		"containerImage":     cinderTest.ContainerImage,
@@ -130,8 +130,8 @@ func GetDefaultCinderSchedulerSpec() map[string]interface{} {
 	}
 }
 
-func GetDefaultCinderVolumeSpec() map[string]interface{} {
-	return map[string]interface{}{
+func GetDefaultCinderVolumeSpec() map[string]any {
+	return map[string]any{
 		"secret":             SecretName,
 		"replicas":           1,
 		"containerImage":     cinderTest.ContainerImage,
@@ -149,12 +149,12 @@ func GetCinder(name types.NamespacedName) *cinderv1.Cinder {
 	return instance
 }
 
-func CreateCinder(name types.NamespacedName, spec map[string]interface{}) client.Object {
+func CreateCinder(name types.NamespacedName, spec map[string]any) client.Object {
 
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"apiVersion": "cinder.openstack.org/v1beta1",
 		"kind":       "Cinder",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":      name.Name,
 			"namespace": name.Namespace,
 		},
@@ -168,11 +168,11 @@ func CinderConditionGetter(name types.NamespacedName) condition.Conditions {
 	return instance.Status.Conditions
 }
 
-func CreateCinderAPI(name types.NamespacedName, spec map[string]interface{}) client.Object {
-	raw := map[string]interface{}{
+func CreateCinderAPI(name types.NamespacedName, spec map[string]any) client.Object {
+	raw := map[string]any{
 		"apiVersion": "cinder.openstack.org/v1beta1",
 		"kind":       "CinderAPI",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":      name.Name,
 			"namespace": name.Namespace,
 		},
@@ -181,11 +181,11 @@ func CreateCinderAPI(name types.NamespacedName, spec map[string]interface{}) cli
 	return CreateUnstructured(raw)
 }
 
-func CreateCinderScheduler(name types.NamespacedName, spec map[string]interface{}) client.Object {
-	raw := map[string]interface{}{
+func CreateCinderScheduler(name types.NamespacedName, spec map[string]any) client.Object {
+	raw := map[string]any{
 		"apiVersion": "cinder.openstack.org/v1beta1",
 		"kind":       "CinderScheduler",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":      name.Name,
 			"namespace": name.Namespace,
 		},
@@ -194,11 +194,11 @@ func CreateCinderScheduler(name types.NamespacedName, spec map[string]interface{
 	return CreateUnstructured(raw)
 }
 
-func CreateCinderVolume(name types.NamespacedName, spec map[string]interface{}) client.Object {
-	raw := map[string]interface{}{
+func CreateCinderVolume(name types.NamespacedName, spec map[string]any) client.Object {
+	raw := map[string]any{
 		"apiVersion": "cinder.openstack.org/v1beta1",
 		"kind":       "CinderVolume",
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"name":      name.Name,
 			"namespace": name.Namespace,
 		},
@@ -323,26 +323,26 @@ func CinderVolumeNotExists(name types.NamespacedName) {
 
 // GetExtraMounts - Utility function that simulates extraMounts pointing
 // to a Ceph secret
-func GetExtraMounts() []map[string]interface{} {
-	return []map[string]interface{}{
+func GetExtraMounts() []map[string]any {
+	return []map[string]any{
 		{
 			"name":   cinderTest.Instance.Name,
 			"region": "az0",
-			"extraVol": []map[string]interface{}{
+			"extraVol": []map[string]any{
 				{
 					"extraVolType": CinderCephExtraMountsSecretName,
 					"propagation": []string{
 						"CinderVolume",
 					},
-					"volumes": []map[string]interface{}{
+					"volumes": []map[string]any{
 						{
 							"name": CinderCephExtraMountsSecretName,
-							"secret": map[string]interface{}{
+							"secret": map[string]any{
 								"secretName": CinderCephExtraMountsSecretName,
 							},
 						},
 					},
-					"mounts": []map[string]interface{}{
+					"mounts": []map[string]any{
 						{
 							"name":      CinderCephExtraMountsSecretName,
 							"mountPath": CinderCephExtraMountsPath,
@@ -361,16 +361,16 @@ func GetExtraMounts() []map[string]interface{} {
 // test Service components. It returns both the user input representation
 // in the form of map[string]string, and the Golang expected representation
 // used in the test asserts.
-func GetSampleTopologySpec(label string) (map[string]interface{}, []corev1.TopologySpreadConstraint) {
+func GetSampleTopologySpec(label string) (map[string]any, []corev1.TopologySpreadConstraint) {
 	// Build the topology Spec
-	topologySpec := map[string]interface{}{
-		"topologySpreadConstraints": []map[string]interface{}{
+	topologySpec := map[string]any{
+		"topologySpreadConstraints": []map[string]any{
 			{
 				"maxSkew":           1,
 				"topologyKey":       corev1.LabelHostname,
 				"whenUnsatisfiable": "ScheduleAnyway",
-				"labelSelector": map[string]interface{}{
-					"matchLabels": map[string]interface{}{
+				"labelSelector": map[string]any{
+					"matchLabels": map[string]any{
 						"component": label,
 					},
 				},
