@@ -120,11 +120,13 @@ func verifyServiceSecret(
 			err.Error()))
 		return res, err
 	} else if (res != ctrl.Result{}) {
+		// Since the service secret should have been manually created by the user and referenced in the spec,
+		// we treat this as a warning because it means that the service will not be able to start.
 		log.FromContext(ctx).Info(fmt.Sprintf("OpenStack secret %s not found", secretName))
 		conditionUpdater.Set(condition.FalseCondition(
 			condition.InputReadyCondition,
-			condition.RequestedReason,
-			condition.SeverityInfo,
+			condition.ErrorReason,
+			condition.SeverityWarning,
 			condition.InputReadyWaitingMessage))
 		return res, nil
 	}
@@ -152,11 +154,14 @@ func verifyConfigSecrets(
 		_, hash, err = secret.GetSecret(ctx, h, secretName, namespace)
 		if err != nil {
 			if k8s_errors.IsNotFound(err) {
+				// Since config secrets should have been previously automatically created by the parent
+				// Cinder CR and then referenced in this instance's spec, we treat this as a warning
+				// because it means that the service will not be able to start.
 				log.FromContext(ctx).Info(fmt.Sprintf("Secret %s not found", secretName))
 				conditionUpdater.Set(condition.FalseCondition(
 					condition.InputReadyCondition,
-					condition.RequestedReason,
-					condition.SeverityInfo,
+					condition.ErrorReason,
+					condition.SeverityWarning,
 					condition.InputReadyWaitingMessage))
 				return cinder.ResultRequeue, nil
 			}
