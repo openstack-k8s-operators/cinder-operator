@@ -29,6 +29,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -37,9 +38,11 @@ import (
 	"github.com/openstack-k8s-operators/cinder-operator/internal/cinder"
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
+	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	util "github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
+	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
 )
 
 var _ = Describe("Cinder controller", func() {
@@ -1744,4 +1747,128 @@ var _ = Describe("Cinder Webhook", func() {
 			return instance, fmt.Sprintf("cinderVolumes[%s].topologyRef", instance)
 		}),
 	)
+
+	When("An ApplicationCredential is created for Cinder", func() {
+		var (
+			acName                string
+			acSecretName          string
+			servicePasswordSecret string
+			passwordSelector      string
+		)
+		BeforeEach(func() {
+			servicePasswordSecret = "ac-test-osp-secret" //nolint:gosec // G101
+			passwordSelector = "CinderPassword"
+
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateCinderMessageBusSecret(
+					cinderTest.Instance.Namespace,
+					cinderTest.RabbitmqSecretName,
+				),
+			)
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateCinderSecret(
+					cinderTest.Instance.Namespace, servicePasswordSecret))
+			// Create Cinder using the service password secret
+			spec := GetDefaultCinderSpec()
+			spec["secret"] = servicePasswordSecret
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}}}))
+			DeferCleanup(keystone.DeleteKeystoneAPI,
+				keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace),
+			)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(cinderTest.Instance.Namespace, MemcachedInstance, memcachedv1.MemcachedSpec{}))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+
+			// Create MariaDB account and database
+			acc, accSecret := mariadb.CreateMariaDBAccountAndSecret(cinderTest.Database, mariadbv1.MariaDBAccountSpec{})
+			DeferCleanup(k8sClient.Delete, ctx, acc)
+			DeferCleanup(k8sClient.Delete, ctx, accSecret)
+			mariadb.CreateMariaDBDatabase(cinderTest.Database.Namespace, cinderTest.Database.Name, mariadbv1.MariaDBDatabaseSpec{})
+			DeferCleanup(k8sClient.Delete, ctx, mariadb.GetMariaDBDatabase(cinderTest.Database))
+
+			acName = fmt.Sprintf("ac-%s", cinder.ServiceName)
+			acSecretName = acName + "-secret"
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      acSecretName,
+				},
+				Data: map[string][]byte{
+					"AC_ID":     []byte("test-ac-id"),
+					"AC_SECRET": []byte("test-ac-secret"),
+				},
+			}
+			DeferCleanup(k8sClient.Delete, ctx, secret)
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+
+			ac := &keystonev1.KeystoneApplicationCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      acName,
+				},
+				Spec: keystonev1.KeystoneApplicationCredentialSpec{
+					UserName:         cinder.ServiceName,
+					Secret:           servicePasswordSecret,
+					PasswordSelector: passwordSelector,
+					Roles:            []string{"admin", "member"},
+					AccessRules:      []keystonev1.ACRule{{Service: "identity", Method: "POST", Path: "/auth/tokens"}},
+					ExpirationDays:   30,
+					GracePeriodDays:  5,
+				},
+			}
+			DeferCleanup(k8sClient.Delete, ctx, ac)
+			Expect(k8sClient.Create(ctx, ac)).To(Succeed())
+
+			fetched := &keystonev1.KeystoneApplicationCredential{}
+			key := types.NamespacedName{Namespace: ac.Namespace, Name: ac.Name}
+			Expect(k8sClient.Get(ctx, key, fetched)).To(Succeed())
+
+			fetched.Status.SecretName = acSecretName
+			now := metav1.Now()
+			readyCond := condition.Condition{
+				Type:               condition.ReadyCondition,
+				Status:             corev1.ConditionTrue,
+				Reason:             condition.ReadyReason,
+				Message:            condition.ReadyMessage,
+				LastTransitionTime: now,
+			}
+			fetched.Status.Conditions = condition.Conditions{readyCond}
+			Expect(k8sClient.Status().Update(ctx, fetched)).To(Succeed())
+
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+		})
+
+		It("should render ApplicationCredential auth in 00-global-defaults.conf", func() {
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			Eventually(func(g Gomega) {
+				cfgSecret := th.GetSecret(cinderTest.CinderConfigSecret)
+				g.Expect(cfgSecret).NotTo(BeNil())
+
+				conf := string(cfgSecret.Data["00-global-defaults.conf"])
+
+				// AC auth is configured
+				g.Expect(conf).To(ContainSubstring("auth_type = v3applicationcredential"))
+				g.Expect(conf).To(ContainSubstring("application_credential_id = test-ac-id"))
+				g.Expect(conf).To(ContainSubstring("application_credential_secret = test-ac-secret"))
+
+				// Password auth fields should not be present
+				g.Expect(conf).NotTo(ContainSubstring("auth_type = password"))
+				g.Expect(conf).NotTo(ContainSubstring("username = cinder"))
+				g.Expect(conf).NotTo(ContainSubstring("project_name = service"))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
 })
