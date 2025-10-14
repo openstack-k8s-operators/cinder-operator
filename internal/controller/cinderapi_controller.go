@@ -338,6 +338,18 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		return err
 	}
 
+	// index authAppCredSecretField
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &cinderv1beta1.CinderAPI{}, authAppCredSecretField, func(rawObj client.Object) []string {
+		// Extract the application credential secret name from the spec, if one is provided
+		cr := rawObj.(*cinderv1beta1.CinderAPI)
+		if cr.Spec.Auth.ApplicationCredentialSecret == "" {
+			return nil
+		}
+		return []string{cr.Spec.Auth.ApplicationCredentialSecret}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.CinderAPI{}).
 		Owns(&keystonev1.KeystoneService{}).
@@ -898,6 +910,16 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	//
 	// normal reconcile tasks
 	//
+
+	// Verify Application Credential secret if specified
+	if instance.Spec.Auth.ApplicationCredentialSecret != "" {
+		acSecret := types.NamespacedName{Namespace: instance.Namespace, Name: instance.Spec.Auth.ApplicationCredentialSecret}
+		acHash, _, err := secret.VerifySecret(ctx, acSecret, []string{keystonev1.ACIDSecretKey, keystonev1.ACSecretSecretKey}, helper.GetClient(), 0)
+		if err == nil && acHash != "" {
+			// AC secret exists and is valid - add to configVars for hash tracking
+			configVars[instance.Spec.Auth.ApplicationCredentialSecret] = env.SetValue(acHash)
+		}
+	}
 
 	//
 	// create hash over all the different input resources to identify if any those changed

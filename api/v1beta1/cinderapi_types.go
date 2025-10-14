@@ -43,6 +43,11 @@ type CinderAPITemplateCore struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// TLS - Parameters related to the TLS
 	TLS tls.API `json:"tls,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Auth - Parameters related to authentication
+	Auth AuthSpec `json:"auth,omitempty"`
 }
 
 // CinderAPITemplate defines the input parameters for the Cinder API service
@@ -59,6 +64,14 @@ type APIOverrideSpec struct {
 	// Override configuration for the Service created to serve traffic to the cluster.
 	// The key must be the endpoint type (public, internal)
 	Service map[service.Endpoint]service.RoutedOverrideSpec `json:"service,omitempty"`
+}
+
+// AuthSpec defines authentication parameters
+type AuthSpec struct {
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// ApplicationCredentialSecret - Secret containing Application Credential ID and Secret
+	ApplicationCredentialSecret string `json:"applicationCredentialSecret,omitempty"`
 }
 
 // CinderAPISpec defines the desired state of CinderAPI

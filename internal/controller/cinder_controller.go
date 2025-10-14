@@ -27,7 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -251,6 +250,7 @@ const (
 	tlsAPIInternalField     = ".spec.tls.api.internal.secretName"
 	tlsAPIPublicField       = ".spec.tls.api.public.secretName"
 	topologyField           = ".spec.topologyRef.Name"
+	authAppCredSecretField  = ".spec.auth.applicationCredentialSecret" // #nosec G101
 )
 
 var (
@@ -265,6 +265,7 @@ var (
 		tlsAPIInternalField,
 		tlsAPIPublicField,
 		topologyField,
+		authAppCredSecretField,
 	}
 )
 
@@ -368,41 +369,7 @@ func (r *CinderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(transportURLSecretFn)).
 		Watches(&memcachedv1.Memcached{},
 			handler.EnqueueRequestsFromMapFunc(memcachedFn)).
-		Watches(&keystonev1.KeystoneAPI{},
-			handler.EnqueueRequestsFromMapFunc(r.findObjectForSrc),
-			builder.WithPredicates(keystonev1.KeystoneAPIStatusChangedPredicate)).
 		Complete(r)
-}
-
-func (r *CinderReconciler) findObjectForSrc(ctx context.Context, src client.Object) []reconcile.Request {
-	requests := []reconcile.Request{}
-
-	Log := r.GetLogger(ctx)
-
-	crList := &cinderv1beta1.CinderList{}
-	listOps := &client.ListOptions{
-		Namespace: src.GetNamespace(),
-	}
-	err := r.List(ctx, crList, listOps)
-	if err != nil {
-		Log.Error(err, fmt.Sprintf("listing %s for namespace: %s", crList.GroupVersionKind().Kind, src.GetNamespace()))
-		return requests
-	}
-
-	for _, item := range crList.Items {
-		Log.Info(fmt.Sprintf("input source %s changed, reconcile: %s - %s", src.GetName(), item.GetName(), item.GetNamespace()))
-
-		requests = append(requests,
-			reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      item.GetName(),
-					Namespace: item.GetNamespace(),
-				},
-			},
-		)
-	}
-
-	return requests
 }
 
 func (r *CinderReconciler) reconcileDelete(ctx context.Context, instance *cinderv1beta1.Cinder, helper *helper.Helper) (ctrl.Result, error) {
@@ -1124,6 +1091,26 @@ func (r *CinderReconciler) generateServiceConfigs(
 		httpdVhostConfig[endpt.String()] = endptConfig
 	}
 	templateParameters["VHosts"] = httpdVhostConfig
+
+	// Retrieve Application Credential data from CinderAPI Auth section if specified
+	Log := r.GetLogger(ctx)
+	if instance.Spec.CinderAPI.Auth.ApplicationCredentialSecret != "" {
+		acSecret := &corev1.Secret{}
+		key := types.NamespacedName{Namespace: instance.Namespace, Name: instance.Spec.CinderAPI.Auth.ApplicationCredentialSecret}
+		if err := h.GetClient().Get(ctx, key, acSecret); err != nil {
+			if !k8s_errors.IsNotFound(err) {
+				Log.Error(err, "Failed to get ApplicationCredential secret", "secret", key)
+			}
+		} else {
+			acID, okID := acSecret.Data[keystonev1.ACIDSecretKey]
+			acSecretData, okSecret := acSecret.Data[keystonev1.ACSecretSecretKey]
+			if okID && len(acID) > 0 && okSecret && len(acSecretData) > 0 {
+				templateParameters["ApplicationCredentialID"] = string(acID)
+				templateParameters["ApplicationCredentialSecret"] = string(acSecretData)
+				Log.Info("Using ApplicationCredentials auth from CinderAPI spec", "secret", instance.Spec.CinderAPI.Auth.ApplicationCredentialSecret)
+			}
+		}
+	}
 
 	var notificationInstanceURLSecret *corev1.Secret
 	if instance.Status.NotificationsURLSecret != nil {
