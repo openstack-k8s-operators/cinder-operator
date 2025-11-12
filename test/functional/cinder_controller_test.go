@@ -1745,4 +1745,64 @@ var _ = Describe("Cinder Webhook", func() {
 			return instance, fmt.Sprintf("cinderVolumes[%s].topologyRef", instance)
 		}),
 	)
+
+	It("webhooks reject the request - both cinderBackup interfaces are populated", func() {
+		spec := GetDefaultCinderSpec()
+		raw := map[string]any{
+			"apiVersion": "cinder.openstack.org/v1beta1",
+			"kind":       "Cinder",
+			"metadata": map[string]any{
+				"name":      cinderTest.Instance.Name,
+				"namespace": cinderTest.Instance.Namespace,
+			},
+			"spec": spec,
+		}
+		cinderBackupList := map[string]any{
+			"foo": map[string]any{
+				"replicas": 1,
+			},
+		}
+		cinderBackupDeprecated := map[string]any{
+			"replicas": 1,
+		}
+		spec["cinderBackups"] = cinderBackupList
+		spec["cinderBackup"] = cinderBackupDeprecated
+
+		unstructuredObj := &unstructured.Unstructured{Object: raw}
+		_, err := controllerutil.CreateOrPatch(
+			ctx, k8sClient, unstructuredObj, func() error { return nil })
+
+		Expect(err).Should(HaveOccurred())
+		var statusError *k8s_errors.StatusError
+		Expect(errors.As(err, &statusError)).To(BeTrue())
+		Expect(statusError.ErrStatus.Message).To(
+			ContainSubstring(
+				"Usage of the deprecated 'cinderBackup' is forbidden when 'cinderBackups' is defined."),
+		)
+	})
+
+	It("webhooks still allow to deploy cinderBackup using the old interface", func() {
+		spec := GetDefaultCinderSpec()
+		raw := map[string]any{
+			"apiVersion": "cinder.openstack.org/v1beta1",
+			"kind":       "Cinder",
+			"metadata": map[string]any{
+				"name":      cinderTest.Instance.Name,
+				"namespace": cinderTest.Instance.Namespace,
+			},
+			"spec": spec,
+		}
+		cinderBackupDeprecated := map[string]any{
+			"replicas": 1,
+		}
+		spec["cinderBackup"] = cinderBackupDeprecated
+
+		unstructuredObj := &unstructured.Unstructured{Object: raw}
+		_, err := controllerutil.CreateOrPatch(
+			ctx, k8sClient, unstructuredObj, func() error { return nil })
+
+		Expect(err).ShouldNot(HaveOccurred())
+		var statusError *k8s_errors.StatusError
+		Expect(errors.As(err, &statusError)).To(BeFalse())
+	})
 })
