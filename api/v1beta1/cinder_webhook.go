@@ -89,6 +89,17 @@ func (r *Cinder) Default() {
 		r.Spec.CinderScheduler.ContainerImage = cinderDefaults.SchedulerContainerImageURL
 	}
 
+	if r.Spec.CinderBackups != nil {
+		cinderBackupList := r.Spec.CinderBackups
+		for index, cinderBackup := range *cinderBackupList {
+			if cinderBackup.ContainerImage == "" {
+				cinderBackup.ContainerImage = cinderDefaults.BackupContainerImageURL
+			}
+			// This is required, as the loop variable is a by-value copy
+			(*cinderBackupList)[index] = cinderBackup
+		}
+	}
+
 	for index, cinderVolume := range r.Spec.CinderVolumes {
 		if cinderVolume.ContainerImage == "" {
 			cinderVolume.ContainerImage = cinderDefaults.VolumeContainerImageURL
@@ -325,6 +336,16 @@ func (spec *CinderSpecCore) ValidateCinderTopology(basePath *field.Path, namespa
 	bkPath := basePath.Child("cinderBackup")
 	allErrs = append(allErrs,
 		spec.CinderBackup.ValidateTopology(bkPath, namespace)...)
+	
+	// When a TopologyRef CR is referenced with an override to an instance of
+	// CinderBackups, fail if a different Namespace is referenced because not
+	// supported
+	if spec.CinderBackups != nil {
+		for k, ms := range *spec.CinderBackups {
+			path := basePath.Child("cinderBackups").Key(k)
+			allErrs = append(allErrs, ms.ValidateTopology(path, namespace)...)
+		}
+	}
 
 	// When a TopologyRef CR is referenced with an override to an instance of
 	// CinderVolumes, fail if a different Namespace is referenced because not
@@ -364,6 +385,16 @@ func (spec *CinderSpec) ValidateCinderTopology(basePath *field.Path, namespace s
 	bkPath := basePath.Child("cinderBackup")
 	allErrs = append(allErrs,
 		spec.CinderBackup.ValidateTopology(bkPath, namespace)...)
+
+	// When a TopologyRef CR is referenced with an override to an instance of
+	// CinderBackups, fail if a different Namespace is referenced because not
+	// supported
+	if spec.CinderBackups != nil {
+		for k, ms := range *spec.CinderBackups {
+			path := basePath.Child("cinderBackups").Key(k)
+			allErrs = append(allErrs, ms.ValidateTopology(path, namespace)...)
+		}
+	}
 
 	// When a TopologyRef CR is referenced with an override to an instance of
 	// CinderVolumes, fail if a different Namespace is referenced because not

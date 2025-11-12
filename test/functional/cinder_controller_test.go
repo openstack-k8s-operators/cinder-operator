@@ -94,6 +94,7 @@ var _ = Describe("Cinder controller", func() {
 			Expect(Cinder.Status.TransportURLSecret).To(Equal(""))
 			Expect(Cinder.Status.CinderAPIReadyCount).To(Equal(int32(0)))
 			Expect(Cinder.Status.CinderBackupReadyCount).To(Equal(int32(0)))
+			Expect(Cinder.Status.CinderBackupsReadyCounts).To(BeNil())
 			Expect(Cinder.Status.CinderSchedulerReadyCount).To(Equal(int32(0)))
 			Expect(Cinder.Status.CinderVolumesReadyCounts["volume1"]).To(Equal(int32(0)))
 			Expect(Cinder.Status.CinderVolumesReadyCounts["volume2"]).To(Equal(int32(0)))
