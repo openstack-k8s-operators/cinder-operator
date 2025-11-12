@@ -835,14 +835,19 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		}
 	}
 
-	// deploy cinder-backup, but only if necessary
-	//
+	// DEPRECATED: A new interface has been implemented to deploy Cinder Backup, allowing
+	// it to be configured as a list of deployable instances. This code represents the
+	// **legacy interface** for a single Cinder Backup instance. It is required for
+	// compatibility with **brownfield deployments** that rely on the previous configuration,
+	// but it is will be removed in an upcoming release (when the OpenStack control plane
+	// API rolls out a v2 version of the API)
+
+	var backupCondition *condition.Condition
+	crName := fmt.Sprintf("%s-backup", instance.Name)
 	// Many OpenStack deployments don't use the cinder-backup service (it's optional),
 	// so there's no need to deploy it unless it's required.
-	var backupCondition *condition.Condition
-	if *instance.Spec.CinderBackup.Replicas > 0 {
-		cbakCRName := fmt.Sprintf("%s-backup", instance.Name)
-		cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(ctx, instance, cbakCRName, nil)
+	if *instance.Spec.CinderBackup.Replicas > 0 && instance.Spec.CinderBackups == nil {
+		cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(ctx, instance, crName, nil)
 		if err != nil {
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				cinderv1beta1.CinderBackupReadyCondition,
@@ -855,7 +860,6 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		if op != controllerutil.OperationResultNone {
 			Log.Info(fmt.Sprintf("Backup CR for %s successfully %s", instance.Name, string(op)))
 		}
-
 		// Mirror values when the data in the StatefulSet is for the current generation
 		if cinderBackup.Generation == cinderBackup.Status.ObservedGeneration {
 			// Mirror CinderBackup status' ReadyCount to this parent CR
@@ -865,82 +869,76 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 			backupCondition = cinderBackup.Status.Conditions.Mirror(cinderv1beta1.CinderBackupReadyCondition)
 			instance.Status.Conditions.Set(backupCondition)
 		}
-
 	} else {
 		// Clean up cinder-backup if there are no replicas
-		crName := fmt.Sprintf("%s-backup", instance.Name)
 		err = r.backupCleanupDeployment(ctx, instance, crName)
 		if err != nil {
 			// Should we set the condition to False?
 			return ctrl.Result{}, err
 		}
-		// TODO: Wait for the deployment to actually disappear before setting the condition
-
 		// The CinderBackup is ready, even if the service wasn't deployed.
 		// Using "condition.DeploymentReadyMessage" here because that is what gets mirrored
 		// as the message for the other Cinder children when they are successfully-deployed
 		instance.Status.Conditions.MarkTrue(cinderv1beta1.CinderBackupReadyCondition, condition.DeploymentReadyMessage)
 	}
 
-	// deploy list of cinder-backups, only if Spec.CinderBackup is not used
+	// Deploy a list of cinder-backups only if Spec.CinderBackup is not used
 	// Note: many openstack deployments don't use the cinder-backup service
-	// (it's optional), so there's no need to deploy it unless it's required.
+	// (it's optional), so there's no need to deploy it unless it's explicitly
+	// added.
 	if instance.Spec.CinderBackups != nil {
 		var bckCondition *condition.Condition
 		waitingBkpGenerationMatch := false
 		for name, backup := range *instance.Spec.CinderBackups {
 			crName := fmt.Sprintf("%s-backup-%s", instance.Name, name)
-			cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(ctx, instance, crName, &backup)
-			if err != nil {
-				instance.Status.Conditions.Set(condition.FalseCondition(
-					cinderv1beta1.CinderBackupReadyCondition,
-					condition.ErrorReason,
-					condition.SeverityWarning,
-					cinderv1beta1.CinderBackupReadyErrorMessage,
-					err.Error()))
-				return ctrl.Result{}, err
-			}
-			if op != controllerutil.OperationResultNone {
-				Log.Info(fmt.Sprintf("Backup CR for %s successfully %s", instance.Name, string(op)))
-			}
-			if cinderBackup.Generation != cinderBackup.Status.ObservedGeneration {
-				waitingBkpGenerationMatch = true
+			if *backup.Replicas > 0 {
+				cinderBackup, op, err := r.backupDeploymentCreateOrUpdate(ctx, instance, crName, &backup)
+				if err != nil {
+					instance.Status.Conditions.Set(condition.FalseCondition(
+						cinderv1beta1.CinderBackupReadyCondition,
+						condition.ErrorReason,
+						condition.SeverityWarning,
+						cinderv1beta1.CinderBackupReadyErrorMessage,
+						err.Error()))
+					return ctrl.Result{}, err
+				}
+				if op != controllerutil.OperationResultNone {
+					Log.Info(fmt.Sprintf("Backup CR for %s successfully %s", instance.Name, string(op)))
+				}
+				if cinderBackup.Generation != cinderBackup.Status.ObservedGeneration {
+					waitingBkpGenerationMatch = true
+				} else {
+					// Mirror CinderBackup status' ReadyCount to this parent CR
+					if instance.Status.CinderBackupsReadyCounts == nil {
+						instance.Status.CinderBackupsReadyCounts = map[string]int32{}
+					}
+					instance.Status.CinderBackupsReadyCounts[name] = cinderBackup.Status.ReadyCount
+
+					// If this cinderBackup is not IsReady, mirror the condition to get the latest step it is in.
+					// Could also check the overall ReadyCondition of the cinderBackup.
+					if !cinderBackup.IsReady() {
+						c := cinderBackup.Status.Conditions.Mirror(cinderv1beta1.CinderBackupReadyCondition)
+						// Get the condition with higher priority for backupCondition.
+						bckCondition = condition.GetHigherPrioCondition(c, bckCondition).DeepCopy()
+					}
+				}
+				if bckCondition != nil {
+					// If there was a Status=False condition, set that as the CinderBackupReadyCondition
+					instance.Status.Conditions.Set(bckCondition)
+				} else if !waitingBkpGenerationMatch {
+					// The CinderBackups are ready.
+					// Using "condition.DeploymentReadyMessage" here because that is what gets mirrored
+					// as the message for the other Cinder children when they are successfully-deployed
+					instance.Status.Conditions.MarkTrue(cinderv1beta1.CinderBackupReadyCondition, condition.DeploymentReadyMessage)
+				}
 			} else {
-				// Mirror CinderBackup status' ReadyCount to this parent CR
-				if instance.Status.CinderBackupsReadyCounts == nil {
-					instance.Status.CinderVolumesReadyCounts = map[string]int32{}
+				err = r.backupCleanupDeployment(ctx, instance, crName)
+				if err != nil {
+					return ctrl.Result{}, err
 				}
-				instance.Status.CinderBackupsReadyCounts[name] = cinderBackup.Status.ReadyCount
-
-				// If this cinderBackup is not IsReady, mirror the condition to get the latest step it is in.
-				// Could also check the overall ReadyCondition of the cinderBackup.
-				if !cinderBackup.IsReady() {
-					c := cinderBackup.Status.Conditions.Mirror(cinderv1beta1.CinderBackupReadyCondition)
-					// Get the condition with higher priority for backupCondition.
-					backupCondition = condition.GetHigherPrioCondition(c, backupCondition).DeepCopy()
-				}
-			}
-		}
-
-		if bckCondition != nil {
-			// If there was a Status=False condition, set that as the CinderBackupReadyCondition
-			instance.Status.Conditions.Set(backupCondition)
-		} else if !waitingBkpGenerationMatch {
-			// The CinderBackups are ready.
-			// Using "condition.DeploymentReadyMessage" here because that is what gets mirrored
-			// as the message for the other Cinder children when they are successfully-deployed
-			instance.Status.Conditions.MarkTrue(cinderv1beta1.CinderBackupReadyCondition, condition.DeploymentReadyMessage)
-		}
-
-		for name, _ := range *instance.Spec.CinderBackups {
-			crName := fmt.Sprintf("%s-backup-%s", instance.Name, name)
-			err = r.backupCleanupDeployment(ctx, instance, crName)
-			if err != nil {
-				return ctrl.Result{}, err
 			}
 		}
 	}
-
 	// End list of cinder backup(s)
 
 	// deploy cinder-volumes

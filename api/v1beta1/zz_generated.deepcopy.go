@@ -830,6 +830,7 @@ func (in *CinderSpecCore) DeepCopyInto(out *CinderSpecCore) {
 	in.CinderSpecBase.DeepCopyInto(&out.CinderSpecBase)
 	in.CinderAPI.DeepCopyInto(&out.CinderAPI)
 	in.CinderScheduler.DeepCopyInto(&out.CinderScheduler)
+	in.CinderBackup.DeepCopyInto(&out.CinderBackup)
 	if in.CinderBackups != nil {
 		in, out := &in.CinderBackups, &out.CinderBackups
 		*out = new(map[string]CinderBackupTemplateCore)
@@ -841,7 +842,6 @@ func (in *CinderSpecCore) DeepCopyInto(out *CinderSpecCore) {
 			}
 		}
 	}
-	in.CinderBackup.DeepCopyInto(&out.CinderBackup)
 	if in.CinderVolumes != nil {
 		in, out := &in.CinderVolumes, &out.CinderVolumes
 		*out = make(map[string]CinderVolumeTemplateCore, len(*in))

@@ -65,7 +65,7 @@ spec:
                     description: |-
                       CustomServiceConfig - customize the service config using this parameter to change service defaults,
                       or overwrite rendered information using raw OpenStack config format. The content gets added to
-                      to /etc/<service>/<service>.conf.d directory as a custom config file.
+                      the /etc/<service>/<service>.conf.d directory as a custom config file.
                     type: string
                   customServiceConfigSecrets:
                     description: |-
@@ -377,7 +377,7 @@ spec:
                     description: |-
                       CustomServiceConfig - customize the service config using this parameter to change service defaults,
                       or overwrite rendered information using raw OpenStack config format. The content gets added to
-                      to /etc/<service>/<service>.conf.d directory as a custom config file.
+                      the /etc/<service>/<service>.conf.d directory as a custom config file.
                     type: string
                   customServiceConfigSecrets:
                     description: |-
@@ -501,7 +501,7 @@ spec:
                       description: |-
                         CustomServiceConfig - customize the service config using this parameter to change service defaults,
                         or overwrite rendered information using raw OpenStack config format. The content gets added to
-                        to /etc/<service>/<service>.conf.d directory as a custom config file.
+                        the /etc/<service>/<service>.conf.d directory as a custom config file.
                       type: string
                     customServiceConfigSecrets:
                       description: |-
@@ -612,7 +612,7 @@ spec:
                   required:
                   - containerImage
                   type: object
-                description: CinderBackup - Spec definition for the Backup service
+                description: CinderBackups - Spec definition for the Backup service
                   of this Cinder deployment
                 type: object
               cinderScheduler:
@@ -627,7 +627,7 @@ spec:
                     description: |-
                       CustomServiceConfig - customize the service config using this parameter to change service defaults,
                       or overwrite rendered information using raw OpenStack config format. The content gets added to
-                      to /etc/<service>/<service>.conf.d directory as a custom config file.
+                      the /etc/<service>/<service>.conf.d directory as a custom config file.
                     type: string
                   customServiceConfigSecrets:
                     description: |-
@@ -751,7 +751,7 @@ spec:
                       description: |-
                         CustomServiceConfig - customize the service config using this parameter to change service defaults,
                         or overwrite rendered information using raw OpenStack config format. The content gets added to
-                        to /etc/<service>/<service>.conf.d directory as a custom config file.
+                        the /etc/<service>/<service>.conf.d directory as a custom config file.
                       type: string
                     customServiceConfigSecrets:
                       description: |-
