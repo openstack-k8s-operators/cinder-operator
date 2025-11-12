@@ -128,13 +128,16 @@ type CinderSpecCore struct {
 	// CinderScheduler - Spec definition for the Scheduler service of this Cinder deployment
 	CinderScheduler CinderSchedulerTemplateCore `json:"cinderScheduler"`
 
+	// CinderBackup is DEPRECATED and will be removed in a future release.
+	// Use the separate CinderBackups resource instead.
 	// +kubebuilder:validation:Optional
-	// CinderBackup - Spec definition for the Backup service of this Cinder deployment
-	CinderBackups *map[string]CinderBackupTemplateCore `json:"cinderBackups"`
+	// +kubebuilder:deprecated:true
+	// +kubebuilder:deprecatedversion:warning="Cinder.Spec.CinderBackup is deprecated, use CinderBackups instead"
+	CinderBackup CinderBackupTemplateCore `json:"cinderBackup"`
 
 	// +kubebuilder:validation:Optional
 	// CinderBackup - Spec definition for the Backup service of this Cinder deployment
-	CinderBackup CinderBackupTemplateCore `json:"cinderBackup"`
+	CinderBackups *map[string]CinderBackupTemplateCore `json:"cinderBackups,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// CinderVolumes - Map of chosen names to spec definitions for the Volume(s) service(s) of this Cinder deployment
