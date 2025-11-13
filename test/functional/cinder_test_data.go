@@ -20,7 +20,7 @@ package functional
 import (
 	"fmt"
 
-	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
+	"github.com/openstack-k8s-operators/cinder-operator/internal/cinder"
 	"k8s.io/apimachinery/pkg/types"
 )
 

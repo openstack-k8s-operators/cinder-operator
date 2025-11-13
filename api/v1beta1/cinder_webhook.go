@@ -26,14 +26,13 @@ import (
 
 	"golang.org/x/exp/maps"
 
+	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
-	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -71,15 +70,6 @@ func SetupDefaults() {
 
 	cinderlog.Info("Cinder defaults initialized", "defaults", cinderDefaults)
 }
-
-// SetupWebhookWithManager sets up the webhook with the Manager
-func (r *Cinder) SetupWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		Complete()
-}
-
-//+kubebuilder:webhook:path=/mutate-cinder-openstack-org-v1beta1-cinder,mutating=true,failurePolicy=fail,sideEffects=None,groups=cinder.openstack.org,resources=cinders,verbs=create;update,versions=v1beta1,name=mcinder.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &Cinder{}
 
@@ -127,9 +117,6 @@ func (spec *CinderSpecBase) Default() {
 func (spec *CinderSpecCore) Default() {
 	spec.CinderSpecBase.Default()
 }
-
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-cinder-openstack-org-v1beta1-cinder,mutating=false,failurePolicy=fail,sideEffects=None,groups=cinder.openstack.org,resources=cinders,verbs=create;update,versions=v1beta1,name=vcinder.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &Cinder{}
 
