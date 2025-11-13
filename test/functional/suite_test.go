@@ -59,7 +59,8 @@ import (
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
 
-	"github.com/openstack-k8s-operators/cinder-operator/controllers"
+	controllers "github.com/openstack-k8s-operators/cinder-operator/internal/controller"
+	webhooks "github.com/openstack-k8s-operators/cinder-operator/internal/webhook/v1beta1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -205,7 +206,7 @@ var _ = BeforeSuite(func() {
 
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&cinder.Cinder{}).SetupWebhookWithManager(k8sManager)
+	err = webhooks.SetupCinderWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&controllers.CinderAPIReconciler{

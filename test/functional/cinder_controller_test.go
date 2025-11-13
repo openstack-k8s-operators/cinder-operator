@@ -34,7 +34,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
-	"github.com/openstack-k8s-operators/cinder-operator/pkg/cinder"
+	"github.com/openstack-k8s-operators/cinder-operator/internal/cinder"
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
