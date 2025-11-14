@@ -166,7 +166,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 commands:
   - script: |
-      tupleTemplate='{{ range (index .spec.template.spec.containers 1).env }}{{ .name }}{{ "#" }}{{ .value}}{{"\n"}}{{ end }}'
+      tupleTemplate='{{ range (index .spec.template.spec.containers 0).env }}{{ .name }}{{ "#" }}{{ .value}}{{"\n"}}{{ end }}'
       imageTuples=$(oc get -n openstack-operators deployment cinder-operator-controller-manager -o go-template="$tupleTemplate")
       for ITEM in $(echo $imageTuples); do
         # it is an image
