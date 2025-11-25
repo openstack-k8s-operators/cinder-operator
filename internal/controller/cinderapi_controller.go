@@ -338,6 +338,42 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		return err
 	}
 
+	// Application Credential secret watching function
+	acSecretFn := func(_ context.Context, o client.Object) []reconcile.Request {
+		name := o.GetName()
+		ns := o.GetNamespace()
+		result := []reconcile.Request{}
+
+		// Only handle Secret objects
+		if _, isSecret := o.(*corev1.Secret); !isSecret {
+			return nil
+		}
+
+		// Check if this is a cinder AC secret by name pattern (ac-cinder-secret)
+		expectedSecretName := keystonev1.GetACSecretName("cinder")
+		if name == expectedSecretName {
+			// get all CinderAPI CRs in this namespace
+			cinderAPIs := &cinderv1beta1.CinderAPIList{}
+			listOpts := []client.ListOption{
+				client.InNamespace(ns),
+			}
+			if err := r.List(context.Background(), cinderAPIs, listOpts...); err != nil {
+				return nil
+			}
+
+			// Enqueue reconcile for all cinder API instances
+			for _, cr := range cinderAPIs.Items {
+				objKey := client.ObjectKey{
+					Namespace: ns,
+					Name:      cr.Name,
+				}
+				result = append(result, reconcile.Request{NamespacedName: objKey})
+			}
+		}
+
+		return result
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.CinderAPI{}).
 		Owns(&keystonev1.KeystoneService{}).
@@ -352,6 +388,8 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
+		Watches(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(acSecretFn)).
 		Watches(&topologyv1.Topology{},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForSrc),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
@@ -699,6 +737,11 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 		return ctrlResult, err
 	} else if (ctrlResult != ctrl.Result{}) {
 		return ctrlResult, nil
+	}
+
+	// Check for Application Credentials
+	if ctrlResult, err = keystonev1.VerifyApplicationCredentialsForService(ctx, r.Client, instance.Namespace, "cinder", &configVars, cinder.NormalDuration); err != nil || ctrlResult.RequeueAfter > 0 {
+		return ctrlResult, err
 	}
 
 	//
