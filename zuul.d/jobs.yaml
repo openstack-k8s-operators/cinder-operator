@@ -34,10 +34,12 @@
       # with the ceph backend
       cifmw_test_operator_tempest_exclude_list: |
         test_encrypted_cinder_volumes_cryptsetup
+      # volume-feature-enabled.extend_attached_encrypted_volume is temporarily
+      # disabled until OSPRH-14321 is solved.
       cifmw_test_operator_tempest_tempestconf_config:
         overrides: |
           compute-feature-enabled.attach_encrypted_volume True
-          volume-feature-enabled.extend_attached_encrypted_volume True
+          volume-feature-enabled.extend_attached_encrypted_volume False
           volume-feature-enabled.extend_attached_volume True
           volume-feature-enabled.volume_revert True
           volume.storage_protocol 'ceph'
