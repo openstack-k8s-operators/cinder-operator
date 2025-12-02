@@ -2,7 +2,6 @@
 
 aliases:
   ci-approvers:
-  - frenzyfriday
   - viroel
   openstack-approvers:
   - abays
@@ -10,6 +9,6 @@ aliases:
   - olliewalsh
   - stuggi
   storage-approvers:
-  - Akrog
   - ASBishop
   - eharney
+  - fmount
