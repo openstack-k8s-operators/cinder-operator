@@ -9,8 +9,6 @@
         - cinder-operator-kuttl:
             dependencies:
               - openstack-k8s-operators-content-provider
-            voting: false
         - cinder-operator-tempest:
             dependencies:
               - openstack-k8s-operators-content-provider
-            voting: false
