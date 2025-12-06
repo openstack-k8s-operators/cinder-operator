@@ -749,6 +749,17 @@ func (in *CinderSpec) DeepCopyInto(out *CinderSpec) {
 	in.CinderAPI.DeepCopyInto(&out.CinderAPI)
 	in.CinderScheduler.DeepCopyInto(&out.CinderScheduler)
 	in.CinderBackup.DeepCopyInto(&out.CinderBackup)
+	if in.CinderBackups != nil {
+		in, out := &in.CinderBackups, &out.CinderBackups
+		*out = new(map[string]CinderBackupTemplate)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make(map[string]CinderBackupTemplate, len(*in))
+			for key, val := range *in {
+				(*out)[key] = *val.DeepCopy()
+			}
+		}
+	}
 	if in.CinderVolumes != nil {
 		in, out := &in.CinderVolumes, &out.CinderVolumes
 		*out = make(map[string]CinderVolumeTemplate, len(*in))
@@ -820,6 +831,17 @@ func (in *CinderSpecCore) DeepCopyInto(out *CinderSpecCore) {
 	in.CinderAPI.DeepCopyInto(&out.CinderAPI)
 	in.CinderScheduler.DeepCopyInto(&out.CinderScheduler)
 	in.CinderBackup.DeepCopyInto(&out.CinderBackup)
+	if in.CinderBackups != nil {
+		in, out := &in.CinderBackups, &out.CinderBackups
+		*out = new(map[string]CinderBackupTemplateCore)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make(map[string]CinderBackupTemplateCore, len(*in))
+			for key, val := range *in {
+				(*out)[key] = *val.DeepCopy()
+			}
+		}
+	}
 	if in.CinderVolumes != nil {
 		in, out := &in.CinderVolumes, &out.CinderVolumes
 		*out = make(map[string]CinderVolumeTemplateCore, len(*in))
@@ -882,6 +904,13 @@ func (in *CinderStatus) DeepCopyInto(out *CinderStatus) {
 	if in.ServiceIDs != nil {
 		in, out := &in.ServiceIDs, &out.ServiceIDs
 		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.CinderBackupsReadyCounts != nil {
+		in, out := &in.CinderBackupsReadyCounts, &out.CinderBackupsReadyCounts
+		*out = make(map[string]int32, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}
