@@ -1031,6 +1031,16 @@ func (r *CinderReconciler) generateServiceConfigs(
 	templateParameters["ServicePassword"] = string(ospSecret.Data[instance.Spec.PasswordSelectors.Service])
 	templateParameters["KeystoneInternalURL"] = keystoneInternalURL
 	templateParameters["KeystonePublicURL"] = keystonePublicURL
+
+	// Check for Application Credentials
+	Log := r.GetLogger(ctx)
+	if acData, err := keystonev1.GetApplicationCredentialFromSecret(ctx, h.GetClient(), instance.Namespace, cinder.ServiceName); err != nil {
+		Log.Error(err, "Failed to get ApplicationCredential for service", "service", cinder.ServiceName)
+	} else if acData != nil {
+		templateParameters["ApplicationCredentialID"] = acData.ID
+		templateParameters["ApplicationCredentialSecret"] = acData.Secret
+		Log.Info("Using ApplicationCredentials auth", "service", cinder.ServiceName)
+	}
 	templateParameters["TransportURL"] = transportURLSecretData
 	templateParameters["DatabaseConnection"] = fmt.Sprintf("mysql+pymysql://%s:%s@%s/%s?read_default_file=/etc/my.cnf",
 		databaseAccount.Spec.UserName,
