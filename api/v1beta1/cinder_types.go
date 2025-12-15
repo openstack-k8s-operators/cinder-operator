@@ -128,9 +128,16 @@ type CinderSpecCore struct {
 	// CinderScheduler - Spec definition for the Scheduler service of this Cinder deployment
 	CinderScheduler CinderSchedulerTemplateCore `json:"cinderScheduler"`
 
+	// CinderBackup is DEPRECATED and will be removed in a future release.
+	// Use the separate CinderBackups resource instead.
 	// +kubebuilder:validation:Optional
-	// CinderBackup - Spec definition for the Backup service of this Cinder deployment
+	// +kubebuilder:deprecated:true
+	// +kubebuilder:deprecatedversion:warning="Cinder.Spec.CinderBackup is deprecated, use CinderBackups instead"
 	CinderBackup CinderBackupTemplateCore `json:"cinderBackup"`
+
+	// +kubebuilder:validation:Optional
+	// CinderBackups - Spec definition for the Backup service of this Cinder deployment
+	CinderBackups *map[string]CinderBackupTemplateCore `json:"cinderBackups,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// CinderVolumes - Map of chosen names to spec definitions for the Volume(s) service(s) of this Cinder deployment
@@ -152,6 +159,10 @@ type CinderSpec struct {
 	// +kubebuilder:validation:Optional
 	// CinderBackup - Spec definition for the Backup service of this Cinder deployment
 	CinderBackup CinderBackupTemplate `json:"cinderBackup"`
+
+	// +kubebuilder:validation:Optional
+	// CinderBackups - Spec definition for the Backup service of this Cinder deployment
+	CinderBackups *map[string]CinderBackupTemplate `json:"cinderBackups,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// CinderVolumes - Map of chosen names to spec definitions for the Volume(s) service(s) of this Cinder deployment
@@ -190,6 +201,9 @@ type CinderStatus struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:default=0
 	CinderBackupReadyCount int32 `json:"cinderBackupReadyCount"`
+
+	// ReadyCounts of Cinder Backup instances
+	CinderBackupsReadyCounts map[string]int32 `json:"cinderBackupsReadyCounts,omitempty"`
 
 	// ReadyCount of Cinder Scheduler instance
 	// +kubebuilder:validation:Minimum=0

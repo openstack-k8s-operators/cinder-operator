@@ -36,7 +36,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
 	common_webhook "github.com/openstack-k8s-operators/lib-common/modules/common/webhook"
 )
 
@@ -89,6 +88,17 @@ func (r *Cinder) Default() {
 		r.Spec.CinderScheduler.ContainerImage = cinderDefaults.SchedulerContainerImageURL
 	}
 
+	if r.Spec.CinderBackups != nil {
+		cinderBackupList := r.Spec.CinderBackups
+		for index, cinderBackup := range *cinderBackupList {
+			if cinderBackup.ContainerImage == "" {
+				cinderBackup.ContainerImage = cinderDefaults.BackupContainerImageURL
+			}
+			// This is required, as the loop variable is a by-value copy
+			(*cinderBackupList)[index] = cinderBackup
+		}
+	}
+
 	for index, cinderVolume := range r.Spec.CinderVolumes {
 		if cinderVolume.ContainerImage == "" {
 			cinderVolume.ContainerImage = cinderDefaults.VolumeContainerImageURL
@@ -125,6 +135,8 @@ func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
 	cinderlog.Info("validate create", "name", r.Name)
 
 	var allErrs field.ErrorList
+	var allWarns admission.Warnings
+
 	basePath := field.NewPath("spec")
 
 	// Validate cinderVolume name is valid
@@ -144,8 +156,9 @@ func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
 		GetCrMaxLengthCorrection(r.Name)) // omit issue with statefulset pod label "controller-revision-hash": "<statefulset_name>-<hash>"
 	allErrs = append(allErrs, err...)
 
-	if err := r.Spec.ValidateCreate(basePath, r.Namespace); err != nil {
-		allErrs = append(allErrs, err...)
+	if warn, errs := r.Spec.ValidateCreate(basePath, r.Namespace); err != nil {
+		allErrs = append(allErrs, errs...)
+		allWarns = append(allWarns, warn...)
 	}
 
 	if len(allErrs) != 0 {
@@ -159,20 +172,35 @@ func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
 
 // ValidateCreate - Exported function wrapping non-exported validate functions,
 // this function can be called externally to validate an cinder spec.
-func (spec *CinderSpec) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
+func (spec *CinderSpec) ValidateCreate(
+	basePath *field.Path,
+	namespace string,
+) ([]string, field.ErrorList) {
 	var allErrs field.ErrorList
+	var allWarns admission.Warnings
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("cinderAPI").Child("override").Child("service"),
 		spec.CinderAPI.Override.Service)...)
 
+	// Cinder Backup validation: it returns errors in case both CinderBackup
+	// and CinderBackups are used, and it throws a warning by default when the
+	// deprecated parameter is used (it is a non blocking issue though)
 	allErrs = append(allErrs, spec.ValidateCinderTopology(basePath, namespace)...)
-	return allErrs
+	bkpWarns, bkpErrs := spec.ValidateCinderBackup(basePath)
+	allErrs = append(allErrs, bkpErrs...)
+	allWarns = append(allWarns, bkpWarns...)
+
+	return allWarns, allErrs
 }
 
-func (spec *CinderSpecCore) ValidateCreate(basePath *field.Path, namespace string) field.ErrorList {
+func (spec *CinderSpecCore) ValidateCreate(
+	basePath *field.Path,
+	namespace string,
+) ([]string, field.ErrorList){
 	var allErrs field.ErrorList
+	var allWarns admission.Warnings
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
@@ -180,7 +208,15 @@ func (spec *CinderSpecCore) ValidateCreate(basePath *field.Path, namespace strin
 		spec.CinderAPI.Override.Service)...)
 
 	allErrs = append(allErrs, spec.ValidateCinderTopology(basePath, namespace)...)
-	return allErrs
+
+	// Cinder Backup validation: it returns errors in case both CinderBackup
+	// and CinderBackups are used, and it throws a warning by default when the
+	// deprecated parameter is used (it is a non blocking issue though)
+	bkpWarns, bkpErrs := spec.ValidateCinderBackup(basePath)
+	allErrs = append(allErrs, bkpErrs...)
+	allWarns = append(allWarns, bkpWarns...)
+
+	return allWarns, allErrs
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -193,6 +229,8 @@ func (r *Cinder) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 	}
 
 	var allErrs field.ErrorList
+	var allWarns admission.Warnings
+
 	basePath := field.NewPath("spec")
 
 	// Validate cinderVolume name is valid
@@ -212,8 +250,9 @@ func (r *Cinder) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 		GetCrMaxLengthCorrection(r.Name)) // omit issue with statefulset pod label "controller-revision-hash": "<statefulset_name>-<hash>"
 	allErrs = append(allErrs, err...)
 
-	if err := r.Spec.ValidateUpdate(oldCinder.Spec, basePath, r.Namespace); err != nil {
+	if warns, err := r.Spec.ValidateUpdate(oldCinder.Spec, basePath, r.Namespace); err != nil {
 		allErrs = append(allErrs, err...)
+		allWarns = append(allWarns, warns...)
 	}
 
 	if len(allErrs) != 0 {
@@ -222,13 +261,19 @@ func (r *Cinder) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 			r.Name, allErrs)
 	}
 
-	return nil, nil
+	return allWarns, nil
 }
 
 // ValidateUpdate - Exported function wrapping non-exported validate functions,
 // this function can be called externally to validate an cinder spec.
-func (spec *CinderSpec) ValidateUpdate(old CinderSpec, basePath *field.Path, namespace string) field.ErrorList {
+func (spec *CinderSpec) ValidateUpdate(
+	old CinderSpec,
+	basePath *field.Path,
+	namespace string,
+) ([]string, field.ErrorList) {
+
 	var allErrs field.ErrorList
+	var allWarns []string
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
@@ -236,11 +281,25 @@ func (spec *CinderSpec) ValidateUpdate(old CinderSpec, basePath *field.Path, nam
 		spec.CinderAPI.Override.Service)...)
 
 	allErrs = append(allErrs, spec.ValidateCinderTopology(basePath, namespace)...)
-	return allErrs
+
+	// Cinder Backup validation: it returns errors in case both CinderBackup
+	// and CinderBackups are used, and it throws a warning by default when the
+	// deprecated parameter is used (it is a non blocking issue though)
+	bkpWarns, bkpErrs := spec.ValidateCinderBackup(basePath)
+	allErrs = append(allErrs, bkpErrs...)
+	allWarns = append(allWarns, bkpWarns...)
+
+	return allWarns, allErrs
 }
 
-func (spec *CinderSpecCore) ValidateUpdate(old CinderSpecCore, basePath *field.Path, namespace string) field.ErrorList {
+func (spec *CinderSpecCore) ValidateUpdate(
+	old CinderSpecCore,
+	basePath *field.Path,
+	namespace string,
+) ([]string, field.ErrorList) {
+
 	var allErrs field.ErrorList
+	var allWarns []string
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
@@ -248,7 +307,15 @@ func (spec *CinderSpecCore) ValidateUpdate(old CinderSpecCore, basePath *field.P
 		spec.CinderAPI.Override.Service)...)
 
 	allErrs = append(allErrs, spec.ValidateCinderTopology(basePath, namespace)...)
-	return allErrs
+
+	// Cinder Backup validation: it returns errors in case both CinderBackup
+	// and CinderBackups are used, and it throws a warning by default when the
+	// deprecated parameter is used (it is a non blocking issue though)
+	bkpWarns, bkpErrs := spec.ValidateCinderBackup(basePath)
+	allErrs = append(allErrs, bkpErrs...)
+	allWarns = append(allWarns, bkpWarns...)
+
+	return allWarns, allErrs
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -327,6 +394,16 @@ func (spec *CinderSpecCore) ValidateCinderTopology(basePath *field.Path, namespa
 		spec.CinderBackup.ValidateTopology(bkPath, namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to an instance of
+	// CinderBackups, fail if a different Namespace is referenced because not
+	// supported
+	if spec.CinderBackups != nil {
+		for k, ms := range *spec.CinderBackups {
+			path := basePath.Child("cinderBackups").Key(k)
+			allErrs = append(allErrs, ms.ValidateTopology(path, namespace)...)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to an instance of
 	// CinderVolumes, fail if a different Namespace is referenced because not
 	// supported
 	for k, ms := range spec.CinderVolumes {
@@ -366,6 +443,16 @@ func (spec *CinderSpec) ValidateCinderTopology(basePath *field.Path, namespace s
 		spec.CinderBackup.ValidateTopology(bkPath, namespace)...)
 
 	// When a TopologyRef CR is referenced with an override to an instance of
+	// CinderBackups, fail if a different Namespace is referenced because not
+	// supported
+	if spec.CinderBackups != nil {
+		for k, ms := range *spec.CinderBackups {
+			path := basePath.Child("cinderBackups").Key(k)
+			allErrs = append(allErrs, ms.ValidateTopology(path, namespace)...)
+		}
+	}
+
+	// When a TopologyRef CR is referenced with an override to an instance of
 	// CinderVolumes, fail if a different Namespace is referenced because not
 	// supported
 	for k, ms := range spec.CinderVolumes {
@@ -373,4 +460,51 @@ func (spec *CinderSpec) ValidateCinderTopology(basePath *field.Path, namespace s
 		allErrs = append(allErrs, ms.ValidateTopology(path, namespace)...)
 	}
 	return allErrs
+}
+
+// TODO: Remove this function when refactoring CinderSpec to include CinderSpecCore
+func (spec *CinderSpec) ValidateCinderBackup(basePath *field.Path) ([]string, field.ErrorList) {
+	var allErrs field.ErrorList
+	var allWarns []string
+
+	// Check if the deprecated field is configured
+	isDeprecatedUsed := spec.CinderBackup.Replicas != nil && *spec.CinderBackup.Replicas > 0
+	// Check if CinderBackup list is configured
+	isCinderBackupListUsed := spec.CinderBackups != nil && len(*spec.CinderBackups) > 0
+
+	// Fail if both cinderBackup (the deprecated field) and cinderBackups (the new list)
+	// are used together
+	if isDeprecatedUsed && isCinderBackupListUsed {
+		errMsg := "Usage of the deprecated 'cinderBackup' is forbidden when 'cinderBackups' is defined."
+		allErrs = append(allErrs, field.Invalid(basePath, "cinderBackup", errMsg))
+	}
+	// Append a warning depending on the cinderBackup field usage
+	if isDeprecatedUsed {
+		warningMsg := "The 'cinderBackup' field is deprecated and will be removed in a future release. Please migrate to 'cinderBackups'."
+		allWarns = append(allWarns, warningMsg)
+	}
+	return allWarns, allErrs
+}
+
+func (spec *CinderSpecCore) ValidateCinderBackup(basePath *field.Path)([]string, field.ErrorList) {
+	var allErrs field.ErrorList
+	var allWarns []string
+
+	// Check if the deprecated field is configured
+	isDeprecatedUsed := spec.CinderBackup.Replicas != nil && *spec.CinderBackup.Replicas > 0
+	// Check if CinderBackup list is configured
+	isCinderBackupListUsed := spec.CinderBackups != nil && len(*spec.CinderBackups) > 0
+
+	// Fail if both cinderBackup (the deprecated field) and cinderBackups (the new list)
+	// are used together
+	if isDeprecatedUsed && isCinderBackupListUsed {
+		errMsg := "Usage of the deprecated 'cinderBackup' is forbidden when the new 'cinderBackups' API is used."
+		allErrs = append(allErrs, field.Invalid(basePath, "cinderBackup", errMsg))
+	}
+	// Append a warning depending on the cinderBackup field usage
+	if isDeprecatedUsed {
+		warningMsg := "The 'cinderBackup' field is deprecated and will be removed in a future release. Please migrate to 'cinderBackups'."
+		allWarns = append(allWarns, warningMsg)
+	}
+	return allWarns, allErrs
 }
