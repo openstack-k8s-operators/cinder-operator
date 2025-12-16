@@ -207,7 +207,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		condition.UnknownCondition(condition.RoleBindingReadyCondition, condition.InitReason, condition.RoleBindingReadyInitMessage),
 	)
 
-	if instance.Spec.NotificationsBusInstance != nil {
+	if instance.Spec.NotificationsBus != nil && instance.Spec.NotificationsBus.Cluster != "" {
 		c := condition.UnknownCondition(
 			condition.NotificationBusInstanceReadyCondition,
 			condition.InitReason,
@@ -539,7 +539,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// create RabbitMQ transportURL CR and get the actual URL from the associated secret that is created
 	//
 
-	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels, "")
+	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels, false, instance.Spec.MessagingBus)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.RabbitMqTransportURLReadyCondition,
@@ -575,19 +575,17 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// associated secret that is created
 	//
 
-	// Request TransportURL when the parameter is provided in the CR
-	// and it does not match with the existing RabbitMqClusterName
-	if instance.Spec.NotificationsBusInstance != nil {
+	// Determine if notifications are enabled by checking NotificationsBus.Cluster
+	// (the webhook defaults this from the deprecated NotificationsBusInstance field)
+	if instance.Spec.NotificationsBus != nil && instance.Spec.NotificationsBus.Cluster != "" {
 		// init .Status.NotificationURLSecret
 		instance.Status.NotificationsURLSecret = ptr.To("")
 
-		// setting notificationBusName to an empty string ensures that we do not
-		// request a new transportURL unless the two spec fields do not match
-		var notificationBusName string
-		if *instance.Spec.NotificationsBusInstance != instance.Spec.RabbitMqClusterName {
-			notificationBusName = *instance.Spec.NotificationsBusInstance
-		}
-		notificationBusInstanceURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels, notificationBusName)
+		// Use NotificationsBus config (never fall back to MessagingBus to ensure separation)
+		notificationsRabbitMqConfig := *instance.Spec.NotificationsBus
+		// A separate TransportURL is always created for notifications,
+		// even when using the same cluster as messaging (to allow different vhost/user)
+		notificationBusInstanceURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels, true, notificationsRabbitMqConfig)
 		if err != nil {
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NotificationBusInstanceReadyCondition,
@@ -605,7 +603,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		*instance.Status.NotificationsURLSecret = notificationBusInstanceURL.Status.SecretName
 
 		if instance.Status.NotificationsURLSecret == nil {
-			Log.Info(fmt.Sprintf("Waiting for NotificationBusInstanceURL %s secret to be created", transportURL.Name))
+			Log.Info(fmt.Sprintf("Waiting for NotificationBusInstanceURL %s secret to be created", notificationBusInstanceURL.Name))
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NotificationBusInstanceReadyCondition,
 				condition.RequestedReason,
@@ -617,7 +615,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		instance.Status.Conditions.MarkTrue(condition.NotificationBusInstanceReadyCondition, condition.NotificationBusInstanceReadyMessage)
 	} else {
 		// make sure we do not have an entry in the status if
-		// .Spec.NotificationsURLSecret is not provided
+		// notifications are not enabled
 		instance.Status.NotificationsURLSecret = nil
 	}
 
@@ -1165,17 +1163,13 @@ func (r *CinderReconciler) generateServiceConfigs(
 
 	var notificationInstanceURLSecret *corev1.Secret
 	if instance.Status.NotificationsURLSecret != nil {
-		// Get a notificationInstanceURLSecret only if rabbitMQ referenced in
-		// the spec is different, otherwise inherits the existing transport_url
-		if instance.Spec.RabbitMqClusterName != *instance.Spec.NotificationsBusInstance {
-			notificationInstanceURLSecret, _, err = secret.GetSecret(ctx, h, *instance.Status.NotificationsURLSecret, instance.Namespace)
-			if err != nil {
-				return err
-			}
-			templateParameters["NotificationsURL"] = string(notificationInstanceURLSecret.Data["transport_url"])
-		} else {
-			templateParameters["NotificationsURL"] = transportURLSecretData
+		// A separate TransportURL is always created for notifications (even when using the same cluster)
+		// to allow different vhost/user configuration for isolation, so always use the dedicated secret
+		notificationInstanceURLSecret, _, err = secret.GetSecret(ctx, h, *instance.Status.NotificationsURLSecret, instance.Namespace)
+		if err != nil {
+			return err
 		}
+		templateParameters["NotificationsURL"] = string(notificationInstanceURLSecret.Data["transport_url"])
 	}
 
 	configTemplates := []util.Template{
@@ -1229,20 +1223,20 @@ func (r *CinderReconciler) transportURLCreateOrUpdate(
 	ctx context.Context,
 	instance *cinderv1beta1.Cinder,
 	serviceLabels map[string]string,
-	rabbitMqClusterName string,
+	isNotifications bool,
+	rabbitMqConfig rabbitmqv1.RabbitMqConfig,
 ) (*rabbitmqv1.TransportURL, controllerutil.OperationResult, error) {
 
-	// Default values used for regular messagingBus transportURL and explicitly
-	// set here to ensure backward compatibility with the previous versions
-	rmqName := fmt.Sprintf("%s-cinder-transport", instance.Name)
-	transportURLName := instance.Spec.RabbitMqClusterName
-
-	// When a rabbitMqClusterName is passed as input (notificationBus use case)
-	// update the default rmqName and transportURLName values
-	if rabbitMqClusterName != "" {
-		rmqName = fmt.Sprintf("%s-cinder-transport-%s", instance.Name, rabbitMqClusterName)
-		transportURLName = rabbitMqClusterName
+	// Set the TransportURL name to ensure uniqueness between messaging and notifications
+	// A separate TransportURL is always created for notifications,
+	// even when using the same cluster/user/vhost as messaging.
+	var rmqName string
+	if isNotifications {
+		rmqName = fmt.Sprintf("%s-cinder-notifications-transport", instance.Name)
+	} else {
+		rmqName = fmt.Sprintf("%s-cinder-transport", instance.Name)
 	}
+
 	transportURL := &rabbitmqv1.TransportURL{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rmqName,
@@ -1252,10 +1246,15 @@ func (r *CinderReconciler) transportURLCreateOrUpdate(
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, transportURL, func() error {
-		transportURL.Spec.RabbitmqClusterName = transportURLName
-
-		err := controllerutil.SetControllerReference(instance, transportURL, r.Scheme)
-		return err
+		// Use the Cluster field from rabbitMqConfig directly
+		transportURL.Spec.RabbitmqClusterName = rabbitMqConfig.Cluster
+		// Always set Username and Vhost to allow clearing/resetting them
+		// The infra-operator TransportURL controller handles empty values:
+		// - Empty Username: uses default cluster admin credentials
+		// - Empty Vhost: defaults to "/" vhost
+		transportURL.Spec.Username = rabbitMqConfig.User
+		transportURL.Spec.Vhost = rabbitMqConfig.Vhost
+		return controllerutil.SetControllerReference(instance, transportURL, r.Scheme)
 	})
 
 	return transportURL, op, err
@@ -1292,7 +1291,7 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, inst
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = cinderAPISpec
 
-		if instance.Spec.NotificationsBusInstance != nil {
+		if instance.Spec.NotificationsBus != nil && instance.Spec.NotificationsBus.Cluster != "" {
 			deployment.Spec.NotificationsURLSecret = *instance.Status.NotificationsURLSecret
 		}
 
@@ -1339,7 +1338,7 @@ func (r *CinderReconciler) schedulerDeploymentCreateOrUpdate(ctx context.Context
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = cinderSchedulerSpec
 
-		if instance.Spec.NotificationsBusInstance != nil {
+		if instance.Spec.NotificationsBus != nil && instance.Spec.NotificationsBus.Cluster != "" {
 			deployment.Spec.NotificationsURLSecret = *instance.Status.NotificationsURLSecret
 		}
 
@@ -1391,7 +1390,7 @@ func (r *CinderReconciler) backupDeploymentCreateOrUpdate(
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = cinderBackupSpec
 
-		if instance.Spec.NotificationsBusInstance != nil {
+		if instance.Spec.NotificationsBus != nil && instance.Spec.NotificationsBus.Cluster != "" {
 			deployment.Spec.NotificationsURLSecret = *instance.Status.NotificationsURLSecret
 		}
 
@@ -1469,7 +1468,7 @@ func (r *CinderReconciler) volumeDeploymentCreateOrUpdate(ctx context.Context, i
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		deployment.Spec = cinderVolumeSpec
 
-		if instance.Spec.NotificationsBusInstance != nil {
+		if instance.Spec.NotificationsBus != nil && instance.Spec.NotificationsBus.Cluster != "" {
 			deployment.Spec.NotificationsURLSecret = *instance.Status.NotificationsURLSecret
 		}
 

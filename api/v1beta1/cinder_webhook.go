@@ -26,6 +26,7 @@ import (
 
 	"golang.org/x/exp/maps"
 
+	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
@@ -111,6 +112,23 @@ func (r *Cinder) Default() {
 
 // Default - set defaults for this Cinder spec
 func (spec *CinderSpecBase) Default() {
+	// Only migrate from deprecated field if the new field is not already set
+	if spec.MessagingBus.Cluster == "" {
+		rabbitmqv1.DefaultRabbitMqConfig(&spec.MessagingBus, spec.RabbitMqClusterName)
+	}
+
+	// Default NotificationsBus if NotificationsBusInstance is specified
+	if spec.NotificationsBusInstance != nil && *spec.NotificationsBusInstance != "" {
+		if spec.NotificationsBus == nil {
+			// Initialize empty NotificationsBus - credentials will be created dynamically
+			// to ensure separation from MessagingBus (RPC and notifications should never share credentials)
+			spec.NotificationsBus = &rabbitmqv1.RabbitMqConfig{}
+		}
+		// Always default the Cluster field from NotificationsBusInstance if it's empty
+		if spec.NotificationsBus.Cluster == "" {
+			rabbitmqv1.DefaultRabbitMqConfig(spec.NotificationsBus, *spec.NotificationsBusInstance)
+		}
+	}
 
 	if spec.DBPurge.Age == 0 {
 		spec.DBPurge.Age = cinderDefaults.DBPurgeAge
@@ -126,6 +144,64 @@ func (spec *CinderSpecBase) Default() {
 // Default - set defaults for this Cinder spec
 func (spec *CinderSpecCore) Default() {
 	spec.CinderSpecBase.Default()
+}
+
+// getDeprecatedFields returns the centralized list of deprecated fields for CinderSpecBase
+func (spec *CinderSpecBase) getDeprecatedFields(old *CinderSpecBase) []common_webhook.DeprecatedFieldUpdate {
+	// Get new field value (handle nil NotificationsBus)
+	var newNotifBusCluster *string
+	if spec.NotificationsBus != nil {
+		newNotifBusCluster = &spec.NotificationsBus.Cluster
+	}
+
+	deprecatedFields := []common_webhook.DeprecatedFieldUpdate{
+		{
+			DeprecatedFieldName: "rabbitMqClusterName",
+			NewFieldPath:        []string{"messagingBus", "cluster"},
+			NewDeprecatedValue:  &spec.RabbitMqClusterName,
+			NewValue:            &spec.MessagingBus.Cluster,
+		},
+		{
+			DeprecatedFieldName: "notificationsBusInstance",
+			NewFieldPath:        []string{"notificationsBus", "cluster"},
+			NewDeprecatedValue:  spec.NotificationsBusInstance,
+			NewValue:            newNotifBusCluster,
+		},
+	}
+
+	// If old spec is provided (UPDATE operation), add old values
+	if old != nil {
+		deprecatedFields[0].OldDeprecatedValue = &old.RabbitMqClusterName
+		deprecatedFields[1].OldDeprecatedValue = old.NotificationsBusInstance
+	}
+
+	return deprecatedFields
+}
+
+// validateDeprecatedFieldsCreate validates deprecated fields during CREATE operations
+func (spec *CinderSpecBase) validateDeprecatedFieldsCreate(basePath *field.Path) ([]string, field.ErrorList) {
+	// Get deprecated fields list (without old values for CREATE)
+	deprecatedFieldsUpdate := spec.getDeprecatedFields(nil)
+
+	// Convert to DeprecatedField list for CREATE validation
+	deprecatedFields := make([]common_webhook.DeprecatedField, len(deprecatedFieldsUpdate))
+	for i, df := range deprecatedFieldsUpdate {
+		deprecatedFields[i] = common_webhook.DeprecatedField{
+			DeprecatedFieldName: df.DeprecatedFieldName,
+			NewFieldPath:        df.NewFieldPath,
+			DeprecatedValue:     df.NewDeprecatedValue,
+			NewValue:            df.NewValue,
+		}
+	}
+
+	return common_webhook.ValidateDeprecatedFieldsCreate(deprecatedFields, basePath), nil
+}
+
+// validateDeprecatedFieldsUpdate validates deprecated fields during UPDATE operations
+func (spec *CinderSpecBase) validateDeprecatedFieldsUpdate(old CinderSpecBase, basePath *field.Path) ([]string, field.ErrorList) {
+	// Get deprecated fields list with old values
+	deprecatedFields := spec.getDeprecatedFields(&old)
+	return common_webhook.ValidateDeprecatedFieldsUpdate(deprecatedFields, basePath)
 }
 
 var _ webhook.Validator = &Cinder{}
@@ -179,6 +255,11 @@ func (spec *CinderSpec) ValidateCreate(
 	var allErrs field.ErrorList
 	var allWarns admission.Warnings
 
+	// Validate deprecated fields using shared helper
+	warns, errs := spec.CinderSpecBase.validateDeprecatedFieldsCreate(basePath)
+	allWarns = append(allWarns, warns...)
+	allErrs = append(allErrs, errs...)
+
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("cinderAPI").Child("override").Child("service"),
@@ -201,6 +282,11 @@ func (spec *CinderSpecCore) ValidateCreate(
 ) ([]string, field.ErrorList) {
 	var allErrs field.ErrorList
 	var allWarns admission.Warnings
+
+	// Validate deprecated fields using shared helper
+	warns, errs := spec.CinderSpecBase.validateDeprecatedFieldsCreate(basePath)
+	allWarns = append(allWarns, warns...)
+	allErrs = append(allErrs, errs...)
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
@@ -275,6 +361,11 @@ func (spec *CinderSpec) ValidateUpdate(
 	var allErrs field.ErrorList
 	var allWarns []string
 
+	// Validate deprecated fields using shared helper
+	warns, errs := spec.CinderSpecBase.validateDeprecatedFieldsUpdate(old.CinderSpecBase, basePath)
+	allWarns = append(allWarns, warns...)
+	allErrs = append(allErrs, errs...)
+
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("cinderAPI").Child("override").Child("service"),
@@ -300,6 +391,11 @@ func (spec *CinderSpecCore) ValidateUpdate(
 
 	var allErrs field.ErrorList
 	var allWarns []string
+
+	// Validate deprecated fields using shared helper
+	warns, errs := spec.CinderSpecBase.validateDeprecatedFieldsUpdate(old.CinderSpecBase, basePath)
+	allWarns = append(allWarns, warns...)
+	allErrs = append(allErrs, errs...)
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
