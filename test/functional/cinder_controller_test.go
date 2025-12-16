@@ -36,6 +36,7 @@ import (
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/internal/cinder"
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
+	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	util "github.com/openstack-k8s-operators/lib-common/modules/common/util"
@@ -1299,44 +1300,6 @@ var _ = Describe("Cinder controller", func() {
 					*cinder.Status.NotificationsURLSecret))
 			}, timeout, interval).Should(Succeed())
 		})
-		It("overrides cinder CR notifications", func() {
-			// add new-rabbit in cinder CR
-			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.NotificationSecretName))
-
-			// update cinder CR to point to the new (dedicated) rabbit instance
-			Eventually(func(g Gomega) {
-				cinder := GetCinder(cinderTest.Instance)
-				*cinder.Spec.NotificationsBusInstance = "rabbitmq-notification"
-				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
-			}, timeout, interval).Should(Succeed())
-
-			th.ExpectCondition(
-				cinderTest.Instance,
-				ConditionGetterFunc(CinderConditionGetter),
-				condition.NotificationBusInstanceReadyCondition,
-				corev1.ConditionTrue,
-			)
-
-			Eventually(func(g Gomega) {
-				cinder := GetCinder(cinderTest.Instance)
-				g.Expect(*cinder.Status.NotificationsURLSecret).ToNot(
-					Equal(cinder.Status.TransportURLSecret))
-			}, timeout, interval).Should(Succeed())
-		})
-
-		It("updates cinder CR and disable notifications", func() {
-			Eventually(func(g Gomega) {
-				cinder := GetCinder(cinderTest.Instance)
-				cinder.Spec.NotificationsBusInstance = nil
-				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
-			}, timeout, interval).Should(Succeed())
-
-			Eventually(func(g Gomega) {
-				cinder := GetCinder(cinderTest.Instance)
-				g.Expect(cinder.Status.NotificationsURLSecret).To(BeNil())
-				g.Expect(cinder.Status.TransportURLSecret).ToNot(Equal(""))
-			}, timeout, interval).Should(Succeed())
-		})
 	})
 	// Run MariaDBAccount suite tests.  these are pre-packaged ginkgo tests
 	// that exercise standard account create / update patterns that should be
@@ -1804,5 +1767,379 @@ var _ = Describe("Cinder Webhook", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 		var statusError *k8s_errors.StatusError
 		Expect(errors.As(err, &statusError)).To(BeFalse())
+	})
+})
+
+var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {
+	var memcachedSpec memcachedv1.MemcachedSpec
+
+	BeforeEach(func() {
+		err := os.Setenv("OPERATOR_TEMPLATES", "../../templates")
+		Expect(err).NotTo(HaveOccurred())
+
+		memcachedSpec = memcachedv1.MemcachedSpec{
+			MemcachedSpecCore: memcachedv1.MemcachedSpecCore{
+				Replicas: ptr.To(int32(3)),
+			},
+		}
+	})
+
+	When("Cinder is created with custom RabbitMQ vhost and user", func() {
+		BeforeEach(func() {
+			spec := GetDefaultCinderSpec()
+			spec["messagingBus"] = map[string]any{
+				"user":  "custom-user",
+				"vhost": "custom-vhost",
+			}
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+
+		It("should create TransportURL with custom vhost and user", func() {
+			Eventually(func(g Gomega) {
+				transportURL := infra.GetTransportURL(cinderTest.CinderTransportURL)
+				g.Expect(transportURL.Spec.Username).To(Equal("custom-user"))
+				g.Expect(transportURL.Spec.Vhost).To(Equal("custom-vhost"))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("Cinder is created with default RabbitMQ configuration", func() {
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, GetDefaultCinderSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+
+		It("should create TransportURL with default vhost and user", func() {
+			Eventually(func(g Gomega) {
+				transportURL := infra.GetTransportURL(cinderTest.CinderTransportURL)
+				g.Expect(transportURL.Spec.Username).To(Equal(""))
+				g.Expect(transportURL.Spec.Vhost).To(Equal(""))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("Cinder is created with only custom RabbitMQ user", func() {
+		BeforeEach(func() {
+			spec := GetDefaultCinderSpec()
+			spec["messagingBus"] = map[string]any{
+				"user": "custom-user-only",
+			}
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+
+		It("should create TransportURL with custom user and default vhost", func() {
+			Eventually(func(g Gomega) {
+				transportURL := infra.GetTransportURL(cinderTest.CinderTransportURL)
+				g.Expect(transportURL.Spec.Username).To(Equal("custom-user-only"))
+				g.Expect(transportURL.Spec.Vhost).To(Equal(""))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("Cinder is created with only custom RabbitMQ vhost", func() {
+		BeforeEach(func() {
+			spec := GetDefaultCinderSpec()
+			spec["messagingBus"] = map[string]any{
+				"vhost": "custom-vhost-only",
+			}
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+
+		It("should create TransportURL with custom vhost and default user", func() {
+			Eventually(func(g Gomega) {
+				transportURL := infra.GetTransportURL(cinderTest.CinderTransportURL)
+				g.Expect(transportURL.Spec.Username).To(Equal(""))
+				g.Expect(transportURL.Spec.Vhost).To(Equal("custom-vhost-only"))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("Cinder RabbitMQ configuration is updated", func() {
+		BeforeEach(func() {
+			spec := GetDefaultCinderSpec()
+			spec["messagingBus"] = map[string]any{
+				"user":  "initial-user",
+				"vhost": "initial-vhost",
+			}
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+
+		It("should update TransportURL when RabbitMQ configuration changes", func() {
+			// Verify initial configuration
+			Eventually(func(g Gomega) {
+				transportURL := infra.GetTransportURL(cinderTest.CinderTransportURL)
+				g.Expect(transportURL.Spec.Username).To(Equal("initial-user"))
+				g.Expect(transportURL.Spec.Vhost).To(Equal("initial-vhost"))
+			}, timeout, interval).Should(Succeed())
+
+			// Update the Cinder CR with new RabbitMQ configuration
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				cinder.Spec.MessagingBus.User = "updated-user"
+				cinder.Spec.MessagingBus.Vhost = "updated-vhost"
+				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// Verify the TransportURL is updated
+			Eventually(func(g Gomega) {
+				transportURL := infra.GetTransportURL(cinderTest.CinderTransportURL)
+				g.Expect(transportURL.Spec.Username).To(Equal("updated-user"))
+				g.Expect(transportURL.Spec.Vhost).To(Equal("updated-vhost"))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("Cinder is created with different RabbitMQ configs for main and notifications", func() {
+		BeforeEach(func() {
+			spec := GetDefaultCinderSpec()
+			spec["messagingBus"] = map[string]any{
+				"user":  "main-user",
+				"vhost": "main-vhost",
+			}
+			spec["notificationsBus"] = map[string]any{
+				"user":  "notifications-user",
+				"vhost": "notifications-vhost",
+			}
+			spec["notificationsBusInstance"] = "rabbitmq-notifications"
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, "rabbitmq-notifications-secret"))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+
+		It("should use different credentials for main and notifications TransportURLs", func() {
+			// Verify main TransportURL has main-specific config
+			Eventually(func(g Gomega) {
+				transportURL := infra.GetTransportURL(cinderTest.CinderTransportURL)
+				g.Expect(transportURL.Spec.Username).To(Equal("main-user"))
+				g.Expect(transportURL.Spec.Vhost).To(Equal("main-vhost"))
+				g.Expect(transportURL.Spec.RabbitmqClusterName).To(Equal(cinderTest.RabbitmqClusterName))
+			}, timeout, interval).Should(Succeed())
+
+			// Verify notifications TransportURL has notifications-specific config
+			notificationsTransportURLName := types.NamespacedName{
+				Namespace: cinderTest.Instance.Namespace,
+				Name:      fmt.Sprintf("%s-cinder-transport-rabbitmq-notifications", cinderTest.Instance.Name),
+			}
+			infra.SimulateTransportURLReady(notificationsTransportURLName)
+
+			Eventually(func(g Gomega) {
+				notificationsTransportURL := infra.GetTransportURL(notificationsTransportURLName)
+				g.Expect(notificationsTransportURL.Spec.Username).To(Equal("notifications-user"))
+				g.Expect(notificationsTransportURL.Spec.Vhost).To(Equal("notifications-vhost"))
+				g.Expect(notificationsTransportURL.Spec.RabbitmqClusterName).To(Equal("rabbitmq-notifications"))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("Cinder is created with notifications bus using default credentials", func() {
+		BeforeEach(func() {
+			spec := GetDefaultCinderSpec()
+			spec["notificationsBusInstance"] = "rabbitmq-notifications"
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, "rabbitmq-notifications-secret"))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+
+		It("should create both TransportURLs with default credentials", func() {
+			// Verify main TransportURL has default config
+			Eventually(func(g Gomega) {
+				transportURL := infra.GetTransportURL(cinderTest.CinderTransportURL)
+				g.Expect(transportURL.Spec.Username).To(Equal(""))
+				g.Expect(transportURL.Spec.Vhost).To(Equal(""))
+			}, timeout, interval).Should(Succeed())
+
+			// Verify notifications TransportURL also has default config
+			notificationsTransportURLName := types.NamespacedName{
+				Namespace: cinderTest.Instance.Namespace,
+				Name:      fmt.Sprintf("%s-cinder-transport-rabbitmq-notifications", cinderTest.Instance.Name),
+			}
+			infra.SimulateTransportURLReady(notificationsTransportURLName)
+
+			Eventually(func(g Gomega) {
+				notificationsTransportURL := infra.GetTransportURL(notificationsTransportURLName)
+				g.Expect(notificationsTransportURL.Spec.Username).To(Equal(""))
+				g.Expect(notificationsTransportURL.Spec.Vhost).To(Equal(""))
+				g.Expect(notificationsTransportURL.Spec.RabbitmqClusterName).To(Equal("rabbitmq-notifications"))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
+
+	When("Cinder notifications are disabled after creation", func() {
+		BeforeEach(func() {
+			spec := GetDefaultCinderSpec()
+			// Start with notifications enabled
+			spec["notificationsBusInstance"] = "rabbitmq-notifications"
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, "rabbitmq-notifications-secret"))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+
+		It("should remove NotificationsURLSecret when notificationsBus is set to empty", func() {
+			// Wait for the notifications TransportURL to be created and simulate it being ready
+			notificationsTransportURLName := types.NamespacedName{
+				Namespace: cinderTest.Instance.Namespace,
+				Name:      fmt.Sprintf("%s-cinder-transport-rabbitmq-notifications", cinderTest.Instance.Name),
+			}
+			Eventually(func(g Gomega) {
+				transportURL := &rabbitmqv1.TransportURL{}
+				err := k8sClient.Get(ctx, notificationsTransportURLName, transportURL)
+				g.Expect(err).ToNot(HaveOccurred())
+			}, timeout, interval).Should(Succeed())
+			infra.SimulateTransportURLReady(notificationsTransportURLName)
+
+			// Verify notifications are enabled
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				g.Expect(cinder.Status.NotificationsURLSecret).ToNot(BeNil())
+				g.Expect(*cinder.Status.NotificationsURLSecret).ToNot(Equal(cinder.Status.TransportURLSecret))
+			}, timeout, interval).Should(Succeed())
+
+			// Now disable notifications by clearing both the deprecated field and the new field
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				cinder.Spec.NotificationsBusInstance = nil
+				cinder.Spec.NotificationsBus = nil
+				g.Expect(k8sClient.Update(ctx, cinder)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// Verify NotificationsURLSecret is now nil
+			Eventually(func(g Gomega) {
+				cinder := GetCinder(cinderTest.Instance)
+				g.Expect(cinder.Status.NotificationsURLSecret).To(BeNil())
+				g.Expect(cinder.Status.TransportURLSecret).ToNot(Equal(""))
+			}, timeout, interval).Should(Succeed())
+		})
 	})
 })
