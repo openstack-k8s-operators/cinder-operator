@@ -525,7 +525,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// create RabbitMQ transportURL CR and get the actual URL from the associated secret that is created
 	//
 
-	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels, "")
+	transportURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels, "", instance.Spec.MessagingBus)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.RabbitMqTransportURLReadyCondition,
@@ -561,19 +561,41 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// associated secret that is created
 	//
 
-	// Request TransportURL when the parameter is provided in the CR
-	// and it does not match with the existing RabbitMqClusterName
-	if instance.Spec.NotificationsBusInstance != nil {
-		// init .Status.NotificationURLSecret
-		instance.Status.NotificationsURLSecret = ptr.To("")
+	// Determine if notifications are enabled by checking both old and new API fields
+	notificationsEnabled := false
+	var notificationBusName string
 
+	// Check deprecated NotificationsBusInstance field first
+	if instance.Spec.NotificationsBusInstance != nil && *instance.Spec.NotificationsBusInstance != "" {
+		notificationsEnabled = true
 		// setting notificationBusName to an empty string ensures that we do not
 		// request a new transportURL unless the two spec fields do not match
-		var notificationBusName string
 		if *instance.Spec.NotificationsBusInstance != instance.Spec.RabbitMqClusterName {
 			notificationBusName = *instance.Spec.NotificationsBusInstance
 		}
-		notificationBusInstanceURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels, notificationBusName)
+	}
+
+	// Check new NotificationsBus.Cluster field (takes precedence)
+	if instance.Spec.NotificationsBus != nil && instance.Spec.NotificationsBus.Cluster != "" {
+		notificationsEnabled = true
+		// setting notificationBusName to an empty string ensures that we do not
+		// request a new transportURL unless the two spec fields do not match
+		if instance.Spec.NotificationsBus.Cluster != instance.Spec.RabbitMqClusterName {
+			notificationBusName = instance.Spec.NotificationsBus.Cluster
+		}
+	}
+
+	// Request TransportURL when notifications are enabled
+	if notificationsEnabled {
+		// init .Status.NotificationURLSecret
+		instance.Status.NotificationsURLSecret = ptr.To("")
+
+		// Use NotificationsBus if specified, otherwise fall back to main MessagingBus config
+		notificationsRabbitMqConfig := instance.Spec.MessagingBus
+		if instance.Spec.NotificationsBus != nil {
+			notificationsRabbitMqConfig = *instance.Spec.NotificationsBus
+		}
+		notificationBusInstanceURL, op, err := r.transportURLCreateOrUpdate(ctx, instance, serviceLabels, notificationBusName, notificationsRabbitMqConfig)
 		if err != nil {
 			instance.Status.Conditions.Set(condition.FalseCondition(
 				condition.NotificationBusInstanceReadyCondition,
@@ -603,7 +625,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		instance.Status.Conditions.MarkTrue(condition.NotificationBusInstanceReadyCondition, condition.NotificationBusInstanceReadyMessage)
 	} else {
 		// make sure we do not have an entry in the status if
-		// .Spec.NotificationsURLSecret is not provided
+		// notifications are not enabled
 		instance.Status.NotificationsURLSecret = nil
 	}
 
@@ -1192,6 +1214,7 @@ func (r *CinderReconciler) transportURLCreateOrUpdate(
 	instance *cinderv1beta1.Cinder,
 	serviceLabels map[string]string,
 	rabbitMqClusterName string,
+	rabbitMqConfig rabbitmqv1.RabbitMqConfig,
 ) (*rabbitmqv1.TransportURL, controllerutil.OperationResult, error) {
 
 	// Default values used for regular messagingBus transportURL and explicitly
@@ -1215,9 +1238,12 @@ func (r *CinderReconciler) transportURLCreateOrUpdate(
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, transportURL, func() error {
 		transportURL.Spec.RabbitmqClusterName = transportURLName
-
-		err := controllerutil.SetControllerReference(instance, transportURL, r.Scheme)
-		return err
+		if rabbitMqConfig.User != "" {
+			transportURL.Spec.Username = rabbitMqConfig.User
+		}
+		// Always set Vhost - empty string means use default "/" vhost
+		transportURL.Spec.Vhost = rabbitMqConfig.Vhost
+		return controllerutil.SetControllerReference(instance, transportURL, r.Scheme)
 	})
 
 	return transportURL, op, err
