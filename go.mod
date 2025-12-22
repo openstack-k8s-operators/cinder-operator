@@ -22,7 +22,10 @@ require (
 	sigs.k8s.io/controller-runtime v0.19.7
 )
 
-require github.com/openstack-k8s-operators/cinder-operator/api v0.0.0-00010101000000-000000000000
+require (
+	github.com/openstack-k8s-operators/cinder-operator/api v0.0.0-00010101000000-000000000000
+	gopkg.in/ini.v1 v1.67.0
+)
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
