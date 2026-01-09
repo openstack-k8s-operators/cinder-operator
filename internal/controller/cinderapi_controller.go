@@ -899,6 +899,15 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	// normal reconcile tasks
 	//
 
+	// Verify Application Credential secret if available (optional)
+	acSecretName := keystonev1.GetACSecretName(cinder.ServiceName)
+	acSecret := types.NamespacedName{Namespace: instance.Namespace, Name: acSecretName}
+	acHash, _, err := secret.VerifySecret(ctx, acSecret, []string{keystonev1.ACIDSecretKey, keystonev1.ACSecretSecretKey}, helper.GetClient(), 0)
+	if err == nil && acHash != "" {
+		// AC secret exists and is valid - add to configVars for hash tracking
+		configVars[acSecretName] = env.SetValue(acHash)
+	}
+
 	//
 	// create hash over all the different input resources to identify if any those changed
 	// and a restart/recreate is required.
@@ -1090,6 +1099,16 @@ func (r *CinderAPIReconciler) generateServiceConfigs(
 
 	templateParameters := map[string]any{
 		"LogFile": cinderapi.LogFile,
+	}
+
+	// Extract Application Credential data from the parent's config-data secret
+	Log := r.GetLogger(ctx)
+	if acID, ok := cinderSecret.Data["ApplicationCredentialID"]; ok && len(acID) > 0 {
+		if acSecret, ok := cinderSecret.Data["ApplicationCredentialSecret"]; ok && len(acSecret) > 0 {
+			templateParameters["ApplicationCredentialID"] = string(acID)
+			templateParameters["ApplicationCredentialSecret"] = string(acSecret)
+			Log.Info("Using ApplicationCredentials auth from parent Cinder CR")
+		}
 	}
 
 	configTemplates := []util.Template{

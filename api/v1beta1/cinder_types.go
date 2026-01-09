@@ -112,6 +112,11 @@ type CinderSpecBase struct {
 	TopologyRef *topologyv1.TopoRef `json:"topologyRef,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Auth - Parameters related to authentication for all Cinder services
+	Auth AuthSpec `json:"auth,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// RabbitMQ instance name used to request a transportURL that is used for
 	// notification purposes
 	NotificationsBusInstance *string `json:"notificationsBusInstance,omitempty"`

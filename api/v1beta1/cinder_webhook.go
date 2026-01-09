@@ -27,8 +27,10 @@ import (
 	"golang.org/x/exp/maps"
 
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
+	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
+	common_webhook "github.com/openstack-k8s-operators/lib-common/modules/common/webhook"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,7 +38,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	common_webhook "github.com/openstack-k8s-operators/lib-common/modules/common/webhook"
 )
 
 // CinderDefaults -
@@ -105,6 +106,10 @@ func (r *Cinder) Default() {
 		}
 		// This is required, as the loop variable is a by-value copy
 		r.Spec.CinderVolumes[index] = cinderVolume
+	}
+	// Default ApplicationCredentialSecret to standard AC secret name if not specified
+	if r.Spec.Auth.ApplicationCredentialSecret == "" {
+		r.Spec.Auth.ApplicationCredentialSecret = keystonev1.GetACSecretName("cinder")
 	}
 	r.Spec.CinderSpecBase.Default()
 }
@@ -198,7 +203,7 @@ func (spec *CinderSpec) ValidateCreate(
 func (spec *CinderSpecCore) ValidateCreate(
 	basePath *field.Path,
 	namespace string,
-) ([]string, field.ErrorList){
+) ([]string, field.ErrorList) {
 	var allErrs field.ErrorList
 	var allWarns admission.Warnings
 
@@ -486,7 +491,7 @@ func (spec *CinderSpec) ValidateCinderBackup(basePath *field.Path) ([]string, fi
 	return allWarns, allErrs
 }
 
-func (spec *CinderSpecCore) ValidateCinderBackup(basePath *field.Path)([]string, field.ErrorList) {
+func (spec *CinderSpecCore) ValidateCinderBackup(basePath *field.Path) ([]string, field.ErrorList) {
 	var allErrs field.ErrorList
 	var allWarns []string
 

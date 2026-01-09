@@ -737,14 +737,27 @@ func (r *CinderVolumeReconciler) generateServiceConfigs(
 	}
 	customData[cinder.CustomServiceConfigSecretsFileName] = customSecrets
 
+	templateParameters := make(map[string]any)
+
+	// Extract Application Credential data from the parent's config-data secret
+	Log := r.GetLogger(ctx)
+	if acID, ok := cinderSecret.Data["ApplicationCredentialID"]; ok && len(acID) > 0 {
+		if acSecret, ok := cinderSecret.Data["ApplicationCredentialSecret"]; ok && len(acSecret) > 0 {
+			templateParameters["ApplicationCredentialID"] = string(acID)
+			templateParameters["ApplicationCredentialSecret"] = string(acSecret)
+			Log.Info("Using ApplicationCredentials auth")
+		}
+	}
+
 	configTemplates := []util.Template{
 		{
-			Name:         fmt.Sprintf("%s-config-data", instance.Name),
-			Namespace:    instance.Namespace,
-			Type:         util.TemplateTypeConfig,
-			InstanceType: instance.Kind,
-			CustomData:   customData,
-			Labels:       labels,
+			Name:          fmt.Sprintf("%s-config-data", instance.Name),
+			Namespace:     instance.Namespace,
+			Type:          util.TemplateTypeConfig,
+			InstanceType:  instance.Kind,
+			CustomData:    customData,
+			ConfigOptions: templateParameters,
+			Labels:        labels,
 		},
 	}
 
