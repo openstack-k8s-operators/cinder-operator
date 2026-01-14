@@ -297,10 +297,10 @@ var _ = Describe("Cinder controller", func() {
 			Expect(section).ShouldNot(BeNil(), "Should find [nova] section")
 			Expect(section.Key("region_name").String()).Should(Equal(testRegion))
 
-			// Verify region_name in [barbican]
+			// Verify barbican_region_name in [barbican]
 			section = cfg.Section("barbican")
 			Expect(section).ShouldNot(BeNil(), "Should find [barbican] section")
-			Expect(section.Key("region_name").String()).Should(Equal(testRegion))
+			Expect(section.Key("barbican_region_name").String()).Should(Equal(testRegion))
 		})
 	})
 	When("Cinder CR is created without container images defined", func() {
