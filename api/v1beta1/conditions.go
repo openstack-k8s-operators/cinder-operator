@@ -32,6 +32,9 @@ const (
 
 	// CinderVolumeReadyCondition Status=True condition which indicates if the CinderVolume is configured and operational
 	CinderVolumeReadyCondition condition.Type = "CinderVolumeReady"
+
+	// CinderNotificationBusReadyCondition Status=True condition which indicates if the NotificationBus is configured
+	CinderNotificationBusReadyCondition condition.Type = "CinderNotificationBusReady"
 )
 
 // Cinder Reasons used by API objects.
@@ -77,4 +80,19 @@ const (
 
 	// CinderVolumeReadyRunningMessage
 	CinderVolumeReadyRunningMessage = "CinderVolume deployments in progress"
+
+	//
+	// CinderNotificationBusReady condition messages
+	//
+	// CinderNotificationBusReadyInitMessage
+	CinderNotificationBusReadyInitMessage = "CinderNotificationBus not started"
+
+	// CinderNotificationBusReadyRunningMessage
+	CinderNotificationBusReadyRunningMessage = "CinderNotificationBus creation in progress"
+
+	// CinderNotificationBusReadyMessage
+	CinderNotificationBusReadyMessage = "CinderNotificationBus successfully created"
+
+	// CinderNotificationBusReadyErrorMessage
+	CinderNotificationBusReadyErrorMessage = "CinderNotificationBus error occured %s"
 )
