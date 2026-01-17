@@ -24,7 +24,7 @@ require (
 
 require (
 	github.com/openstack-k8s-operators/cinder-operator/api v0.0.0-00010101000000-000000000000
-	gopkg.in/ini.v1 v1.67.0
+	gopkg.in/ini.v1 v1.67.1
 )
 
 require (
