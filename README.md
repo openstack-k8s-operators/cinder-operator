@@ -102,6 +102,8 @@ oc exec -t openstackclient -- openstack compute service list
 - [Configure Cinder with additional networks](docs/additional_network.md)
 - [Expose Cinder API to an isolated network](docs/api_isolated_network.md)
 - [Configure Cinder with Ceph backend](docs/ceph_backend.md)
+- [Customize httpd](config/samples/httpd-overrides): inject custom httpd
+  configuration through extraMounts interface
 - [Contributing](CONTRIBUTING.md)
 
 ## Troubleshooting
