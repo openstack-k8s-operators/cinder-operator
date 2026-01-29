@@ -9,7 +9,8 @@ spec:
     debug = true
   databaseInstance: openstack
   databaseAccount: cinder
-  rabbitMqClusterName: rabbitmq
+  messagingBus:
+    cluster: rabbitmq
   cinderAPI:
     replicas: 1
   cinderScheduler:

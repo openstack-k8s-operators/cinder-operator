@@ -26,7 +26,6 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
@@ -112,23 +111,14 @@ func (r *Cinder) Default() {
 
 // Default - set defaults for this Cinder spec
 func (spec *CinderSpecBase) Default() {
-	// Only migrate from deprecated field if the new field is not already set
+	// Default MessagingBus.Cluster if not set
+	// Migration from deprecated fields is handled by openstack-operator
 	if spec.MessagingBus.Cluster == "" {
-		rabbitmqv1.DefaultRabbitMqConfig(&spec.MessagingBus, spec.RabbitMqClusterName)
+		spec.MessagingBus.Cluster = "rabbitmq"
 	}
 
-	// Default NotificationsBus if NotificationsBusInstance is specified
-	if spec.NotificationsBusInstance != nil && *spec.NotificationsBusInstance != "" {
-		if spec.NotificationsBus == nil {
-			// Initialize empty NotificationsBus - credentials will be created dynamically
-			// to ensure separation from MessagingBus (RPC and notifications should never share credentials)
-			spec.NotificationsBus = &rabbitmqv1.RabbitMqConfig{}
-		}
-		// Always default the Cluster field from NotificationsBusInstance if it's empty
-		if spec.NotificationsBus.Cluster == "" {
-			rabbitmqv1.DefaultRabbitMqConfig(spec.NotificationsBus, *spec.NotificationsBusInstance)
-		}
-	}
+	// NotificationsBus.Cluster is not defaulted - it must be explicitly set if NotificationsBus is configured
+	// This ensures users make a conscious choice about which cluster to use for notifications
 
 	if spec.DBPurge.Age == 0 {
 		spec.DBPurge.Age = cinderDefaults.DBPurgeAge

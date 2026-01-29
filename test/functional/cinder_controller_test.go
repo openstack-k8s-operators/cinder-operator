@@ -89,7 +89,7 @@ var _ = Describe("Cinder controller", func() {
 			Expect(Cinder.Spec.DatabaseInstance).Should(Equal("openstack"))
 			Expect(Cinder.Spec.DatabaseAccount).Should(Equal(cinderTest.CinderDataBaseAccount))
 			Expect(Cinder.Spec.MemcachedInstance).Should(Equal(cinderTest.MemcachedInstance))
-			Expect(Cinder.Spec.RabbitMqClusterName).Should(Equal(cinderTest.RabbitmqClusterName))
+			Expect(Cinder.Spec.MessagingBus.Cluster).Should(Equal(cinderTest.RabbitmqClusterName))
 			Expect(Cinder.Spec.ServiceUser).Should(Equal(cinderTest.CinderServiceUser))
 		})
 		It("should have the Status fields initialized", func() {
@@ -467,9 +467,11 @@ var _ = Describe("Cinder controller", func() {
 			}
 
 			rawSpec := map[string]any{
-				"secret":              SecretName,
-				"databaseInstance":    "openstack",
-				"rabbitMqClusterName": "rabbitmq",
+				"secret":           SecretName,
+				"databaseInstance": "openstack",
+				"messagingBus": map[string]any{
+					"cluster": "rabbitmq",
+				},
 				"cinderAPI": map[string]any{
 					"containerImage":     cinderv1.CinderAPIContainerImage,
 					"networkAttachments": []string{"internalapi"},
@@ -1232,10 +1234,12 @@ var _ = Describe("Cinder controller", func() {
 	When("Cinder CR instance is built with ExtraMounts", func() {
 		BeforeEach(func() {
 			rawSpec := map[string]any{
-				"secret":              SecretName,
-				"databaseInstance":    "openstack",
-				"rabbitMqClusterName": "rabbitmq",
-				"extraMounts":         GetExtraMounts(),
+				"secret":           SecretName,
+				"databaseInstance": "openstack",
+				"messagingBus": map[string]any{
+					"cluster": "rabbitmq",
+				},
+				"extraMounts": GetExtraMounts(),
 				"cinderAPI": map[string]any{
 					"containerImage": cinderv1.CinderAPIContainerImage,
 				},
@@ -1296,10 +1300,14 @@ var _ = Describe("Cinder controller", func() {
 	When("Cinder instance has notifications enabled", func() {
 		BeforeEach(func() {
 			rawSpec := map[string]any{
-				"secret":                   SecretName,
-				"databaseInstance":         "openstack",
-				"rabbitMqClusterName":      "rabbitmq",
-				"notificationsBusInstance": "rabbitmq",
+				"secret":           SecretName,
+				"databaseInstance": "openstack",
+				"messagingBus": map[string]any{
+					"cluster": "rabbitmq",
+				},
+				"notificationsBus": map[string]any{
+					"cluster": "rabbitmq",
+				},
 				"cinderAPI": map[string]any{
 					"containerImage": cinderv1.CinderAPIContainerImage,
 				},
@@ -2232,10 +2240,10 @@ var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {
 				"vhost": "main-vhost",
 			}
 			spec["notificationsBus"] = map[string]any{
-				"user":  "notifications-user",
-				"vhost": "notifications-vhost",
+				"cluster": "rabbitmq-notifications",
+				"user":    "notifications-user",
+				"vhost":   "notifications-vhost",
 			}
-			spec["notificationsBusInstance"] = "rabbitmq-notifications"
 			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
 			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
 			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, "rabbitmq-notifications-secret"))
@@ -2285,7 +2293,9 @@ var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {
 	When("Cinder is created with notifications bus using default credentials", func() {
 		BeforeEach(func() {
 			spec := GetDefaultCinderSpec()
-			spec["notificationsBusInstance"] = "rabbitmq-notifications"
+			spec["notificationsBus"] = map[string]any{
+				"cluster": "rabbitmq-notifications",
+			}
 			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
 			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
 			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, "rabbitmq-notifications-secret"))
@@ -2407,7 +2417,9 @@ var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {
 		BeforeEach(func() {
 			spec := GetDefaultCinderSpec()
 			// Start with notifications enabled
-			spec["notificationsBusInstance"] = "rabbitmq-notifications"
+			spec["notificationsBus"] = map[string]any{
+				"cluster": "rabbitmq-notifications",
+			}
 			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
 			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
 			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, "rabbitmq-notifications-secret"))
