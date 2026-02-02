@@ -115,6 +115,11 @@ type CinderSpecBase struct {
 	// RabbitMQ instance name used to request a transportURL that is used for
 	// notification purposes
 	NotificationsBusInstance *string `json:"notificationsBusInstance,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Auth - Parameters related to authentication
+	Auth AuthSpec `json:"auth,omitempty"`
 }
 
 // CinderSpecCore the same as CinderSpec without ContainerImage references

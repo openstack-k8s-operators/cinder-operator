@@ -30,6 +30,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -38,9 +39,11 @@ import (
 	"github.com/openstack-k8s-operators/cinder-operator/internal/cinder"
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
+	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	util "github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
+	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
 )
 
 var _ = Describe("Cinder controller", func() {
@@ -1852,5 +1855,185 @@ var _ = Describe("Cinder Webhook", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 		var statusError *k8s_errors.StatusError
 		Expect(errors.As(err, &statusError)).To(BeFalse())
+	})
+
+	When("An ApplicationCredential is created for Cinder", func() {
+		var (
+			acName       string
+			acSecretName string
+		)
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateCinderMessageBusSecret(
+					cinderTest.Instance.Namespace,
+					cinderTest.RabbitmqSecretName,
+				),
+			)
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateCinderSecret(
+					cinderTest.Instance.Namespace, ACTestServicePasswordSecret))
+
+			acName = fmt.Sprintf("ac-%s", cinder.ServiceName)
+			acSecretName = acName + "-secret"
+
+			// Create AC secret using helper
+			DeferCleanup(k8sClient.Delete, ctx, CreateACSecret(cinderTest.Instance.Namespace, acSecretName))
+
+			// Create Cinder with AC using helper
+			spec := GetCinderSpecWithAC(acSecretName)
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}}}))
+			DeferCleanup(keystone.DeleteKeystoneAPI,
+				keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace),
+			)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(cinderTest.Instance.Namespace, MemcachedInstance, memcachedv1.MemcachedSpec{}))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+
+			// Create MariaDB account and database
+			acc, accSecret := mariadb.CreateMariaDBAccountAndSecret(cinderTest.Database, mariadbv1.MariaDBAccountSpec{})
+			DeferCleanup(k8sClient.Delete, ctx, acc)
+			DeferCleanup(k8sClient.Delete, ctx, accSecret)
+			mariadb.CreateMariaDBDatabase(cinderTest.Database.Namespace, cinderTest.Database.Name, mariadbv1.MariaDBDatabaseSpec{})
+			DeferCleanup(k8sClient.Delete, ctx, mariadb.GetMariaDBDatabase(cinderTest.Database))
+
+			// Create AC using helper
+			ac := GetDefaultCinderAC(cinderTest.Instance.Namespace, acName)
+			DeferCleanup(k8sClient.Delete, ctx, ac)
+			Expect(k8sClient.Create(ctx, ac)).To(Succeed())
+
+			fetched := GetKeystoneAC(types.NamespacedName{Namespace: ac.Namespace, Name: ac.Name})
+
+			fetched.Status.SecretName = acSecretName
+			now := metav1.Now()
+			readyCond := condition.Condition{
+				Type:               condition.ReadyCondition,
+				Status:             corev1.ConditionTrue,
+				Reason:             condition.ReadyReason,
+				Message:            condition.ReadyMessage,
+				LastTransitionTime: now,
+			}
+			fetched.Status.Conditions = condition.Conditions{readyCond}
+			Expect(k8sClient.Status().Update(ctx, fetched)).To(Succeed())
+
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+		})
+
+		It("should render ApplicationCredential auth in CinderAPI config", func() {
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			// Verify Cinder has AC configured at top level
+			Eventually(func(g Gomega) {
+				cinderInstance := GetCinder(cinderTest.Instance)
+				g.Expect(cinderInstance).NotTo(BeNil())
+				g.Expect(cinderInstance.Spec.Auth.ApplicationCredentialSecret).To(Equal(acSecretName))
+			}, timeout, interval).Should(Succeed())
+
+			// Check Cinder config secret for AC auth
+			Eventually(func(g Gomega) {
+				configSecretName := types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      cinderTest.Instance.Name + "-config-data",
+				}
+				cfgSecret := th.GetSecret(configSecretName)
+				g.Expect(cfgSecret).NotTo(BeNil())
+
+				conf := string(cfgSecret.Data["00-global-defaults.conf"])
+
+				// AC auth is configured
+				g.Expect(conf).To(ContainSubstring("auth_type = v3applicationcredential"))
+				g.Expect(conf).To(ContainSubstring("application_credential_id = test-ac-id"))
+				g.Expect(conf).To(ContainSubstring("application_credential_secret = test-ac-secret"))
+
+				// Password auth fields should not be present
+				g.Expect(conf).NotTo(ContainSubstring("auth_type = password"))
+				g.Expect(conf).NotTo(ContainSubstring("username = cinder"))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should update config when AC secret is updated", func() {
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			// Wait for initial AC config
+			Eventually(func(g Gomega) {
+				configSecretName := types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      cinderTest.Instance.Name + "-config-data",
+				}
+				cfgSecret := th.GetSecret(configSecretName)
+				g.Expect(cfgSecret).NotTo(BeNil())
+				conf := string(cfgSecret.Data["00-global-defaults.conf"])
+				g.Expect(conf).To(ContainSubstring("application_credential_id = test-ac-id"))
+			}, timeout, interval).Should(Succeed())
+
+			// Update the AC secret with new values
+			secret := th.GetSecret(types.NamespacedName{
+				Namespace: cinderTest.Instance.Namespace,
+				Name:      acSecretName,
+			})
+			secret.Data[keystonev1.ACIDSecretKey] = []byte("updated-ac-id")
+			secret.Data[keystonev1.ACSecretSecretKey] = []byte("updated-ac-secret")
+			Expect(k8sClient.Update(ctx, &secret)).Should(Succeed())
+
+			// Verify config is updated with new values
+			Eventually(func(g Gomega) {
+				configSecretName := types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      cinderTest.Instance.Name + "-config-data",
+				}
+				cfgSecret := th.GetSecret(configSecretName)
+				g.Expect(cfgSecret).NotTo(BeNil())
+				conf := string(cfgSecret.Data["00-global-defaults.conf"])
+				g.Expect(conf).To(ContainSubstring("application_credential_id = updated-ac-id"))
+				g.Expect(conf).To(ContainSubstring("application_credential_secret = updated-ac-secret"))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should fallback to password auth when AC is removed", func() {
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			// Wait for initial AC config
+			Eventually(func(g Gomega) {
+				configSecretName := types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      cinderTest.Instance.Name + "-config-data",
+				}
+				cfgSecret := th.GetSecret(configSecretName)
+				g.Expect(cfgSecret).NotTo(BeNil())
+				conf := string(cfgSecret.Data["00-global-defaults.conf"])
+				g.Expect(conf).To(ContainSubstring("auth_type = v3applicationcredential"))
+			}, timeout, interval).Should(Succeed())
+
+			// Remove AC secret reference from Cinder CR
+			Eventually(func(g Gomega) {
+				cinderInstance := GetCinder(cinderTest.Instance)
+				cinderInstance.Spec.Auth.ApplicationCredentialSecret = ""
+				g.Expect(k8sClient.Update(ctx, cinderInstance)).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// Verify config falls back to password auth
+			Eventually(func(g Gomega) {
+				configSecretName := types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      cinderTest.Instance.Name + "-config-data",
+				}
+				cfgSecret := th.GetSecret(configSecretName)
+				g.Expect(cfgSecret).NotTo(BeNil())
+				conf := string(cfgSecret.Data["00-global-defaults.conf"])
+				g.Expect(conf).To(ContainSubstring("auth_type = password"))
+				g.Expect(conf).NotTo(ContainSubstring("auth_type = v3applicationcredential"))
+			}, timeout, interval).Should(Succeed())
+		})
 	})
 })

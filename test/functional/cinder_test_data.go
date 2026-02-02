@@ -37,6 +37,10 @@ const (
 	CinderCephExtraMountsPath = "/etc/ceph"
 	// CinderCephExtraMountsSecretName -
 	CinderCephExtraMountsSecretName = "ceph"
+	// ACTestServicePasswordSecret - secret name for AC test service password
+	ACTestServicePasswordSecret = "ac-test-osp-secret" // #nosec G101
+	// ACTestPasswordSelector - password selector for AC test
+	ACTestPasswordSelector = "CinderPassword"
 )
 
 // CinderTestData is the data structure used to provide input data to envTest

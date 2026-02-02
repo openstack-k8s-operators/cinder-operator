@@ -61,6 +61,14 @@ type APIOverrideSpec struct {
 	Service map[service.Endpoint]service.RoutedOverrideSpec `json:"service,omitempty"`
 }
 
+// AuthSpec defines authentication parameters
+type AuthSpec struct {
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// ApplicationCredentialSecret - Secret containing Application Credential ID and Secret
+	ApplicationCredentialSecret string `json:"applicationCredentialSecret,omitempty"`
+}
+
 // CinderAPISpec defines the desired state of CinderAPI
 type CinderAPISpec struct {
 	// Common input parameters for all Cinder services
