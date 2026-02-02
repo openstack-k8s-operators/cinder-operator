@@ -44,6 +44,8 @@ var (
 	ErrNetworkAttachmentNotFound = errors.New("network-attachment-definition not found")
 	ErrStatefulSetWaiting        = errors.New("waiting for StatefulSet to start reconciling")
 	ErrNetworkAttachmentConfig   = errors.New("not all pods have interfaces with ips as configured in NetworkAttachments")
+	ErrACSecretNotFound          = errors.New("ApplicationCredential secret not found")
+	ErrACSecretMissingKeys       = errors.New("ApplicationCredential secret missing required keys")
 )
 
 type conditionUpdater interface {
