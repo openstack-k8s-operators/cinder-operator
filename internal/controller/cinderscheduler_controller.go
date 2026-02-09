@@ -584,7 +584,16 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	}
 
 	// Deploy a statefulset
-	ssDef := cinderscheduler.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, topology, memcached)
+	ssDef, err := cinderscheduler.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, topology, memcached)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DeploymentReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DeploymentReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
 	ss := statefulset.NewStatefulSet(ssDef, cinder.ShortDuration)
 
 	var ssData appsv1.StatefulSet

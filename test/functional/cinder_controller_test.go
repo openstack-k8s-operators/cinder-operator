@@ -2027,6 +2027,114 @@ var _ = Describe("Cinder Webhook", func() {
 			}, timeout, interval).Should(Succeed())
 		})
 	})
+
+	When("Cinder CR instance is built with custom probes", func() {
+		stsOverride := GetProbeConfOverrides()
+		BeforeEach(func() {
+			spec := GetDefaultCinderSpec()
+
+			spec["cinderAPI"] = map[string]any{
+				"override": map[string]any{
+					"probes": map[string]any{
+						"livenessProbes":  stsOverride,
+						"readinessProbes": stsOverride,
+					},
+				},
+			}
+			spec["cinderScheduler"] = map[string]any{
+				"override": map[string]any{
+					"probes": map[string]any{
+						"livenessProbes": stsOverride,
+						// StartupProbes are set to the default values as no
+						// overrides are provided
+					},
+				},
+			}
+			spec["cinderVolumes"] = map[string]any{
+				"volume1": map[string]any{
+					"override": map[string]any{
+						"probes": map[string]any{
+							"livenessProbes": stsOverride,
+							// StartupProbes are set to the default values as no
+							// overrides are provided
+						},
+					},
+				},
+			}
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderName).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedv1.MemcachedSpec{}))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
+		})
+		It("Check the resulting probes generated in the statefulSet", func() {
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+			// Check CinderAPI
+			Eventually(func(g Gomega) {
+				apiContainer := th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.Containers[1]
+				g.Expect(apiContainer.LivenessProbe).ToNot(BeNil())
+				g.Expect(apiContainer.LivenessProbe.HTTPGet.Path).To(Equal(stsOverride["path"]))
+				g.Expect(apiContainer.LivenessProbe.InitialDelaySeconds).To(Equal(stsOverride["initialDelaySeconds"]))
+				g.Expect(apiContainer.LivenessProbe.TimeoutSeconds).To(Equal(stsOverride["timeoutSeconds"]))
+				g.Expect(apiContainer.LivenessProbe.PeriodSeconds).To(Equal(stsOverride["periodSeconds"]))
+				g.Expect(apiContainer.StartupProbe).To(BeNil())
+				g.Expect(apiContainer.LivenessProbe).ToNot(BeNil())
+				g.Expect(apiContainer.ReadinessProbe.InitialDelaySeconds).To(Equal(stsOverride["initialDelaySeconds"]))
+				g.Expect(apiContainer.ReadinessProbe.TimeoutSeconds).To(Equal(stsOverride["timeoutSeconds"]))
+				g.Expect(apiContainer.ReadinessProbe.PeriodSeconds).To(Equal(stsOverride["periodSeconds"]))
+			}, timeout, interval).Should(Succeed())
+			// Check CinderScheduler
+			Eventually(func(g Gomega) {
+				schedContainer := th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.Containers[0]
+				g.Expect(schedContainer.LivenessProbe).ToNot(BeNil())
+				g.Expect(schedContainer.LivenessProbe.HTTPGet.Path).To(Equal("/healthcheck"))
+				g.Expect(schedContainer.LivenessProbe.InitialDelaySeconds).To(Equal(int32(20)))
+				g.Expect(schedContainer.LivenessProbe.TimeoutSeconds).To(Equal(int32(30)))
+				g.Expect(schedContainer.LivenessProbe.PeriodSeconds).To(Equal(int32(10)))
+				g.Expect(schedContainer.ReadinessProbe).To(BeNil())
+				// We do not override StartupProbes and we apply the defaults defined in the cinder-operator
+				g.Expect(schedContainer.StartupProbe.InitialDelaySeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.InitialDelaySeconds)))
+				g.Expect(schedContainer.StartupProbe.TimeoutSeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.TimeoutSeconds)))
+				g.Expect(schedContainer.StartupProbe.PeriodSeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.PeriodSeconds)))
+				g.Expect(schedContainer.StartupProbe.FailureThreshold).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.FailureThreshold)))
+			}, timeout, interval).Should(Succeed())
+			// Check CinderVolume
+			Eventually(func(g Gomega) {
+				volContainer := th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.Containers[0]
+				g.Expect(volContainer.LivenessProbe).ToNot(BeNil())
+				g.Expect(volContainer.LivenessProbe.HTTPGet.Path).To(Equal("/healthcheck"))
+				g.Expect(volContainer.LivenessProbe.InitialDelaySeconds).To(Equal(int32(20)))
+				g.Expect(volContainer.LivenessProbe.TimeoutSeconds).To(Equal(int32(30)))
+				g.Expect(volContainer.LivenessProbe.PeriodSeconds).To(Equal(int32(10)))
+				g.Expect(volContainer.ReadinessProbe).To(BeNil())
+				// We do not override StartupProbes and we apply the defaults defined in the cinder-operator
+				g.Expect(volContainer.StartupProbe.InitialDelaySeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.InitialDelaySeconds)))
+				g.Expect(volContainer.StartupProbe.TimeoutSeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.TimeoutSeconds)))
+				g.Expect(volContainer.StartupProbe.PeriodSeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.PeriodSeconds)))
+				g.Expect(volContainer.StartupProbe.FailureThreshold).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.FailureThreshold)))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
 })
 
 var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {

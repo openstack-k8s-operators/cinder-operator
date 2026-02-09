@@ -21,7 +21,14 @@ import (
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/probes"
 )
+
+// CinderBackupOverrideSpec to override the generated manifest of several child resources.
+type BackupOverrideSpec struct {
+	// Override probes and other common fields in the StatefulSet
+	Probes probes.OverrideSpec `json:"probes,omitempty"`
+}
 
 // CinderBackupTemplate defines the input parameters for the Cinder Backup service
 type CinderBackupTemplateCore struct {
@@ -33,6 +40,10 @@ type CinderBackupTemplateCore struct {
 	// +kubebuilder:validation:Minimum=0
 	// Replicas - Cinder Backup Replicas
 	Replicas *int32 `json:"replicas"`
+
+	// +kubebuilder:validation:Optional
+	// Override, provides the ability to override the generated manifest of several child resources.
+	Override BackupOverrideSpec `json:"override,omitempty"`
 }
 
 // CinderBackupTemplate defines the input parameters for the Cinder Backup service
