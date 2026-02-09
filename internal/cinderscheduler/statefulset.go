@@ -22,10 +22,10 @@ import (
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 
+	"github.com/openstack-k8s-operators/lib-common/modules/common/probes"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -41,32 +41,27 @@ func StatefulSet(
 	annotations map[string]string,
 	topology *topologyv1.Topology,
 	memcached *memcachedv1.Memcached,
-) *appsv1.StatefulSet {
+) (*appsv1.StatefulSet, error) {
 	cinderUser := int64(cinderv1.CinderUserID)
 	cinderGroup := int64(cinderv1.CinderGroupID)
 
-	// TODO until we determine how to properly query for these
-	livenessProbe := &corev1.Probe{
-		// TODO might need tuning
-		TimeoutSeconds:      5,
-		PeriodSeconds:       3,
-		InitialDelaySeconds: 3,
-	}
+	// Both scheme and port are set according to the healthcheck.py script
+	scheme := corev1.URISchemeHTTP
+	probesPort := int32(8080)
 
-	startupProbe := &corev1.Probe{
-		TimeoutSeconds:      5,
-		FailureThreshold:    12,
-		PeriodSeconds:       5,
-		InitialDelaySeconds: 5,
+	probes, err := probes.CreateProbeSet(
+		probesPort,
+		&scheme,
+		instance.Spec.Override.Probes,
+		cinder.DefaultProbeConf,
+	)
+	// Could not process probes config
+	if err != nil {
+		return nil, err
 	}
 
 	args := []string{"-c", ServiceCommand}
-	var probeCommand []string
-	livenessProbe.HTTPGet = &corev1.HTTPGetAction{
-		Port: intstr.FromInt(8080),
-	}
-	startupProbe.HTTPGet = livenessProbe.HTTPGet
-	probeCommand = []string{
+	probeCommand := []string{
 		"/usr/local/bin/container-scripts/healthcheck.py",
 		"scheduler",
 		"/etc/cinder/cinder.conf.d",
@@ -126,8 +121,8 @@ func StatefulSet(
 							Env:           env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts:  volumeMounts,
 							Resources:     instance.Spec.Resources,
-							LivenessProbe: livenessProbe,
-							StartupProbe:  startupProbe,
+							LivenessProbe: probes.Liveness,
+							StartupProbe:  probes.Startup,
 						},
 						{
 							Name:    "probe",
@@ -159,5 +154,5 @@ func StatefulSet(
 		statefulset.Spec.Template.Spec.Affinity = cinder.GetPodAffinity(ComponentName)
 	}
 
-	return statefulset
+	return statefulset, nil
 }

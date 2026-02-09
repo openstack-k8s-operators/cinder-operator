@@ -21,6 +21,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/openstack-k8s-operators/lib-common/modules/common/probes"
 	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 )
 
@@ -103,3 +104,26 @@ var CinderBackupPropagation = []storage.PropagationType{Cinder, CinderBackup}
 // It allows the CinderVolume pods to mount volumes destined to Cinder and CinderVolume
 // ServiceTypes
 var CinderVolumePropagation = []storage.PropagationType{Cinder, CinderVolume}
+
+// DefaultProbeConf - Default values applied to Cinder StatefulSets when no
+// overrides are provided
+var DefaultProbeConf = probes.OverrideSpec{
+	LivenessProbes: &probes.ProbeConf{
+		Path:                "/healthcheck",
+		TimeoutSeconds:      10,
+		PeriodSeconds:       6,
+		InitialDelaySeconds: 10,
+	},
+	ReadinessProbes: &probes.ProbeConf{
+		Path:                "/healthcheck",
+		TimeoutSeconds:      10,
+		PeriodSeconds:       10,
+		InitialDelaySeconds: 10,
+	},
+	StartupProbes: &probes.ProbeConf{
+		TimeoutSeconds:      10,
+		FailureThreshold:    12,
+		PeriodSeconds:       10,
+		InitialDelaySeconds: 10,
+	},
+}
