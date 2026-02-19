@@ -588,7 +588,16 @@ func (r *CinderVolumeReconciler) reconcileNormal(ctx context.Context, instance *
 	}
 
 	// Deploy a statefulset
-	ssDef := cindervolume.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, usesLVM, topology, memcached)
+	ssDef, err := cindervolume.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, usesLVM, topology, memcached)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DeploymentReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DeploymentReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
 	ss := statefulset.NewStatefulSet(ssDef, cinder.ShortDuration)
 
 	var ssData appsv1.StatefulSet

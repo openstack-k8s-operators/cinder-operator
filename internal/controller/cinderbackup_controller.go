@@ -586,7 +586,16 @@ func (r *CinderBackupReconciler) reconcileNormal(ctx context.Context, instance *
 	}
 
 	// Deploy a statefulset
-	ssDef := cinderbackup.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, topology, memcached)
+	ssDef, err := cinderbackup.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, topology, memcached)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			condition.DeploymentReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DeploymentReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
 	ss := statefulset.NewStatefulSet(ssDef, cinder.ShortDuration)
 
 	var ssData appsv1.StatefulSet
