@@ -443,3 +443,13 @@ func GetKeystoneAC(name types.NamespacedName) *keystonev1.KeystoneApplicationCre
 	}, timeout, interval).Should(Succeed())
 	return instance
 }
+
+// CreateCinderInvalidSecret creates a secret with an invalid password for testing
+func CreateCinderInvalidSecret(namespace string, name string) *corev1.Secret {
+	return th.CreateSecret(
+		types.NamespacedName{Namespace: namespace, Name: name},
+		map[string][]byte{
+			"CinderPassword": []byte(cinderTest.CinderInvalidPassword),
+		},
+	)
+}

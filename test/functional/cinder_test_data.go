@@ -51,6 +51,8 @@ type CinderTestData struct {
 	NotificationSecretName         string
 	CinderDataBaseAccount          string
 	CinderPassword                 string
+	CinderInvalidPassword          string
+	CinderInvalidSecretName        string
 	CinderServiceUser              string
 	DatabaseHostname               string
 	Instance                       types.NamespacedName
@@ -178,10 +180,12 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		MemcachedInstance:      MemcachedInstance,
 		CinderDataBaseAccount:  "cinder",
 		// Password used for both db and service
-		CinderPassword:    "12345678",
-		CinderServiceUser: "cinder",
-		ContainerImage:    "test://cinder",
-		DatabaseHostname:  "database-hostname",
+		CinderPassword:          "12345678",
+		CinderInvalidPassword:   "c^sometext02%text%text02$someText&",
+		CinderInvalidSecretName: "test-osp-secret-invalid",
+		CinderServiceUser:       "cinder",
+		ContainerImage:          "test://cinder",
+		DatabaseHostname:        "database-hostname",
 		CABundleSecret: types.NamespacedName{
 			Namespace: cinderName.Namespace,
 			Name:      CABundleSecretName,
