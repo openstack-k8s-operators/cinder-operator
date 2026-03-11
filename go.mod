@@ -10,7 +10,7 @@ require (
 	github.com/onsi/gomega v1.39.1
 	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20260226150302-364bc9caac2c
 	github.com/openstack-k8s-operators/keystone-operator/api v0.6.1-0.20260226214115-ba279900835f
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20260224071535-c6fd98c589ad
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20260310070607-b96da8dd520e
 	github.com/openstack-k8s-operators/lib-common/modules/storage v0.6.1-0.20260224071535-c6fd98c589ad
 	github.com/openstack-k8s-operators/lib-common/modules/test v0.6.1-0.20260224071535-c6fd98c589ad
 	github.com/openstack-k8s-operators/mariadb-operator/api v0.6.1-0.20260227092325-cf2df81d2ede

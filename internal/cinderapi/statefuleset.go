@@ -21,13 +21,13 @@ import (
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/probes"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -47,34 +47,28 @@ func StatefulSet(
 	runAsUser := int64(0)
 	cinderUser := int64(cinderv1beta1.CinderUserID)
 
-	livenessProbe := &corev1.Probe{
-		// TODO might need tuning
-		TimeoutSeconds:      5,
-		PeriodSeconds:       3,
-		InitialDelaySeconds: 5,
+	scheme := corev1.URISchemeHTTP
+	if instance.Spec.TLS.API.Enabled(service.EndpointPublic) {
+		scheme = corev1.URISchemeHTTPS
 	}
-	readinessProbe := &corev1.Probe{
-		// TODO might need tuning
-		TimeoutSeconds:      5,
-		PeriodSeconds:       5,
-		InitialDelaySeconds: 5,
+
+	// Note that by default we create probes with the same URIScheme and port
+	probes, err := probes.CreateProbeSet(
+		int32(cinder.CinderPublicPort),
+		&scheme,
+		instance.Spec.Override.Probes,
+		cinder.DefaultProbeConf,
+	)
+
+	// Could not process probes config
+	if err != nil {
+		return nil, err
 	}
 
 	args := []string{"-c", ServiceCommand}
 	//
 	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 	//
-	livenessProbe.HTTPGet = &corev1.HTTPGetAction{
-		Path: "/healthcheck",
-		Port: intstr.IntOrString{Type: intstr.Int, IntVal: int32(cinder.CinderPublicPort)},
-	}
-	readinessProbe.HTTPGet = livenessProbe.HTTPGet
-
-	if instance.Spec.TLS.API.Enabled(service.EndpointPublic) {
-		livenessProbe.HTTPGet.Scheme = corev1.URISchemeHTTPS
-		readinessProbe.HTTPGet.Scheme = corev1.URISchemeHTTPS
-	}
-
 	// create Volume and VolumeMounts
 	volumes := GetVolumes(
 		cinder.GetOwningCinderName(instance),
@@ -172,8 +166,8 @@ func StatefulSet(
 							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts:   volumeMounts,
 							Resources:      instance.Spec.Resources,
-							ReadinessProbe: readinessProbe,
-							LivenessProbe:  livenessProbe,
+							ReadinessProbe: probes.Readiness,
+							LivenessProbe:  probes.Liveness,
 						},
 					},
 					Volumes: volumes,

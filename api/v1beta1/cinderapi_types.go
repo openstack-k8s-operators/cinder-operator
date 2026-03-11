@@ -21,6 +21,7 @@ import (
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/probes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -59,6 +60,8 @@ type APIOverrideSpec struct {
 	// Override configuration for the Service created to serve traffic to the cluster.
 	// The key must be the endpoint type (public, internal)
 	Service map[service.Endpoint]service.RoutedOverrideSpec `json:"service,omitempty"`
+	// Override probes and other common fields in the StatefulSet
+	Probes probes.OverrideSpec `json:"probes,omitempty"`
 }
 
 // AuthSpec defines authentication parameters
