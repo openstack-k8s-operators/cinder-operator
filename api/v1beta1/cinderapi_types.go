@@ -103,6 +103,12 @@ type CinderAPISpec struct {
 	// +kubebuilder:default=memcached
 	// Memcached instance name.
 	MemcachedInstance *string `json:"memcachedInstance"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=60
+	// +kubebuilder:validation:Minimum=10
+	// APITimeout for HAProxy, Apache, and rpc_response_timeout
+	APITimeout int `json:"apiTimeout"`
 }
 
 // CinderAPIStatus defines the observed state of CinderAPI

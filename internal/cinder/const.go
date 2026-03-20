@@ -21,7 +21,6 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/openstack-k8s-operators/lib-common/modules/common/probes"
 	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 )
 
@@ -72,6 +71,10 @@ const (
 	// Cinder is the global ServiceType that refers to all the components deployed
 	// by the cinder operator
 	Cinder storage.PropagationType = "Cinder"
+	// CinderServiceDownTime - Maximum time since last check-in for a service
+	// to be considered up. This is based on:
+	// https://opendev.org/openstack/cinder/src/branch/master/cinder/common/config.py#L121
+	CinderServiceDownTime = 60
 
 	// ShortDuration is a short duration for quick retries
 	ShortDuration = time.Duration(5) * time.Second
@@ -104,26 +107,3 @@ var CinderBackupPropagation = []storage.PropagationType{Cinder, CinderBackup}
 // It allows the CinderVolume pods to mount volumes destined to Cinder and CinderVolume
 // ServiceTypes
 var CinderVolumePropagation = []storage.PropagationType{Cinder, CinderVolume}
-
-// DefaultProbeConf - Default values applied to Cinder StatefulSets when no
-// overrides are provided
-var DefaultProbeConf = probes.OverrideSpec{
-	LivenessProbes: &probes.ProbeConf{
-		Path:                "/healthcheck",
-		TimeoutSeconds:      10,
-		PeriodSeconds:       6,
-		InitialDelaySeconds: 10,
-	},
-	ReadinessProbes: &probes.ProbeConf{
-		Path:                "/healthcheck",
-		TimeoutSeconds:      10,
-		PeriodSeconds:       10,
-		InitialDelaySeconds: 10,
-	},
-	StartupProbes: &probes.ProbeConf{
-		TimeoutSeconds:      10,
-		FailureThreshold:    12,
-		PeriodSeconds:       10,
-		InitialDelaySeconds: 10,
-	},
-}

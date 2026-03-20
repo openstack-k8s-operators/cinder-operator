@@ -43,6 +43,7 @@ func StatefulSet(
 	annotations map[string]string,
 	topology *topologyv1.Topology,
 	memcached *memcachedv1.Memcached,
+	timeout int,
 ) (*appsv1.StatefulSet, error) {
 	runAsUser := int64(0)
 	cinderUser := int64(cinderv1beta1.CinderUserID)
@@ -57,7 +58,7 @@ func StatefulSet(
 		int32(cinder.CinderPublicPort),
 		&scheme,
 		instance.Spec.Override.Probes,
-		cinder.DefaultProbeConf,
+		cinder.GetDefaultProbesAPI(timeout),
 	)
 
 	// Could not process probes config

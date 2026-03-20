@@ -54,7 +54,7 @@ func StatefulSet(
 		probesPort,
 		&scheme,
 		instance.Spec.Override.Probes,
-		cinder.DefaultProbeConf,
+		cinder.GetDefaultProbesRPCWorker(cinder.CinderServiceDownTime),
 	)
 	// Could not process probes config
 	if err != nil {

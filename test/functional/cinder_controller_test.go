@@ -2150,10 +2150,10 @@ var _ = Describe("Cinder Webhook", func() {
 				g.Expect(schedContainer.LivenessProbe.PeriodSeconds).To(Equal(int32(10)))
 				g.Expect(schedContainer.ReadinessProbe).To(BeNil())
 				// We do not override StartupProbes and we apply the defaults defined in the cinder-operator
-				g.Expect(schedContainer.StartupProbe.InitialDelaySeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.InitialDelaySeconds)))
-				g.Expect(schedContainer.StartupProbe.TimeoutSeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.TimeoutSeconds)))
-				g.Expect(schedContainer.StartupProbe.PeriodSeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.PeriodSeconds)))
-				g.Expect(schedContainer.StartupProbe.FailureThreshold).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.FailureThreshold)))
+				g.Expect(schedContainer.StartupProbe.InitialDelaySeconds).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.InitialDelaySeconds)))
+				g.Expect(schedContainer.StartupProbe.TimeoutSeconds).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.TimeoutSeconds)))
+				g.Expect(schedContainer.StartupProbe.PeriodSeconds).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.PeriodSeconds)))
+				g.Expect(schedContainer.StartupProbe.FailureThreshold).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.FailureThreshold)))
 			}, timeout, interval).Should(Succeed())
 			// Check CinderVolume
 			Eventually(func(g Gomega) {
@@ -2165,10 +2165,10 @@ var _ = Describe("Cinder Webhook", func() {
 				g.Expect(volContainer.LivenessProbe.PeriodSeconds).To(Equal(int32(10)))
 				g.Expect(volContainer.ReadinessProbe).To(BeNil())
 				// We do not override StartupProbes and we apply the defaults defined in the cinder-operator
-				g.Expect(volContainer.StartupProbe.InitialDelaySeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.InitialDelaySeconds)))
-				g.Expect(volContainer.StartupProbe.TimeoutSeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.TimeoutSeconds)))
-				g.Expect(volContainer.StartupProbe.PeriodSeconds).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.PeriodSeconds)))
-				g.Expect(volContainer.StartupProbe.FailureThreshold).To(Equal(int32(cinder.DefaultProbeConf.StartupProbes.FailureThreshold)))
+				g.Expect(volContainer.StartupProbe.InitialDelaySeconds).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.InitialDelaySeconds)))
+				g.Expect(volContainer.StartupProbe.TimeoutSeconds).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.TimeoutSeconds)))
+				g.Expect(volContainer.StartupProbe.PeriodSeconds).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.PeriodSeconds)))
+				g.Expect(volContainer.StartupProbe.FailureThreshold).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.FailureThreshold)))
 			}, timeout, interval).Should(Succeed())
 		})
 	})

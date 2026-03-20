@@ -52,6 +52,11 @@ spec:
           spec:
             description: CinderAPISpec defines the desired state of CinderAPI
             properties:
+              apiTimeout:
+                default: 60
+                description: APITimeout for HAProxy, Apache, and rpc_response_timeout
+                minimum: 10
+                type: integer
               containerImage:
                 description: ContainerImage - Cinder Container Image URL (will be
                   set to environmental default if empty)
