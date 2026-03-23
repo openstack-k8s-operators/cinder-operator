@@ -1,3 +1,0 @@
-{
-  "command": "/usr/bin/cinder-manage --config-dir /etc/cinder/cinder.conf.d db sync --bump-versions"
-}

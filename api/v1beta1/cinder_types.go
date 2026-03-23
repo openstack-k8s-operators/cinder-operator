@@ -34,6 +34,9 @@ const (
 	// DbSyncHash hash
 	DbSyncHash = "dbsync"
 
+	// OnlineDataMigrationHash hash
+	OnlineDataMigrationHash = "onlinedatamigration"
+
 	// DeploymentHash hash used to detect changes
 	DeploymentHash = "deployment"
 

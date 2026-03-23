@@ -1,6 +1,7 @@
 package cinder
 
 import (
+	"fmt"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	batchv1 "k8s.io/api/batch/v1"
@@ -12,14 +13,11 @@ import (
 type ManageJobType string
 
 const (
-	// DBSyncCommand -
-	// TODO: Once we work on update/upgrades revisit the command in the
-	//       the db-sync-config.json file.
-	//       If we stop all services during the update/upgrade then we can keep
-	//       the --bump-versions flag.
-	//       If we are doing rolling upgrades we'll need to use the flag
-	//       conditionally (only for adoption) and do the restart cycle of
-	//       services as described in the upstream rolling upgrades process.
+	// DBSyncCommand - direct cinder-manage command without kolla wrapper
+	// TODO: Once we work on update/upgrades we'll need to use the
+	//       --bump-versions flag conditionally (only for adoption) and do
+	//       the restart cycle of services as described in the upstream
+	//       rolling upgrades process.
 	DBSyncCommand = "/usr/bin/cinder-manage --config-dir /etc/cinder/cinder.conf.d db sync --bump-versions"
 	// OnlineDataMigrationsCommand - for running online data migrations during upgrades
 	OnlineDataMigrationsCommand = "/usr/bin/cinder-manage --config-dir /etc/cinder/cinder.conf.d db online_data_migrations"
@@ -30,24 +28,14 @@ const (
 )
 
 // ManageJob - creates a job for running various cinder-manage commands
-func ManageJob(instance *cinderv1beta1.Cinder, jobType ManageJobType, labels map[string]string, annotations map[string]string) *batchv1.Job {
+func ManageJob(
+	instance *cinderv1beta1.Cinder,
+	labels map[string]string,
+	annotations map[string]string,
+	jobNameSuffix ManageJobType,
+	command string,
+) *batchv1.Job {
 	var config0644AccessMode int32 = 0644
-
-	// Determine job name suffix and command based on job type
-	var jobNameSuffix string
-	var command string
-
-	switch jobType {
-	case DbSyncJobType:
-		jobNameSuffix = "db-sync"
-		command = DBSyncCommand
-	case OnlineDataMigrationsJobType:
-		jobNameSuffix = "online-data-migrations"
-		command = OnlineDataMigrationsCommand
-	default:
-		jobNameSuffix = "db-sync"
-		command = DBSyncCommand
-	}
 
 	// Unlike the individual cinder services, cinder-manage jobs don't need a
 	// secret that contains all of the config snippets required by every
@@ -97,7 +85,7 @@ func ManageJob(instance *cinderv1beta1.Cinder, jobType ManageJobType, labels map
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name + "-" + jobNameSuffix,
+			Name:      fmt.Sprintf("%s-%s", instance.Name, string(jobNameSuffix)),
 			Namespace: instance.Namespace,
 			Labels:    labels,
 		},
@@ -111,7 +99,7 @@ func ManageJob(instance *cinderv1beta1.Cinder, jobType ManageJobType, labels map
 					ServiceAccountName: instance.RbacResourceName(),
 					Containers: []corev1.Container{
 						{
-							Name: instance.Name + "-" + jobNameSuffix,
+							Name: fmt.Sprintf("%s-%s", instance.Name, string(jobNameSuffix)),
 							Command: []string{
 								"/bin/bash",
 							},
@@ -139,10 +127,10 @@ func ManageJob(instance *cinderv1beta1.Cinder, jobType ManageJobType, labels map
 
 // DbSyncJob func - backward compatible wrapper for database sync
 func DbSyncJob(instance *cinderv1beta1.Cinder, labels map[string]string, annotations map[string]string) *batchv1.Job {
-	return ManageJob(instance, DbSyncJobType, labels, annotations)
+	return ManageJob(instance, labels, annotations, DbSyncJobType, DBSyncCommand)
 }
 
 // OnlineDataMigrationsJob creates a job for running cinder-manage db online_data_migrations
 func OnlineDataMigrationsJob(instance *cinderv1beta1.Cinder, labels map[string]string, annotations map[string]string) *batchv1.Job {
-	return ManageJob(instance, OnlineDataMigrationsJobType, labels, annotations)
+	return ManageJob(instance, labels, annotations, OnlineDataMigrationsJobType, OnlineDataMigrationsCommand)
 }

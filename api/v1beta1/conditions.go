@@ -32,6 +32,9 @@ const (
 
 	// CinderVolumeReadyCondition Status=True condition which indicates if the CinderVolume is configured and operational
 	CinderVolumeReadyCondition condition.Type = "CinderVolumeReady"
+
+	// OnlineDataMigrationReadyCondition Status=True condition which indicates if the online data migrations have completed
+	OnlineDataMigrationReadyCondition condition.Type = "OnlineDataMigrationReady"
 )
 
 // Cinder Reasons used by API objects.
@@ -77,4 +80,19 @@ const (
 
 	// CinderVolumeReadyRunningMessage
 	CinderVolumeReadyRunningMessage = "CinderVolume deployments in progress"
+
+	//
+	// OnlineDataMigrationReady condition messages
+	//
+	// OnlineDataMigrationReadyInitMessage
+	OnlineDataMigrationReadyInitMessage = "OnlineDataMigration not started"
+
+	// OnlineDataMigrationReadyMessage
+	OnlineDataMigrationReadyMessage = "OnlineDataMigration completed"
+
+	// OnlineDataMigrationReadyRunningMessage
+	OnlineDataMigrationReadyRunningMessage = "OnlineDataMigration in progress"
+
+	// OnlineDataMigrationReadyErrorMessage
+	OnlineDataMigrationReadyErrorMessage = "OnlineDataMigration error occurred %s"
 )

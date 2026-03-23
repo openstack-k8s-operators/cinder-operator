@@ -63,6 +63,7 @@ type CinderTestData struct {
 	CinderMemcached                types.NamespacedName
 	CinderSA                       types.NamespacedName
 	CinderDBSync                   types.NamespacedName
+	CinderOnlineDataMigration      types.NamespacedName
 	CinderDBPurge                  types.NamespacedName
 	CinderKeystoneService          types.NamespacedName
 	CinderKeystoneEndpoint         types.NamespacedName
@@ -99,6 +100,10 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		CinderDBSync: types.NamespacedName{
 			Namespace: cinderName.Namespace,
 			Name:      fmt.Sprintf("%s-db-sync", cinderName.Name),
+		},
+		CinderOnlineDataMigration: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      fmt.Sprintf("%s-online-data-migrations", cinderName.Name),
 		},
 		CinderDBPurge: types.NamespacedName{
 			Namespace: cinderName.Namespace,
