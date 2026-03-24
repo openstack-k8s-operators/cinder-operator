@@ -266,7 +266,6 @@ var (
 		tlsAPIInternalField,
 		tlsAPIPublicField,
 		topologyField,
-		authAppCredSecretField,
 	}
 )
 
