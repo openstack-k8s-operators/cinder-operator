@@ -2221,6 +2221,215 @@ var _ = Describe("Cinder Webhook", func() {
 			}, timeout, interval).Should(Succeed())
 		})
 	})
+
+	When("ApplicationCredential consumer finalizer is managed", func() {
+		var (
+			acSecretName          string
+			servicePasswordSecret string
+		)
+
+		BeforeEach(func() {
+			servicePasswordSecret = ACTestServicePasswordSecret
+
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateCinderMessageBusSecret(
+					cinderTest.Instance.Namespace,
+					cinderTest.RabbitmqSecretName,
+				),
+			)
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateCinderSecret(cinderTest.Instance.Namespace, servicePasswordSecret))
+
+			acSecretName = "ac-cinder-a1b2c-secret" //nolint:gosec // G101
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      acSecretName,
+				},
+				Data: map[string][]byte{
+					keystonev1.ACIDSecretKey:     []byte("a1b2ctest-ac-id"),
+					keystonev1.ACSecretSecretKey: []byte("test-ac-secret"),
+				},
+			}
+			DeferCleanup(k8sClient.Delete, ctx, secret)
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+
+			spec := GetCinderSpecWithAC(acSecretName)
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}}}))
+
+			acc, accSecret := mariadb.CreateMariaDBAccountAndSecret(cinderTest.Database, mariadbv1.MariaDBAccountSpec{})
+			DeferCleanup(k8sClient.Delete, ctx, acc)
+			DeferCleanup(k8sClient.Delete, ctx, accSecret)
+			mariadb.CreateMariaDBDatabase(cinderTest.Database.Namespace, cinderTest.Database.Name, mariadbv1.MariaDBDatabaseSpec{})
+			DeferCleanup(k8sClient.Delete, ctx, mariadb.GetMariaDBDatabase(cinderTest.Database))
+
+			DeferCleanup(keystone.DeleteKeystoneAPI,
+				keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(cinderTest.Instance.Namespace, MemcachedInstance, memcachedv1.MemcachedSpec{}))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+		})
+
+		It("should add the consumer finalizer to the AC secret", func() {
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      acSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(cinder.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should track the consumed AC secret in status", func() {
+			Eventually(func(g Gomega) {
+				c := GetCinder(cinderTest.Instance)
+				g.Expect(c.Status.ApplicationCredentialSecret).To(Equal(acSecretName))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should move the finalizer from the old to the new secret on rotation", func() {
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      acSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(cinder.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderVolumes[0])
+			Eventually(func(g Gomega) {
+				c := GetCinder(cinderTest.Instance)
+				g.Expect(c.Status.Conditions.IsTrue(condition.ReadyCondition)).To(BeTrue())
+			}, timeout, interval).Should(Succeed())
+
+			newACSecretName := "ac-cinder-x9y8z-secret" //nolint:gosec // G101
+			newSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      newACSecretName,
+				},
+				Data: map[string][]byte{
+					keystonev1.ACIDSecretKey:     []byte("x9y8zrotated-ac-id"),
+					keystonev1.ACSecretSecretKey: []byte("rotated-ac-secret"),
+				},
+			}
+			DeferCleanup(k8sClient.Delete, ctx, newSecret)
+			Expect(k8sClient.Create(ctx, newSecret)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				c := GetCinder(cinderTest.Instance)
+				c.Spec.Auth.ApplicationCredentialSecret = newACSecretName
+				g.Expect(k8sClient.Update(ctx, c)).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      newACSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(cinder.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
+				th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+				th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
+				th.SimulateStatefulSetReplicaReady(cinderTest.CinderVolumes[0])
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      acSecretName,
+				})
+				g.Expect(secret.Finalizers).NotTo(
+					ContainElement(cinder.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				c := GetCinder(cinderTest.Instance)
+				g.Expect(c.Status.ApplicationCredentialSecret).To(Equal(newACSecretName))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should remove finalizer and clear status when AC secret is removed from spec", func() {
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderVolumes[0])
+			Eventually(func(g Gomega) {
+				c := GetCinder(cinderTest.Instance)
+				g.Expect(c.Status.Conditions.IsTrue(condition.ReadyCondition)).To(BeTrue())
+				g.Expect(c.Status.ApplicationCredentialSecret).To(Equal(acSecretName))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				c := GetCinder(cinderTest.Instance)
+				c.Spec.Auth.ApplicationCredentialSecret = ""
+				g.Expect(k8sClient.Update(ctx, c)).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
+				th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+				th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
+				th.SimulateStatefulSetReplicaReady(cinderTest.CinderVolumes[0])
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      acSecretName,
+				})
+				g.Expect(secret.Finalizers).NotTo(
+					ContainElement(cinder.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				c := GetCinder(cinderTest.Instance)
+				g.Expect(c.Status.ApplicationCredentialSecret).To(Equal(""))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should remove the consumer finalizer from AC secret on CR deletion", func() {
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      acSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(cinder.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			th.DeleteInstance(GetCinder(cinderTest.Instance))
+
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      acSecretName,
+				})
+				g.Expect(secret.Finalizers).NotTo(
+					ContainElement(cinder.ACConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
 })
 
 var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {

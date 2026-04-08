@@ -2604,6 +2604,10 @@ spec:
                   type: object
                 description: API endpoints
                 type: object
+              applicationCredentialSecret:
+                description: ApplicationCredentialSecret - the AC secret cinder is
+                  currently consuming
+                type: string
               cinderAPIReadyCount:
                 default: 0
                 description: ReadyCount of Cinder API instance
