@@ -51,7 +51,7 @@ func StatefulSet(
 	scheme := corev1.URISchemeHTTP
 	probesPort := int32(8080)
 
-	probes, err := probes.CreateProbeSet(
+	volumeProbes, err := probes.CreateProbeSet(
 		probesPort,
 		&scheme,
 		instance.Spec.Override.Probes,
@@ -142,8 +142,8 @@ func StatefulSet(
 							Env:           env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts:  volumeMounts,
 							Resources:     instance.Spec.Resources,
-							LivenessProbe: probes.Liveness,
-							StartupProbe:  probes.Startup,
+							LivenessProbe: volumeProbes.Liveness,
+							StartupProbe:  volumeProbes.Startup,
 						},
 						{
 							Name:    "probe",

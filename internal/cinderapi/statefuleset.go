@@ -54,7 +54,7 @@ func StatefulSet(
 	}
 
 	// Note that by default we create probes with the same URIScheme and port
-	probes, err := probes.CreateProbeSet(
+	apiProbes, err := probes.CreateProbeSet(
 		int32(cinder.CinderPublicPort),
 		&scheme,
 		instance.Spec.Override.Probes,
@@ -167,8 +167,8 @@ func StatefulSet(
 							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
 							VolumeMounts:   volumeMounts,
 							Resources:      instance.Spec.Resources,
-							ReadinessProbe: probes.Readiness,
-							LivenessProbe:  probes.Liveness,
+							ReadinessProbe: apiProbes.Readiness,
+							LivenessProbe:  apiProbes.Liveness,
 						},
 					},
 					Volumes: volumes,
