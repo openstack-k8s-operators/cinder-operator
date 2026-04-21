@@ -346,6 +346,7 @@ func (r *CinderAPIReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Man
 		Owns(&keystonev1.KeystoneEndpoint{}).
 		Owns(&appsv1.StatefulSet{}).
 		Owns(&corev1.Service{}).
+		Owns(&corev1.Secret{}).
 		// watch the secrets we don't own
 		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(secretFn)).

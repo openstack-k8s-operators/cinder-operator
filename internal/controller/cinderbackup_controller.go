@@ -293,6 +293,7 @@ func (r *CinderBackupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.CinderBackup{}).
 		Owns(&appsv1.StatefulSet{}).
+		Owns(&corev1.Secret{}).
 		// watch the secrets we don't own
 		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(secretFn)).
