@@ -293,6 +293,7 @@ func (r *CinderSchedulerReconciler) SetupWithManager(ctx context.Context, mgr ct
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cinderv1beta1.CinderScheduler{}).
 		Owns(&appsv1.StatefulSet{}).
+		Owns(&corev1.Secret{}).
 		// watch the secrets we don't own
 		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(secretFn)).

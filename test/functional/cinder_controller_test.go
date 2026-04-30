@@ -2515,3 +2515,107 @@ var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {
 		})
 	})
 })
+
+var _ = Describe("Cinder config secret recreation", func() {
+	var memcachedSpec memcachedv1.MemcachedSpec
+
+	BeforeEach(func() {
+		err := os.Setenv("OPERATOR_TEMPLATES", "../../templates")
+		Expect(err).NotTo(HaveOccurred())
+
+		memcachedSpec = memcachedv1.MemcachedSpec{
+			MemcachedSpecCore: memcachedv1.MemcachedSpecCore{
+				Replicas: ptr.To(int32(3)),
+			},
+		}
+	})
+
+	When("Cinder is fully deployed and an owned config secret is deleted", func() {
+		BeforeEach(func() {
+			spec := GetDefaultCinderSpec()
+			spec["cinderVolumes"] = map[string]any{
+				"volume1": map[string]any{
+					"containerImage": cinderTest.ContainerImage,
+				},
+			}
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderName).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}},
+					},
+				),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+		})
+
+		It("recreates the CinderAPI config-data secret after deletion", func() {
+			apiConfigSecret := types.NamespacedName{
+				Namespace: cinderTest.CinderAPI.Namespace,
+				Name:      fmt.Sprintf("%s-config-data", cinderTest.CinderAPI.Name),
+			}
+
+			// Wait for the CinderAPI config-data secret to be created
+			configSecret := th.GetSecret(apiConfigSecret)
+			Expect(configSecret.Data).NotTo(BeEmpty())
+
+			// Delete the owned config-data secret
+			th.DeleteSecret(apiConfigSecret)
+
+			// The Owns(&corev1.Secret{}) watch should trigger reconciliation
+			// and recreate the secret
+			recreatedSecret := th.GetSecret(apiConfigSecret)
+			Expect(recreatedSecret.Data).NotTo(BeEmpty())
+		})
+
+		It("recreates the CinderScheduler config-data secret after deletion", func() {
+			schedulerConfigSecret := types.NamespacedName{
+				Namespace: cinderTest.CinderScheduler.Namespace,
+				Name:      fmt.Sprintf("%s-config-data", cinderTest.CinderScheduler.Name),
+			}
+
+			// Wait for the CinderScheduler config-data secret to be created
+			configSecret := th.GetSecret(schedulerConfigSecret)
+			Expect(configSecret.Data).NotTo(BeEmpty())
+
+			// Delete the owned config-data secret
+			th.DeleteSecret(schedulerConfigSecret)
+
+			// The Owns(&corev1.Secret{}) watch should trigger reconciliation
+			// and recreate the secret
+			recreatedSecret := th.GetSecret(schedulerConfigSecret)
+			Expect(recreatedSecret.Data).NotTo(BeEmpty())
+		})
+
+		It("recreates the CinderVolume config-data secret after deletion", func() {
+			volumeConfigSecret := types.NamespacedName{
+				Namespace: cinderTest.CinderVolumes[0].Namespace,
+				Name:      fmt.Sprintf("%s-config-data", cinderTest.CinderVolumes[0].Name),
+			}
+
+			// Wait for the CinderVolume config-data secret to be created
+			configSecret := th.GetSecret(volumeConfigSecret)
+			Expect(configSecret.Data).NotTo(BeEmpty())
+
+			// Delete the owned config-data secret
+			th.DeleteSecret(volumeConfigSecret)
+
+			// The Owns(&corev1.Secret{}) watch should trigger reconciliation
+			// and recreate the secret
+			recreatedSecret := th.GetSecret(volumeConfigSecret)
+			Expect(recreatedSecret.Data).NotTo(BeEmpty())
+		})
+	})
+})
