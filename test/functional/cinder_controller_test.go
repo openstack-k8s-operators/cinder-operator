@@ -2098,6 +2098,13 @@ var _ = Describe("Cinder Webhook", func() {
 					},
 				},
 			}
+			spec["cinderBackup"] = map[string]any{
+				"override": map[string]any{
+					"probes": map[string]any{
+						"livenessProbes": stsOverride,
+					},
+				},
+			}
 			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
 			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
 			DeferCleanup(
@@ -2169,6 +2176,21 @@ var _ = Describe("Cinder Webhook", func() {
 				g.Expect(volContainer.StartupProbe.TimeoutSeconds).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.TimeoutSeconds)))
 				g.Expect(volContainer.StartupProbe.PeriodSeconds).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.PeriodSeconds)))
 				g.Expect(volContainer.StartupProbe.FailureThreshold).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.FailureThreshold)))
+			}, timeout, interval).Should(Succeed())
+			// Check CinderBackup
+			Eventually(func(g Gomega) {
+				bkpContainer := th.GetStatefulSet(cinderTest.CinderBackup).Spec.Template.Spec.Containers[0]
+				g.Expect(bkpContainer.LivenessProbe).ToNot(BeNil())
+				g.Expect(bkpContainer.LivenessProbe.HTTPGet.Path).To(Equal("/healthcheck"))
+				g.Expect(bkpContainer.LivenessProbe.InitialDelaySeconds).To(Equal(int32(20)))
+				g.Expect(bkpContainer.LivenessProbe.TimeoutSeconds).To(Equal(int32(30)))
+				g.Expect(bkpContainer.LivenessProbe.PeriodSeconds).To(Equal(int32(10)))
+				g.Expect(bkpContainer.ReadinessProbe).To(BeNil())
+				// We do not override StartupProbes and we apply the defaults defined in the cinder-operator
+				g.Expect(bkpContainer.StartupProbe.InitialDelaySeconds).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.InitialDelaySeconds)))
+				g.Expect(bkpContainer.StartupProbe.TimeoutSeconds).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.TimeoutSeconds)))
+				g.Expect(bkpContainer.StartupProbe.PeriodSeconds).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.PeriodSeconds)))
+				g.Expect(bkpContainer.StartupProbe.FailureThreshold).To(Equal(int32(cinder.GetDefaultProbesRPCWorker(60).StartupProbes.FailureThreshold)))
 			}, timeout, interval).Should(Succeed())
 		})
 	})

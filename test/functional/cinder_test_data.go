@@ -73,6 +73,7 @@ type CinderTestData struct {
 	Cinder                         types.NamespacedName
 	CinderAPI                      types.NamespacedName
 	CinderScheduler                types.NamespacedName
+	CinderBackup                   types.NamespacedName
 	CinderVolumes                  []types.NamespacedName
 	InternalAPINAD                 types.NamespacedName
 	ContainerImage                 string
@@ -120,6 +121,10 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 				Namespace: cinderName.Namespace,
 				Name:      fmt.Sprintf("%s-volume-volume2", cinderName.Name),
 			},
+		},
+		CinderBackup: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      fmt.Sprintf("%s-backup", cinderName.Name),
 		},
 		CinderRole: types.NamespacedName{
 			Namespace: cinderName.Namespace,

@@ -24,7 +24,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/probes"
 )
 
-// CinderBackupOverrideSpec to override the generated manifest of several child resources.
+// BackupOverrideSpec to override the generated manifest of several child resources.
 type BackupOverrideSpec struct {
 	// Override probes and other common fields in the StatefulSet
 	Probes probes.OverrideSpec `json:"probes,omitempty"`
