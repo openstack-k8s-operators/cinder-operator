@@ -1273,6 +1273,7 @@ func (r *CinderReconciler) apiDeploymentCreateOrUpdate(ctx context.Context, inst
 		TransportURLSecret: instance.Status.TransportURLSecret,
 		ServiceAccount:     instance.RbacResourceName(),
 		MemcachedInstance:  &instance.Spec.MemcachedInstance,
+		APITimeout:         instance.Spec.APITimeout,
 	}
 
 	if cinderAPISpec.NodeSelector == nil {

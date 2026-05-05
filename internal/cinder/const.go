@@ -71,6 +71,10 @@ const (
 	// Cinder is the global ServiceType that refers to all the components deployed
 	// by the cinder operator
 	Cinder storage.PropagationType = "Cinder"
+	// CinderServiceDownTime - Maximum time since last check-in for a service
+	// to be considered up. This is based on:
+	// https://opendev.org/openstack/cinder/src/branch/master/cinder/common/config.py#L121
+	CinderServiceDownTime = 60
 
 	// ShortDuration is a short duration for quick retries
 	ShortDuration = time.Duration(5) * time.Second

@@ -19,6 +19,7 @@ package v1beta1
 import (
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/probes"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -27,6 +28,13 @@ const (
 	// Backend -
 	Backend = "backend"
 )
+
+
+// VolumeOverrideSpec to override the generated manifest of several child resources.
+type VolumeOverrideSpec struct {
+	// Override probes and other common fields in the StatefulSet
+	Probes probes.OverrideSpec `json:"probes,omitempty"`
+}
 
 // CinderVolumeTemplate defines the input parameters for the Cinder Volume service
 type CinderVolumeTemplateCore struct {
@@ -39,6 +47,10 @@ type CinderVolumeTemplateCore struct {
 	// +kubebuilder:validation:Maximum=1
 	// Replicas - Cinder Volume Replicas
 	Replicas *int32 `json:"replicas"`
+
+	// +kubebuilder:validation:Optional
+	// Override, provides the ability to override the generated manifest of several child resources.
+	Override VolumeOverrideSpec `json:"override,omitempty"`
 }
 
 // CinderVolumeTemplate defines the input parameters for the Cinder Volume service

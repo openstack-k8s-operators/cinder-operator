@@ -263,6 +263,10 @@ func (spec *CinderSpec) ValidateCreate(
 	allErrs = append(allErrs, bkpErrs...)
 	allWarns = append(allWarns, bkpWarns...)
 
+	// Probes validation
+	probeErrs := spec.ValidateProbes(basePath)
+	allErrs = append(allErrs, probeErrs...)
+
 	return allWarns, allErrs
 }
 
@@ -291,6 +295,10 @@ func (spec *CinderSpecCore) ValidateCreate(
 	bkpWarns, bkpErrs := spec.ValidateCinderBackup(basePath)
 	allErrs = append(allErrs, bkpErrs...)
 	allWarns = append(allWarns, bkpWarns...)
+
+	// Probes validation
+	probeErrs := spec.ValidateProbes(basePath)
+	allErrs = append(allErrs, probeErrs...)
 
 	return allWarns, allErrs
 }
@@ -370,6 +378,10 @@ func (spec *CinderSpec) ValidateUpdate(
 	allErrs = append(allErrs, bkpErrs...)
 	allWarns = append(allWarns, bkpWarns...)
 
+	// Probes validation
+	probeErrs := spec.ValidateProbes(basePath)
+	allErrs = append(allErrs, probeErrs...)
+
 	return allWarns, allErrs
 }
 
@@ -400,6 +412,10 @@ func (spec *CinderSpecCore) ValidateUpdate(
 	bkpWarns, bkpErrs := spec.ValidateCinderBackup(basePath)
 	allErrs = append(allErrs, bkpErrs...)
 	allWarns = append(allWarns, bkpWarns...)
+
+	// Probes validation
+	probeErrs := spec.ValidateProbes(basePath)
+	allErrs = append(allErrs, probeErrs...)
 
 	return allWarns, allErrs
 }
@@ -593,4 +609,77 @@ func (spec *CinderSpecCore) ValidateCinderBackup(basePath *field.Path) ([]string
 		allWarns = append(allWarns, warningMsg)
 	}
 	return allWarns, allErrs
+}
+
+// ValidateProbes -
+// NOTE: Remove this after the API spec refactoring
+func (spec *CinderSpec) ValidateProbes(basePath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// CinderAPI probes validation
+	apiPath := basePath.Child("cinderAPI").Child("override")
+	apiProbeErrs := spec.CinderAPI.Override.Probes.ValidateProbes(
+		apiPath.Child("probes"))
+	allErrs = append(allErrs, apiProbeErrs...)
+
+	// CinderScheduler probes validation
+	schedPath := basePath.Child("cinderScheduler").Child("override")
+	schedProbeErrs := spec.CinderScheduler.Override.Probes.ValidateProbes(
+		schedPath.Child("probes"))
+	allErrs = append(allErrs, schedProbeErrs...)
+
+	// CinderVolumes probes validation
+	volPath := basePath.Child("cinderVolumes")
+	for name, vol := range spec.CinderVolumes {
+		volProbeErrs := vol.Override.Probes.ValidateProbes(
+			volPath.Child(name).Child("override"))
+		allErrs = append(allErrs, volProbeErrs...)
+	}
+
+	// CinderBackups probes validation
+	bkpPath := basePath.Child("cinderBackups")
+	if spec.CinderBackups != nil {
+		for name, bkp := range *spec.CinderBackups {
+			bkpProbeErrs := bkp.Override.Probes.ValidateProbes(
+				bkpPath.Child(name).Child("override"))
+			allErrs = append(allErrs, bkpProbeErrs...)
+		}
+	}
+	return allErrs
+}
+
+// ValidateProbes -
+func (spec *CinderSpecCore) ValidateProbes(basePath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// CinderAPI probes validation
+	apiPath := basePath.Child("cinderAPI").Child("override")
+	apiProbeErrs := spec.CinderAPI.Override.Probes.ValidateProbes(
+		apiPath.Child("probes"))
+	allErrs = append(allErrs, apiProbeErrs...)
+
+	// CinderScheduler probes validation
+	schedPath := basePath.Child("cinderScheduler").Child("override")
+	schedProbeErrs := spec.CinderScheduler.Override.Probes.ValidateProbes(
+		schedPath.Child("probes"))
+	allErrs = append(allErrs, schedProbeErrs...)
+
+	// CinderVolumes probes validation
+	volPath := basePath.Child("cinderVolumes")
+	for name, vol := range spec.CinderVolumes {
+		volProbeErrs := vol.Override.Probes.ValidateProbes(
+			volPath.Child(name).Child("override"))
+		allErrs = append(allErrs, volProbeErrs...)
+	}
+
+	// CinderBackups probes validation
+	bkpPath := basePath.Child("cinderBackups")
+	if spec.CinderBackups != nil {
+		for name, bkp := range *spec.CinderBackups {
+			bkpProbeErrs := bkp.Override.Probes.ValidateProbes(
+				bkpPath.Child(name).Child("override"))
+			allErrs = append(allErrs, bkpProbeErrs...)
+		}
+	}
+	return allErrs
 }

@@ -935,7 +935,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 	}
 
 	// Deploy a statefulset
-	ssDef, err := cinderapi.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, topology, memcached)
+	ssDef, err := cinderapi.StatefulSet(instance, inputHash, serviceLabels, serviceAnnotations, topology, memcached, instance.Spec.APITimeout)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.DeploymentReadyCondition,

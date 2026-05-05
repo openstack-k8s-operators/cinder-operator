@@ -89,7 +89,7 @@ spec:
             port: 8776
             scheme: HTTP
           initialDelaySeconds: 5
-          periodSeconds: 3
+          periodSeconds: 20
           successThreshold: 1
           timeoutSeconds: 5
         name: cinder-api
@@ -100,7 +100,7 @@ spec:
             port: 8776
             scheme: HTTP
           initialDelaySeconds: 5
-          periodSeconds: 5
+          periodSeconds: 20
           successThreshold: 1
           timeoutSeconds: 5
         resources: {}

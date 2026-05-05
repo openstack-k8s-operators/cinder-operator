@@ -20,8 +20,15 @@ import (
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/probes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// SchedulerOverrideSpec to override the generated manifest of several child resources.
+type SchedulerOverrideSpec struct {
+	// Override probes and other common fields in the StatefulSet
+	Probes probes.OverrideSpec `json:"probes,omitempty"`
+}
 
 // CinderSchedulerTemplate defines the input parameters for the Cinder Scheduler service
 type CinderSchedulerTemplateCore struct {
@@ -33,6 +40,10 @@ type CinderSchedulerTemplateCore struct {
 	// +kubebuilder:validation:Minimum=0
 	// Replicas - Cinder Scheduler Replicas
 	Replicas *int32 `json:"replicas"`
+
+	// +kubebuilder:validation:Optional
+	// Override, provides the ability to override the generated manifest of several child resources.
+	Override SchedulerOverrideSpec `json:"override,omitempty"`
 }
 
 // CinderSchedulerTemplate defines the input parameters for the Cinder Scheduler service

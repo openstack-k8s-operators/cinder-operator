@@ -78,6 +78,7 @@ func GetDefaultCinderSpec() map[string]any {
 		"cinderAPI":        GetDefaultCinderAPISpec(),
 		"cinderScheduler":  GetDefaultCinderSchedulerSpec(),
 		"cinderVolume":     GetDefaultCinderVolumeSpec(),
+		"cinderBackup":     GetDefaultCinderBackupSpec(),
 	}
 }
 
@@ -88,6 +89,7 @@ func GetTLSCinderSpec() map[string]any {
 		"cinderAPI":        GetTLSCinderAPISpec(),
 		"cinderScheduler":  GetDefaultCinderSchedulerSpec(),
 		"cinderVolume":     GetDefaultCinderVolumeSpec(),
+		"cinderBackup":     GetDefaultCinderBackupSpec(),
 	}
 }
 
@@ -133,6 +135,17 @@ func GetDefaultCinderSchedulerSpec() map[string]any {
 }
 
 func GetDefaultCinderVolumeSpec() map[string]any {
+	return map[string]any{
+		"secret":             SecretName,
+		"replicas":           1,
+		"containerImage":     cinderTest.ContainerImage,
+		"serviceAccount":     cinderTest.CinderSA.Name,
+		"databaseHostname":   cinderTest.DatabaseHostname,
+		"transportURLSecret": cinderTest.RabbitmqSecretName,
+	}
+}
+
+func GetDefaultCinderBackupSpec() map[string]any {
 	return map[string]any{
 		"secret":             SecretName,
 		"replicas":           1,
@@ -452,4 +465,15 @@ func CreateCinderInvalidSecret(namespace string, name string) *corev1.Secret {
 			"CinderPassword": []byte(cinderTest.CinderInvalidPassword),
 		},
 	)
+}
+
+// GetProbeConfOverrides returns a set of parameters to override the default
+// probes values
+func GetProbeConfOverrides() map[string]any {
+	return map[string]any{
+		"path":                "/healthcheck",
+		"initialDelaySeconds": int32(20),
+		"timeoutSeconds":      int32(30),
+		"periodSeconds":       int32(10),
+	}
 }
