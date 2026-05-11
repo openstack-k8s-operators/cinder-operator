@@ -193,6 +193,7 @@ func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		condition.UnknownCondition(condition.ReadyCondition, condition.InitReason, condition.ReadyInitMessage),
 		condition.UnknownCondition(condition.DBReadyCondition, condition.InitReason, condition.DBReadyInitMessage),
 		condition.UnknownCondition(condition.DBSyncReadyCondition, condition.InitReason, condition.DBSyncReadyInitMessage),
+		condition.UnknownCondition(cinderv1beta1.OnlineDataMigrationReadyCondition, condition.InitReason, cinderv1beta1.OnlineDataMigrationReadyInitMessage),
 		condition.UnknownCondition(condition.RabbitMqTransportURLReadyCondition, condition.InitReason, condition.RabbitMqTransportURLReadyInitMessage),
 		condition.UnknownCondition(condition.MemcachedReadyCondition, condition.InitReason, condition.MemcachedReadyInitMessage),
 		condition.UnknownCondition(condition.InputReadyCondition, condition.InitReason, condition.InputReadyInitMessage),
@@ -499,6 +500,48 @@ func (r *CinderReconciler) reconcileInit(
 	instance.Status.Conditions.MarkTrue(condition.DBSyncReadyCondition, condition.DBSyncReadyMessage)
 
 	// run Cinder db sync - end
+
+	//
+	// run Cinder online data migrations
+	//
+	migrationHash := instance.Status.Hash[cinderv1beta1.OnlineDataMigrationHash]
+	migrationJobDef := cinder.OnlineDataMigrationsJob(instance, serviceLabels, serviceAnnotations)
+
+	migrationJob := job.NewJob(
+		migrationJobDef,
+		cinderv1beta1.OnlineDataMigrationHash,
+		instance.Spec.PreserveJobs,
+		cinder.ShortDuration,
+		migrationHash,
+	)
+	ctrlResult, err = migrationJob.DoJob(
+		ctx,
+		helper,
+	)
+	if (ctrlResult != ctrl.Result{}) {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			cinderv1beta1.OnlineDataMigrationReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			cinderv1beta1.OnlineDataMigrationReadyRunningMessage))
+		return ctrlResult, nil
+	}
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			cinderv1beta1.OnlineDataMigrationReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			cinderv1beta1.OnlineDataMigrationReadyErrorMessage,
+			err.Error()))
+		return ctrl.Result{}, err
+	}
+	if migrationJob.HasChanged() {
+		instance.Status.Hash[cinderv1beta1.OnlineDataMigrationHash] = migrationJob.GetHash()
+		Log.Info(fmt.Sprintf("Service '%s' - Job %s hash added - %s", instance.Name, migrationJobDef.Name, instance.Status.Hash[cinderv1beta1.OnlineDataMigrationHash]))
+	}
+	instance.Status.Conditions.MarkTrue(cinderv1beta1.OnlineDataMigrationReadyCondition, cinderv1beta1.OnlineDataMigrationReadyMessage)
+
+	// run Cinder online data migrations - end
 
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' init successfully", instance.Name))
 	return ctrl.Result{}, nil

@@ -108,7 +108,7 @@ var _ = Describe("Cinder controller", func() {
 		It("initializes the status fields", func() {
 			Eventually(func(g Gomega) {
 				cinder := GetCinder(cinderName)
-				g.Expect(cinder.Status.Conditions).To(HaveLen(16))
+				g.Expect(cinder.Status.Conditions).To(HaveLen(17))
 
 				g.Expect(cinder.Status.DatabaseHostname).To(Equal(""))
 			}, timeout*2, interval).Should(Succeed())
@@ -224,6 +224,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			Cinder := GetCinder(cinderTest.Instance)
 			Expect(Cinder.Status.DatabaseHostname).To(Equal(fmt.Sprintf("hostname-for-openstack.%s.svc", namespace)))
 			th.ExpectCondition(
@@ -231,12 +232,6 @@ var _ = Describe("Cinder controller", func() {
 				ConditionGetterFunc(CinderConditionGetter),
 				condition.DBReadyCondition,
 				corev1.ConditionTrue,
-			)
-			th.ExpectCondition(
-				cinderName,
-				ConditionGetterFunc(CinderConditionGetter),
-				condition.DBSyncReadyCondition,
-				corev1.ConditionFalse,
 			)
 		})
 		It("Should fail if db-sync job fails when DB is Created", func() {
@@ -253,6 +248,18 @@ var _ = Describe("Cinder controller", func() {
 				cinderTest.Instance,
 				ConditionGetterFunc(CinderConditionGetter),
 				condition.DBSyncReadyCondition,
+				corev1.ConditionFalse,
+			)
+		})
+		It("Should fail if online-data-migrations job fails when DB is Created", func() {
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobFailure(cinderTest.CinderOnlineDataMigration)
+			th.ExpectCondition(
+				cinderTest.Instance,
+				ConditionGetterFunc(CinderConditionGetter),
+				cinderv1.OnlineDataMigrationReadyCondition,
 				corev1.ConditionFalse,
 			)
 		})
@@ -383,6 +390,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 		})
@@ -426,6 +434,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 		})
@@ -468,6 +477,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 		})
 		It("removes the finalizers from the Cinder DB", func() {
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
@@ -552,6 +562,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			th.SimulateLoadBalancerServiceIP(cinderTest.CinderServiceInternal)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 		})
@@ -627,6 +638,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBTLSDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 		})
 
 		It("reports that the CA secret is missing", func() {
@@ -856,6 +868,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
@@ -1100,6 +1113,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
@@ -1137,6 +1151,7 @@ var _ = Describe("Cinder controller", func() {
 
 			Eventually(func(g Gomega) {
 				th.SimulateJobSuccess(cinderTest.CinderDBSync)
+				th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo2": "bar2"}))
 				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo2": "bar2"}))
 				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo2": "bar2"}))
@@ -1163,6 +1178,7 @@ var _ = Describe("Cinder controller", func() {
 
 			Eventually(func(g Gomega) {
 				th.SimulateJobSuccess(cinderTest.CinderDBSync)
+				th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(BeNil())
 				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(BeNil())
 				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(BeNil())
@@ -1188,6 +1204,7 @@ var _ = Describe("Cinder controller", func() {
 
 			Eventually(func(g Gomega) {
 				th.SimulateJobSuccess(cinderTest.CinderDBSync)
+				th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(BeNil())
 				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(BeNil())
 				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(BeNil())
@@ -1226,6 +1243,7 @@ var _ = Describe("Cinder controller", func() {
 
 			Eventually(func(g Gomega) {
 				th.SimulateJobSuccess(cinderTest.CinderDBSync)
+				th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "api"}))
 				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "scheduler"}))
 				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(Equal(map[string]string{"foo": "volume"}))
@@ -1258,6 +1276,7 @@ var _ = Describe("Cinder controller", func() {
 
 			Eventually(func(g Gomega) {
 				th.SimulateJobSuccess(cinderTest.CinderDBSync)
+				th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 				g.Expect(th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.NodeSelector).To(BeNil())
 				g.Expect(th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.NodeSelector).To(BeNil())
 				g.Expect(th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.NodeSelector).To(BeNil())
@@ -1310,6 +1329,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 		})
 
@@ -1384,6 +1404,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 		})
 		It("Checks the status contains the notifications TransportURL entry", func() {
@@ -1461,6 +1482,7 @@ var _ = Describe("Cinder controller", func() {
 			mariadb.SimulateMariaDBAccountCompleted(accountName)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCABundleSecret(cinderTest.CABundleSecret))
 			DeferCleanup(k8sClient.Delete, ctx, th.CreateCertSecret(cinderTest.InternalCertSecret))
@@ -1536,6 +1558,7 @@ var _ = Describe("Cinder with RabbitMQ Quorum Queues", func() {
 
 		It("should generate config with quorum queue settings when enabled", func() {
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 
@@ -1577,6 +1600,7 @@ var _ = Describe("Cinder with RabbitMQ Quorum Queues", func() {
 
 		It("should update config when quorum queues are enabled after being disabled", func() {
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 
@@ -1640,6 +1664,7 @@ var _ = Describe("Cinder with RabbitMQ Quorum Queues", func() {
 
 		It("should generate config without quorum queue settings when not specified", func() {
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 
@@ -1954,6 +1979,7 @@ var _ = Describe("Cinder Webhook", func() {
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 		})
@@ -2124,6 +2150,7 @@ var _ = Describe("Cinder Webhook", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
@@ -2687,6 +2714,7 @@ var _ = Describe("Cinder config secret recreation", func() {
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
 			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
 			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 		})
