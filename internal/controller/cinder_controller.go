@@ -1219,17 +1219,6 @@ func (r *CinderReconciler) generateServiceConfigs(
 		templateParameters["NotificationsURL"] = string(notificationInstanceURLSecret.Data["transport_url"])
 	}
 
-	commonTemplates, err := util.GetCommonTemplates(templateParameters)
-	if err != nil {
-		return err
-	}
-	for k, v := range commonTemplates {
-		// preserve the templates defined in the service operator if they exist
-		if _, exists := customData[k]; !exists {
-			customData[k] = v
-		}
-	}
-
 	configTemplates := []util.Template{
 		{
 			Name:         fmt.Sprintf("%s-scripts", instance.Name),
@@ -1239,13 +1228,14 @@ func (r *CinderReconciler) generateServiceConfigs(
 			Labels:       labels,
 		},
 		{
-			Name:          fmt.Sprintf("%s-config-data", instance.Name),
-			Namespace:     instance.Namespace,
-			Type:          util.TemplateTypeConfig,
-			InstanceType:  instance.Kind,
-			CustomData:    customData,
-			ConfigOptions: templateParameters,
-			Labels:        labels,
+			Name:            fmt.Sprintf("%s-config-data", instance.Name),
+			Namespace:       instance.Namespace,
+			Type:            util.TemplateTypeConfig,
+			InstanceType:    instance.Kind,
+			CustomData:      customData,
+			ConfigOptions:   templateParameters,
+			CommonTemplates: []string{"ssl.conf"},
+			Labels:          labels,
 		},
 	}
 
