@@ -415,6 +415,17 @@ func GetCinderSpecWithAC(acSecretName string) map[string]interface{} {
 	spec["auth"] = map[string]interface{}{
 		"applicationCredentialSecret": acSecretName,
 	}
+	// GetDefaultCinderSpec uses the legacy "cinderVolume" key which is not part
+	// of the CRD schema; use cinderVolumes so sub-CRs and StatefulSets are created.
+	delete(spec, "cinderVolume")
+	spec["cinderVolumes"] = map[string]any{
+		"volume1": map[string]any{},
+	}
+	// Keep the AC test layout minimal (API + scheduler + one volume), matching
+	// the topology functional test and avoiding backup reconcile overhead.
+	backupSpec := GetDefaultCinderBackupSpec()
+	backupSpec["replicas"] = 0
+	spec["cinderBackup"] = backupSpec
 	return spec
 }
 

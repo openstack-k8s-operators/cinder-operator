@@ -76,6 +76,9 @@ const (
 	// https://opendev.org/openstack/cinder/src/branch/master/cinder/common/config.py#L121
 	CinderServiceDownTime = 60
 
+	// ACConsumerFinalizer is added to AC secrets that cinder is actively consuming
+	ACConsumerFinalizer = "openstack.org/cinder-ac-consumer"
+
 	// ShortDuration is a short duration for quick retries
 	ShortDuration = time.Duration(5) * time.Second
 	// NormalDuration is the normal duration for standard retries
