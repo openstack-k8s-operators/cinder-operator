@@ -79,6 +79,10 @@ const (
 	// ACConsumerFinalizer is added to AC secrets that cinder is actively consuming
 	ACConsumerFinalizer = "openstack.org/cinder-ac-consumer"
 
+	// TransportConsumerFinalizer is added to transport secrets that cinder is
+	// actively consuming, preventing premature deletion during credential rotation
+	TransportConsumerFinalizer = "openstack.org/cinder-transport-consumer"
+
 	// ShortDuration is a short duration for quick retries
 	ShortDuration = time.Duration(5) * time.Second
 	// NormalDuration is the normal duration for standard retries

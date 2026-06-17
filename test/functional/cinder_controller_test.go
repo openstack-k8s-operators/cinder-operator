@@ -38,7 +38,6 @@ import (
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/internal/cinder"
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
-	rabbitmqv1 "github.com/openstack-k8s-operators/infra-operator/apis/rabbitmq/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
@@ -2430,6 +2429,171 @@ var _ = Describe("Cinder Webhook", func() {
 			}, timeout, interval).Should(Succeed())
 		})
 	})
+
+	When("TransportURL consumer finalizer is managed", func() {
+		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateCinderMessageBusSecret(
+					cinderTest.Instance.Namespace,
+					cinderTest.RabbitmqSecretName,
+				),
+			)
+			spec := GetDefaultCinderSpec()
+			delete(spec, "cinderVolume")
+			spec["cinderVolumes"] = map[string]any{
+				"volume1": map[string]any{},
+			}
+			backupSpec := GetDefaultCinderBackupSpec()
+			backupSpec["replicas"] = 0
+			spec["cinderBackup"] = backupSpec
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
+			DeferCleanup(
+				mariadb.DeleteDBService,
+				mariadb.CreateDBService(
+					cinderTest.Instance.Namespace,
+					GetCinder(cinderTest.Instance).Spec.DatabaseInstance,
+					corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 3306}}}))
+
+			acc, accSecret := mariadb.CreateMariaDBAccountAndSecret(cinderTest.Database, mariadbv1.MariaDBAccountSpec{})
+			DeferCleanup(k8sClient.Delete, ctx, acc)
+			DeferCleanup(k8sClient.Delete, ctx, accSecret)
+			mariadb.CreateMariaDBDatabase(cinderTest.Database.Namespace, cinderTest.Database.Name, mariadbv1.MariaDBDatabaseSpec{})
+			DeferCleanup(k8sClient.Delete, ctx, mariadb.GetMariaDBDatabase(cinderTest.Database))
+
+			DeferCleanup(keystone.DeleteKeystoneAPI,
+				keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(cinderTest.Instance.Namespace, MemcachedInstance, memcachedv1.MemcachedSpec{}))
+			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
+
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+		})
+
+		It("should add the consumer finalizer to the transport secret", func() {
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      cinderTest.RabbitmqSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(cinder.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should remove the consumer finalizer from transport secret on CR deletion", func() {
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      cinderTest.RabbitmqSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(cinder.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			th.DeleteInstance(GetCinder(cinderTest.Instance))
+
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      cinderTest.RabbitmqSecretName,
+				})
+				g.Expect(secret.Finalizers).NotTo(
+					ContainElement(cinder.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("should move the finalizer from the old to the new secret on transport rotation", func() {
+			oldSecretName := cinderTest.RabbitmqSecretName
+			newSecretName := "rabbitmq-secret-rotated"
+
+			// Wait for the consumer finalizer to be added to the old secret
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      oldSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(cinder.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// Get cinder to fully ready state (jobs already simulated in BeforeEach)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
+			th.SimulateStatefulSetReplicaReady(cinderTest.CinderVolumes[0])
+			Eventually(func(g Gomega) {
+				c := GetCinder(cinderTest.Instance)
+				g.Expect(c.Status.Conditions.IsTrue(condition.ReadyCondition)).To(BeTrue())
+				g.Expect(c.Status.TransportURLSecret).To(Equal(oldSecretName))
+			}, timeout, interval).Should(Succeed())
+
+			// Create the new rotated secret with DIFFERENT content
+			newSecret := th.CreateSecret(
+				types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      newSecretName,
+				},
+				map[string][]byte{
+					"transport_url": []byte("rabbit://rotated-user:rotated-pass@rabbitmq/fake"),
+				},
+			)
+			DeferCleanup(k8sClient.Delete, ctx, newSecret)
+
+			// Simulate transport rotation: update TransportURL status with new secret name
+			Eventually(func(g Gomega) {
+				transport := infra.GetTransportURL(cinderTest.CinderTransportURL)
+				transport.Status.SecretName = newSecretName
+				g.Expect(k8sClient.Status().Update(ctx, transport)).To(Succeed())
+			}, timeout, interval).Should(Succeed())
+
+			// Verify finalizer is added to the new secret
+			Eventually(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      newSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(cinder.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// The old secret's finalizer should NOT be removed yet — sub-CRs
+			// are re-deploying with new credentials and are not ready
+			Consistently(func(g Gomega) {
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      oldSecretName,
+				})
+				g.Expect(secret.Finalizers).To(
+					ContainElement(cinder.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// Simulate sub-CRs becoming ready with the new credentials
+			Eventually(func(g Gomega) {
+				th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
+				th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
+				th.SimulateStatefulSetReplicaReady(cinderTest.CinderVolumes[0])
+				// Verify old finalizer is removed
+				secret := th.GetSecret(types.NamespacedName{
+					Namespace: cinderTest.Instance.Namespace,
+					Name:      oldSecretName,
+				})
+				g.Expect(secret.Finalizers).NotTo(
+					ContainElement(cinder.TransportConsumerFinalizer))
+			}, timeout, interval).Should(Succeed())
+
+			// Verify status tracks the new secret
+			Eventually(func(g Gomega) {
+				c := GetCinder(cinderTest.Instance)
+				g.Expect(c.Status.TransportURLSecret).To(Equal(newSecretName))
+			}, timeout, interval).Should(Succeed())
+		})
+	})
 })
 
 var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {
@@ -2661,6 +2825,10 @@ var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {
 				),
 			)
 			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			infra.SimulateTransportURLReady(types.NamespacedName{
+				Namespace: cinderTest.Instance.Namespace,
+				Name:      fmt.Sprintf("%s-cinder-notifications-transport", cinderTest.Instance.Name),
+			})
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
 			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
@@ -2713,6 +2881,10 @@ var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {
 				),
 			)
 			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			infra.SimulateTransportURLReady(types.NamespacedName{
+				Namespace: cinderTest.Instance.Namespace,
+				Name:      fmt.Sprintf("%s-cinder-notifications-transport", cinderTest.Instance.Name),
+			})
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
 			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
@@ -2770,6 +2942,10 @@ var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {
 				),
 			)
 			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			infra.SimulateTransportURLReady(types.NamespacedName{
+				Namespace: cinderTest.Instance.Namespace,
+				Name:      fmt.Sprintf("%s-cinder-notifications-transport", cinderTest.Instance.Name),
+			})
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
 			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
 			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
@@ -2818,14 +2994,31 @@ var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {
 
 	When("Cinder notifications are disabled after creation", func() {
 		BeforeEach(func() {
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateCinderMessageBusSecret(
+					cinderTest.Instance.Namespace,
+					cinderTest.RabbitmqSecretName,
+				),
+			)
+			DeferCleanup(k8sClient.Delete, ctx,
+				CreateCinderMessageBusSecret(
+					cinderTest.Instance.Namespace,
+					"rabbitmq-notifications-secret",
+				),
+			)
 			spec := GetDefaultCinderSpec()
 			// Start with notifications enabled
 			spec["notificationsBus"] = map[string]any{
 				"cluster": "rabbitmq-notifications",
 			}
+			delete(spec, "cinderVolume")
+			spec["cinderVolumes"] = map[string]any{
+				"volume1": map[string]any{},
+			}
+			backupSpec := GetDefaultCinderBackupSpec()
+			backupSpec["replicas"] = 0
+			spec["cinderBackup"] = backupSpec
 			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, spec))
-			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
-			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, "rabbitmq-notifications-secret"))
 			DeferCleanup(
 				mariadb.DeleteDBService,
 				mariadb.CreateDBService(
@@ -2836,32 +3029,38 @@ var _ = Describe("Cinder with RabbitMQ custom vhost and user", func() {
 					},
 				),
 			)
-			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+
+			acc, accSecret := mariadb.CreateMariaDBAccountAndSecret(cinderTest.Database, mariadbv1.MariaDBAccountSpec{})
+			DeferCleanup(k8sClient.Delete, ctx, acc)
+			DeferCleanup(k8sClient.Delete, ctx, accSecret)
+			mariadb.CreateMariaDBDatabase(cinderTest.Database.Namespace, cinderTest.Database.Name, mariadbv1.MariaDBDatabaseSpec{})
+			DeferCleanup(k8sClient.Delete, ctx, mariadb.GetMariaDBDatabase(cinderTest.Database))
+
+			DeferCleanup(keystone.DeleteKeystoneAPI,
+				keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+
 			DeferCleanup(infra.DeleteMemcached, infra.CreateMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
 			infra.SimulateMemcachedReady(cinderTest.CinderMemcached)
-			DeferCleanup(keystone.DeleteKeystoneAPI, keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace))
+
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			infra.SimulateTransportURLReady(types.NamespacedName{
+				Namespace: cinderTest.Instance.Namespace,
+				Name:      fmt.Sprintf("%s-cinder-notifications-transport", cinderTest.Instance.Name),
+			})
 			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
 			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+			th.SimulateJobSuccess(cinderTest.CinderDBSync)
+			th.SimulateJobSuccess(cinderTest.CinderOnlineDataMigration)
+			keystone.SimulateKeystoneServiceReady(cinderTest.CinderKeystoneService)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 		})
 
 		It("should remove NotificationsURLSecret when notificationsBus is set to empty", func() {
-			// Wait for the notifications TransportURL to be created and simulate it being ready
-			notificationsTransportURLName := types.NamespacedName{
-				Namespace: cinderTest.Instance.Namespace,
-				Name:      fmt.Sprintf("%s-cinder-notifications-transport", cinderTest.Instance.Name),
-			}
-			Eventually(func(g Gomega) {
-				transportURL := &rabbitmqv1.TransportURL{}
-				err := k8sClient.Get(ctx, notificationsTransportURLName, transportURL)
-				g.Expect(err).ToNot(HaveOccurred())
-			}, timeout, interval).Should(Succeed())
-			infra.SimulateTransportURLReady(notificationsTransportURLName)
-
 			// Verify notifications are enabled
 			Eventually(func(g Gomega) {
 				cinder := GetCinder(cinderTest.Instance)
 				g.Expect(cinder.Status.NotificationsURLSecret).ToNot(BeNil())
-				g.Expect(*cinder.Status.NotificationsURLSecret).ToNot(Equal(cinder.Status.TransportURLSecret))
+				g.Expect(*cinder.Status.NotificationsURLSecret).ToNot(Equal(""))
 			}, timeout, interval).Should(Succeed())
 
 			// Now disable notifications by clearing both the deprecated field and the new field

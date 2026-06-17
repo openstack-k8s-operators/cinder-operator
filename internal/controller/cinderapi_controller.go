@@ -1024,7 +1024,7 @@ func (r *CinderAPIReconciler) reconcileNormal(ctx context.Context, instance *cin
 		return ctrl.Result{}, err
 	}
 
-	if instance.Status.ReadyCount > 0 {
+	if instance.Status.ReadyCount > 0 && ssData.Status.UpdatedReplicas >= *instance.Spec.Replicas {
 		instance.Status.Conditions.MarkTrue(condition.DeploymentReadyCondition, condition.DeploymentReadyMessage)
 
 	} else if *instance.Spec.Replicas > 0 {
