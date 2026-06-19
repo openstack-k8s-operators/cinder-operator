@@ -902,6 +902,8 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	// normal reconcile tasks
 	//
 
+	allSubCRsStable := true
+
 	// deploy cinder-api
 	cinderAPI, op, err := r.apiDeploymentCreateOrUpdate(ctx, instance, transportURL.Status.SecretName, notificationsURLSecretName)
 	if err != nil {
@@ -915,6 +917,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	}
 	if op != controllerutil.OperationResultNone {
 		Log.Info(fmt.Sprintf("API CR for %s successfully %s", instance.Name, string(op)))
+		allSubCRsStable = false
 	}
 
 	// Mirror values when the data in the StatefulSet is for the current generation
@@ -950,6 +953,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	}
 	if op != controllerutil.OperationResultNone {
 		Log.Info(fmt.Sprintf("Scheduler CR for %s successfully %s", instance.Name, string(op)))
+		allSubCRsStable = false
 	}
 
 	// Mirror values when the data in the StatefulSet is for the current generation
@@ -994,6 +998,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		}
 		if op != controllerutil.OperationResultNone {
 			Log.Info(fmt.Sprintf("Backup CR for %s successfully %s", instance.Name, string(op)))
+			allSubCRsStable = false
 		}
 		// Mirror values when the data in the StatefulSet is for the current generation
 		if cinderBackup.Generation == cinderBackup.Status.ObservedGeneration {
@@ -1046,6 +1051,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 				}
 				if op != controllerutil.OperationResultNone {
 					Log.Info(fmt.Sprintf("Backup CR for %s successfully %s", instance.Name, string(op)))
+					allSubCRsStable = false
 				}
 				if cinderBackup.Generation != cinderBackup.Status.ObservedGeneration {
 					waitingBkpGenerationMatch = true
@@ -1106,6 +1112,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 		}
 		if op != controllerutil.OperationResultNone {
 			Log.Info(fmt.Sprintf("Volume %s CR for %s successfully %s", name, instance.Name, string(op)))
+			allSubCRsStable = false
 		}
 
 		// Mirror values when the data in the StatefulSet is for the current generation
@@ -1179,47 +1186,36 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 
 	Log.Info(fmt.Sprintf("Reconciled Service '%s' successfully", instance.Name))
 
-	// Manage the old transport secret's finalizer and status tracking.
-	// On rotation (old != new), only remove the old secret's finalizer after
-	// all sub-services are ready with the new credentials.
-	isTransportRotation := instance.Status.TransportURLSecret != "" &&
-		instance.Status.TransportURLSecret != transportURL.Status.SecretName
+	guardReady := allSubCRsStable && instance.Status.Conditions.AllSubConditionIsTrue()
 
-	if isTransportRotation {
-		if instance.Status.Conditions.AllSubConditionIsTrue() {
-			if err := rabbitmqv1.RemoveTransportSecretConsumerFinalizer(
-				ctx, helper, instance.Namespace,
-				instance.Status.TransportURLSecret,
-				cinder.TransportConsumerFinalizer,
-			); err != nil {
-				return ctrl.Result{}, err
-			}
-			instance.Status.TransportURLSecret = transportURL.Status.SecretName
-		}
-	} else {
-		instance.Status.TransportURLSecret = transportURL.Status.SecretName
+	secretName, err := rabbitmqv1.FinalizeTransportSecretRotation(
+		ctx, helper, instance.Namespace,
+		instance.Status.TransportURLSecret,
+		transportURL.Status.SecretName,
+		cinder.TransportConsumerFinalizer,
+		guardReady,
+	)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
+	instance.Status.TransportURLSecret = secretName
 
-	// Same pattern for the notification transport secret.
 	if notificationBusInstanceURL != nil {
-		isNotificationRotation := instance.Status.NotificationsURLSecret != nil &&
-			*instance.Status.NotificationsURLSecret != "" &&
-			*instance.Status.NotificationsURLSecret != notificationBusInstanceURL.Status.SecretName
-
-		if isNotificationRotation {
-			if instance.Status.Conditions.AllSubConditionIsTrue() {
-				if err := rabbitmqv1.RemoveTransportSecretConsumerFinalizer(
-					ctx, helper, instance.Namespace,
-					*instance.Status.NotificationsURLSecret,
-					cinder.TransportConsumerFinalizer,
-				); err != nil {
-					return ctrl.Result{}, err
-				}
-				instance.Status.NotificationsURLSecret = ptr.To(notificationBusInstanceURL.Status.SecretName)
-			}
-		} else {
-			instance.Status.NotificationsURLSecret = ptr.To(notificationBusInstanceURL.Status.SecretName)
+		notifStatusSecret := ""
+		if instance.Status.NotificationsURLSecret != nil {
+			notifStatusSecret = *instance.Status.NotificationsURLSecret
 		}
+		notifSecretName, err := rabbitmqv1.FinalizeTransportSecretRotation(
+			ctx, helper, instance.Namespace,
+			notifStatusSecret,
+			notificationBusInstanceURL.Status.SecretName,
+			cinder.TransportConsumerFinalizer,
+			guardReady,
+		)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		instance.Status.NotificationsURLSecret = ptr.To(notifSecretName)
 	}
 
 	// Manage the old AC secret's finalizer and status tracking.
