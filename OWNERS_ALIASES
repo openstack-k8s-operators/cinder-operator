@@ -6,6 +6,6 @@ aliases:
   - dprince
   - stuggi
   storage-approvers:
-  - ASBishop
+  - fultonj
   - eharney
   - fmount
