@@ -90,7 +90,7 @@ type CinderTestData struct {
 func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 
 	m := cinderName
-	return CinderTestData{
+	return CinderTestData{ //nolint:gosec
 		Instance: m,
 
 		Cinder: types.NamespacedName{
