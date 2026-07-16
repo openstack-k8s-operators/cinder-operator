@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -69,8 +68,6 @@ func SetupDefaults() {
 
 	cinderlog.Info("Cinder defaults initialized", "defaults", cinderDefaults)
 }
-
-var _ webhook.Defaulter = &Cinder{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Cinder) Default() {
@@ -193,8 +190,6 @@ func (spec *CinderSpecBase) validateDeprecatedFieldsUpdate(old CinderSpecBase, b
 	deprecatedFields := spec.getDeprecatedFields(&old)
 	return common_webhook.ValidateDeprecatedFieldsUpdate(deprecatedFields, basePath)
 }
-
-var _ webhook.Validator = &Cinder{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
