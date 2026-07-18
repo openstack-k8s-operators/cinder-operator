@@ -69,7 +69,7 @@ func SetupDefaults() {
 	cinderlog.Info("Cinder defaults initialized", "defaults", cinderDefaults)
 }
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type
+// Default sets defaults for the Cinder spec
 func (r *Cinder) Default() {
 	cinderlog.Info("default", "name", r.Name)
 
@@ -191,7 +191,7 @@ func (spec *CinderSpecBase) validateDeprecatedFieldsUpdate(old CinderSpecBase, b
 	return common_webhook.ValidateDeprecatedFieldsUpdate(deprecatedFields, basePath)
 }
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
+// ValidateCreate validates the Cinder resource on creation
 func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
 	cinderlog.Info("validate create", "name", r.Name)
 
@@ -298,7 +298,7 @@ func (spec *CinderSpecCore) ValidateCreate(
 	return allWarns, allErrs
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+// ValidateUpdate validates the Cinder resource on update
 func (r *Cinder) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	cinderlog.Info("validate update", "name", r.Name)
 
@@ -415,7 +415,7 @@ func (spec *CinderSpecCore) ValidateUpdate(
 	return allWarns, allErrs
 }
 
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+// ValidateDelete validates the Cinder resource on deletion
 func (r *Cinder) ValidateDelete() (admission.Warnings, error) {
 	cinderlog.Info("validate delete", "name", r.Name)
 
