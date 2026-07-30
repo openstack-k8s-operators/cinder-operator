@@ -710,7 +710,7 @@ var _ = Describe("Cinder controller", func() {
 			d := th.GetStatefulSet(cinderTest.CinderAPI)
 			// Check the resulting deployment fields
 			Expect(int(*d.Spec.Replicas)).To(Equal(1))
-			Expect(d.Spec.Template.Spec.Volumes).To(HaveLen(8))
+			Expect(d.Spec.Template.Spec.Volumes).To(HaveLen(10))
 			Expect(d.Spec.Template.Spec.Containers).To(HaveLen(2))
 
 			// cert deployment volumes
@@ -748,7 +748,7 @@ var _ = Describe("Cinder controller", func() {
 			ss := th.GetStatefulSet(cinderTest.CinderScheduler)
 			// Check the resulting deployment fields
 			Expect(int(*ss.Spec.Replicas)).To(Equal(1))
-			Expect(ss.Spec.Template.Spec.Volumes).To(HaveLen(5))
+			Expect(ss.Spec.Template.Spec.Volumes).To(HaveLen(6))
 			Expect(ss.Spec.Template.Spec.Containers).To(HaveLen(2))
 
 			// cert deployment volumes

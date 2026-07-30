@@ -8,14 +8,14 @@ import (
 
 // GetVolumes -
 func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
-	var config0644AccessMode int32 = 0644
+	var configAccessMode int32 = 0440
 
 	volumes := []corev1.Volume{
 		{
 			Name: "config-data-custom",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					DefaultMode: &config0644AccessMode,
+					DefaultMode: &configAccessMode,
 					SecretName:  name + "-config-data",
 				},
 			},
@@ -31,12 +31,6 @@ func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Vol
 		{
 			Name:      "config-data-custom",
 			MountPath: "/etc/cinder/cinder.conf.d",
-			ReadOnly:  true,
-		},
-		{
-			Name:      "config-data",
-			MountPath: "/var/lib/kolla/config_files/config.json",
-			SubPath:   "cinder-scheduler-config.json",
 			ReadOnly:  true,
 		},
 	}
