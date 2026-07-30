@@ -21,16 +21,14 @@ import (
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/pod"
+	"github.com/openstack-k8s-operators/lib-common/modules/users"
 
 	"github.com/openstack-k8s-operators/lib-common/modules/common/probes"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	// ServiceCommand -
-	ServiceCommand = "/usr/local/bin/kolla_start"
+	"k8s.io/utils/ptr"
 )
 
 // StatefulSet func
@@ -42,9 +40,6 @@ func StatefulSet(
 	topology *topologyv1.Topology,
 	memcached *memcachedv1.Memcached,
 ) (*appsv1.StatefulSet, error) {
-	cinderUser := int64(cinderv1.CinderUserID)
-	cinderGroup := int64(cinderv1.CinderGroupID)
-
 	// Both scheme and port are set according to the healthcheck.py script
 	scheme := corev1.URISchemeHTTP
 	probesPort := int32(8080)
@@ -60,7 +55,7 @@ func StatefulSet(
 		return nil, err
 	}
 
-	args := []string{"-c", ServiceCommand}
+	args := []string{"-c", "/usr/bin/cinder-scheduler --config-dir /etc/cinder/cinder.conf.d"}
 	probeCommand := []string{
 		"/usr/local/bin/container-scripts/healthcheck.py",
 		"scheduler",
@@ -68,8 +63,9 @@ func StatefulSet(
 	}
 
 	envVars := map[string]env.Setter{}
-	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
+
+	podSecurityContext := pod.RestrictivePodSecurityContext(users.CinderUID, users.CinderGID)
 
 	volumes := GetVolumes(
 		cinder.GetOwningCinderName(instance),
@@ -86,7 +82,9 @@ func StatefulSet(
 	// add MTLS cert if defined
 	if memcached.Status.MTLSCert != "" && instance.Spec.MemcachedInstance != nil {
 		volumes = append(volumes, memcached.CreateMTLSVolume())
-		volumeMounts = append(volumeMounts, memcached.CreateMTLSVolumeMounts(nil, nil)...)
+		certMountPath := memcachedv1.CertPathDst
+		keyMountPath := memcachedv1.KeyPathDst
+		volumeMounts = append(volumeMounts, memcached.CreateMTLSVolumeMounts(&certMountPath, &keyMountPath)...)
 	}
 
 	statefulset := &appsv1.StatefulSet{
@@ -106,33 +104,30 @@ func StatefulSet(
 					Labels:      labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: instance.Spec.ServiceAccount,
+					ServiceAccountName:           instance.Spec.ServiceAccount,
+					AutomountServiceAccountToken: ptr.To(false),
+					SecurityContext:              podSecurityContext,
 					Containers: []corev1.Container{
 						{
 							Name: ComponentName,
 							Command: []string{
 								"/bin/bash",
 							},
-							Args:  args,
-							Image: instance.Spec.ContainerImage,
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &cinderUser,
-							},
-							Env:           env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:  volumeMounts,
-							Resources:     instance.Spec.Resources,
-							LivenessProbe: schedProbes.Liveness,
-							StartupProbe:  schedProbes.Startup,
+							Args:            args,
+							Image:           instance.Spec.ContainerImage,
+							SecurityContext: pod.RestrictiveSecurityContext(users.CinderUID, users.CinderGID),
+							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:    volumeMounts,
+							Resources:       instance.Spec.Resources,
+							LivenessProbe:   schedProbes.Liveness,
+							StartupProbe:    schedProbes.Startup,
 						},
 						{
-							Name:    "probe",
-							Command: probeCommand,
-							Image:   instance.Spec.ContainerImage,
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser:  &cinderUser,
-								RunAsGroup: &cinderGroup,
-							},
-							VolumeMounts: volumeMounts,
+							Name:            "probe",
+							Command:         probeCommand,
+							Image:           instance.Spec.ContainerImage,
+							SecurityContext: pod.RestrictiveSecurityContext(users.CinderUID, users.CinderGID),
+							VolumeMounts:    volumeMounts,
 						},
 					},
 					Volumes: volumes,

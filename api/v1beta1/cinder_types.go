@@ -25,12 +25,6 @@ import (
 )
 
 const (
-	// CinderUserID - Kolla's cinder UID comes from the 'cinder-user' in
-	// https://github.com/openstack/kolla/blob/master/kolla/common/users.py
-	CinderUserID = 42407
-	// CinderGroupID - Kolla's cinder GID
-	CinderGroupID = 42407
-
 	// DbSyncHash hash
 	DbSyncHash = "dbsync"
 

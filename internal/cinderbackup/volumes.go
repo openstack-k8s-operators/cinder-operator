@@ -8,14 +8,14 @@ import (
 
 // GetVolumes -
 func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
-	var config0644AccessMode int32 = 0644
+	var configAccessMode int32 = 0440
 
 	volumes := []corev1.Volume{
 		{
 			Name: "config-data-custom",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					DefaultMode: &config0644AccessMode,
+					DefaultMode: &configAccessMode,
 					SecretName:  name + "-config-data",
 				},
 			},
@@ -33,12 +33,12 @@ func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Vol
 			MountPath: "/etc/cinder/cinder.conf.d",
 			ReadOnly:  true,
 		},
-		{
-			Name:      "config-data",
-			MountPath: "/var/lib/kolla/config_files/config.json",
-			SubPath:   "cinder-backup-config.json",
-			ReadOnly:  true,
-		},
+		cinder.RunOnHostVolumeMount("/usr/sbin/multipath"),
+		cinder.RunOnHostVolumeMount("/usr/sbin/multipathd"),
+		cinder.RunOnHostVolumeMount("/usr/sbin/iscsiadm"),
+		cinder.RunOnHostVolumeMount("/lib/udev/scsi_id"),
+		cinder.RunOnHostVolumeMount("/usr/sbin/cryptsetup"),
+		cinder.RunOnHostVolumeMount("/usr/sbin/nvme"),
 	}
 
 	return append(cinder.GetVolumeMounts(true, extraVol, cinder.CinderBackupPropagation), volumeMounts...)

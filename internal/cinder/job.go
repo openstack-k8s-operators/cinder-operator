@@ -4,9 +4,12 @@ import (
 	"fmt"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/pod"
+	"github.com/openstack-k8s-operators/lib-common/modules/users"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 // ManageJobType defines the type of cinder-manage command to run
@@ -35,7 +38,7 @@ func ManageJob(
 	jobNameSuffix ManageJobType,
 	command string,
 ) *batchv1.Job {
-	var config0644AccessMode int32 = 0644
+	var configAccessMode int32 = 0440
 
 	// Unlike the individual cinder services, cinder-manage jobs don't need a
 	// secret that contains all of the config snippets required by every
@@ -47,7 +50,7 @@ func ManageJob(
 			Name: "config-data",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					DefaultMode: &config0644AccessMode,
+					DefaultMode: &configAccessMode,
 					SecretName:  instance.Name + "-config-data",
 					Items: []corev1.KeyToPath{
 						{
@@ -80,7 +83,6 @@ func ManageJob(
 
 	args := []string{"-c", command}
 
-	runAsUser := int64(0)
 	envVars := map[string]env.Setter{}
 
 	job := &batchv1.Job{
@@ -95,21 +97,21 @@ func ManageJob(
 					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy:      corev1.RestartPolicyOnFailure,
-					ServiceAccountName: instance.RbacResourceName(),
+					RestartPolicy:                corev1.RestartPolicyOnFailure,
+					ServiceAccountName:           instance.RbacResourceName(),
+					AutomountServiceAccountToken: ptr.To(false),
+					SecurityContext:              pod.RestrictivePodSecurityContext(users.CinderUID, users.CinderGID),
 					Containers: []corev1.Container{
 						{
 							Name: fmt.Sprintf("%s-%s", instance.Name, string(jobNameSuffix)),
 							Command: []string{
 								"/bin/bash",
 							},
-							Args:  args,
-							Image: instance.Spec.CinderAPI.ContainerImage,
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &runAsUser,
-							},
-							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: jobMounts,
+							Args:            args,
+							Image:           instance.Spec.CinderAPI.ContainerImage,
+							SecurityContext: pod.RestrictiveSecurityContext(users.CinderUID, users.CinderGID),
+							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:    jobMounts,
 						},
 					},
 					Volumes: jobVolume,
