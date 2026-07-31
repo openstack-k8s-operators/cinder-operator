@@ -3,9 +3,9 @@ module github.com/openstack-k8s-operators/cinder-operator/api
 go 1.26.3
 
 require (
-	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20260718084237-5df87de62106
-	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20260717092345-ab1ee7b97c67
-	github.com/openstack-k8s-operators/lib-common/modules/storage v0.6.1-0.20260717092345-ab1ee7b97c67
+	github.com/openstack-k8s-operators/infra-operator/apis v0.6.1-0.20260730060158-27ac5ce68f29
+	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.1-0.20260725150835-623a52fe0391
+	github.com/openstack-k8s-operators/lib-common/modules/storage v0.6.1-0.20260725150835-623a52fe0391
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 	k8s.io/api v0.33.13
 	k8s.io/apimachinery v0.33.13
@@ -20,7 +20,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
-	github.com/go-logr/logr v1.4.3 // indirect
+	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-openapi/jsonpointer v0.21.1 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.1 // indirect
@@ -89,3 +89,7 @@ replace k8s.io/code-generator => k8s.io/code-generator v0.33.13 //allow-merging
 replace k8s.io/component-base => k8s.io/component-base v0.33.13 //allow-merging
 
 replace k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250627150254-e9823e99808e //allow-merging
+
+replace github.com/openstack-k8s-operators/lib-common/modules/common => github.com/lmiccini/lib-common/modules/common v0.0.0-20260731054026-d02b1fca9d61
+
+replace github.com/openstack-k8s-operators/infra-operator/apis => github.com/lmiccini/infra-operator/apis v0.0.0-20260731051031-668c7bff774e
