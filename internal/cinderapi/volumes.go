@@ -3,29 +3,26 @@ package cinderapi
 import (
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	"github.com/openstack-k8s-operators/cinder-operator/internal/cinder"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/volume"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // GetVolumes -
 func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Volume {
-	var config0644AccessMode int32 = 0644
+	var configAccessMode int32 = 0440
 
 	volumes := []corev1.Volume{
 		{
 			Name: "config-data-custom",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					DefaultMode: &config0644AccessMode,
+					DefaultMode: &configAccessMode,
 					SecretName:  name + "-config-data",
 				},
 			},
 		},
-		{
-			Name: "logs",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{Medium: ""},
-			},
-		},
+		volume.WritableDirVolume("logs"),
+		volume.WritableDirVolume(volume.RunHttpdVolumeName),
 	}
 
 	return append(cinder.GetVolumes(parentName, false, extraVol, cinder.CinderAPIPropagation), volumes...)
@@ -41,10 +38,23 @@ func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts) []corev1.Vol
 		},
 		{
 			Name:      "config-data",
-			MountPath: "/var/lib/kolla/config_files/config.json",
-			SubPath:   "cinder-api-config.json",
+			MountPath: "/etc/httpd/conf/httpd.conf",
+			SubPath:   "httpd.conf",
 			ReadOnly:  true,
 		},
+		{
+			Name:      "config-data",
+			MountPath: "/etc/httpd/conf.d/ssl.conf",
+			SubPath:   "ssl.conf",
+			ReadOnly:  true,
+		},
+		{
+			Name:      "config-data",
+			MountPath: "/etc/httpd/conf.d/10-cinder_wsgi.conf",
+			SubPath:   "10-cinder_wsgi.conf",
+			ReadOnly:  true,
+		},
+		volume.WritableDirVolumeMount(volume.RunHttpdVolumeName, volume.RunHttpdMountPath),
 		GetLogVolumeMount(),
 	}
 

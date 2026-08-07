@@ -123,7 +123,7 @@ func (r *CinderReconciler) GetLogger(ctx context.Context) logr.Logger {
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;watch;create;update;patch
 // service account permissions that are needed to grant permission to the above
-// +kubebuilder:rbac:groups="security.openshift.io",resourceNames=anyuid;privileged,resources=securitycontextconstraints,verbs=use
+// +kubebuilder:rbac:groups="security.openshift.io",resourceNames=privileged;nonroot-v2,resources=securitycontextconstraints,verbs=use
 
 // Reconcile -
 func (r *CinderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, _err error) {
@@ -568,7 +568,7 @@ func (r *CinderReconciler) reconcileNormal(ctx context.Context, instance *cinder
 	rbacRules := []rbacv1.PolicyRule{
 		{
 			APIGroups:     []string{"security.openshift.io"},
-			ResourceNames: []string{"anyuid", "privileged"},
+			ResourceNames: []string{"privileged", "nonroot-v2"},
 			Resources:     []string{"securitycontextconstraints"},
 			Verbs:         []string{"use"},
 		},
