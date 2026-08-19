@@ -2,6 +2,7 @@ package cinder
 
 import (
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/volume"
 	"github.com/openstack-k8s-operators/lib-common/modules/storage"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -9,7 +10,7 @@ import (
 // GetVolumes -
 func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMounts, svc []storage.PropagationType) []corev1.Volume {
 	var scriptsVolumeDefaultMode int32 = 0755
-	var config0644AccessMode int32 = 0644
+	var configAccessMode int32 = 0440
 	var dirOrCreate = corev1.HostPathDirectoryOrCreate
 
 	res := []corev1.Volume{
@@ -34,11 +35,12 @@ func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExt
 			Name: "config-data",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					DefaultMode: &config0644AccessMode,
+					DefaultMode: &configAccessMode,
 					SecretName:  name + "-config-data",
 				},
 			},
 		},
+		volume.WritableDirVolume(volume.TmpVolumeName),
 	}
 
 	// Volume and backup services require extra directories
@@ -132,6 +134,15 @@ func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExt
 
 		res = append(res, storageVolumes...)
 	}
+	// Non-storage services (api, scheduler) need no extra writable volumes:
+	// [oslo_concurrency] lock_path and tooz's local file-based coordination
+	// backend (state_path/groups, state_path/tmp) write directly under
+	// /var/lib/cinder and /var/locks/openstack/cinder, both normal-writable
+	// paths for the cinder user without ReadOnlyRootFilesystem. Volume/backup
+	// already get a real (hostPath) /var/lib/cinder and
+	// /var/locks/openstack/cinder above, shared with the host since os-brick
+	// locking there must coordinate with other host-level consumers of the
+	// same devices.
 
 	for _, exv := range extraVol {
 		for _, vol := range exv.Propagate(svc) {
@@ -146,6 +157,18 @@ func GetVolumes(name string, storageSvc bool, extraVol []cinderv1beta1.CinderExt
 		}
 	}
 	return res
+}
+
+// RunOnHostVolumeMount returns a VolumeMount that shims a host storage binary
+// via the "scripts" secret's run-on-host nsenter wrapper, so cinder-volume/
+// cinder-backup can invoke host-installed multipath/iscsi/lvm tooling from
+// inside the container (the pod already runs with HostPID: true).
+func RunOnHostVolumeMount(destPath string) corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      "scripts",
+		MountPath: destPath,
+		SubPath:   "run-on-host",
+	}
 }
 
 // GetVolumeMounts - Cinder Control Plane VolumeMounts
@@ -163,15 +186,11 @@ func GetVolumeMounts(storageSvc bool, extraVol []cinderv1beta1.CinderExtraVolMou
 		},
 		{
 			Name:      "config-data",
-			MountPath: "/var/lib/config-data/merged",
-			ReadOnly:  true,
-		},
-		{
-			Name:      "config-data",
 			MountPath: "/etc/my.cnf",
 			SubPath:   MyCnfFileName,
 			ReadOnly:  true,
 		},
+		volume.WritableDirVolumeMount(volume.TmpVolumeName, volume.TmpMountPath),
 	}
 
 	// Volume and backup services require extra directories

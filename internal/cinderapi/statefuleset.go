@@ -16,23 +16,23 @@ limitations under the License.
 package cinderapi
 
 import (
+	"fmt"
+
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 	cinder "github.com/openstack-k8s-operators/cinder-operator/internal/cinder"
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/pod"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/probes"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/tls"
+	"github.com/openstack-k8s-operators/lib-common/modules/users"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-const (
-	// ServiceCommand -
-	ServiceCommand = "/usr/local/bin/kolla_start"
+	"k8s.io/utils/ptr"
 )
 
 // StatefulSet func
@@ -45,9 +45,6 @@ func StatefulSet(
 	memcached *memcachedv1.Memcached,
 	timeout int,
 ) (*appsv1.StatefulSet, error) {
-	runAsUser := int64(0)
-	cinderUser := int64(cinderv1beta1.CinderUserID)
-
 	scheme := corev1.URISchemeHTTP
 	if instance.Spec.TLS.API.Enabled(service.EndpointPublic) {
 		scheme = corev1.URISchemeHTTPS
@@ -66,7 +63,7 @@ func StatefulSet(
 		return nil, err
 	}
 
-	args := []string{"-c", ServiceCommand}
+	args := []string{"-c", "/usr/sbin/httpd -DFOREGROUND"}
 	//
 	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 	//
@@ -86,7 +83,9 @@ func StatefulSet(
 	// add MTLS cert if defined
 	if memcached.Status.MTLSCert != "" && instance.Spec.MemcachedInstance != nil {
 		volumes = append(volumes, memcached.CreateMTLSVolume())
-		volumeMounts = append(volumeMounts, memcached.CreateMTLSVolumeMounts(nil, nil)...)
+		certMountPath := memcachedv1.CertPathDst
+		keyMountPath := memcachedv1.KeyPathDst
+		volumeMounts = append(volumeMounts, memcached.CreateMTLSVolumeMounts(&certMountPath, &keyMountPath)...)
 	}
 
 	for _, endpt := range []service.Endpoint{service.EndpointInternal, service.EndpointPublic} {
@@ -103,14 +102,19 @@ func StatefulSet(
 			if err != nil {
 				return nil, err
 			}
+			certMount := fmt.Sprintf("/etc/pki/tls/certs/%s.crt", endpt.String())
+			keyMount := fmt.Sprintf("/etc/pki/tls/private/%s.key", endpt.String())
+			svc.CertMount = &certMount
+			svc.KeyMount = &keyMount
 			volumes = append(volumes, svc.CreateVolume(endpt.String()))
 			volumeMounts = append(volumeMounts, svc.CreateVolumeMounts(endpt.String())...)
 		}
 	}
 
 	envVars := map[string]env.Setter{}
-	envVars["KOLLA_CONFIG_STRATEGY"] = env.SetValue("COPY_ALWAYS")
 	envVars["CONFIG_HASH"] = env.SetValue(configHash)
+
+	podSecurityContext := pod.RestrictivePodSecurityContext(users.CinderUID, users.CinderGID)
 
 	statefulset := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -130,7 +134,9 @@ func StatefulSet(
 					Labels:      labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: instance.Spec.ServiceAccount,
+					ServiceAccountName:           instance.Spec.ServiceAccount,
+					AutomountServiceAccountToken: ptr.To(false),
+					SecurityContext:              podSecurityContext,
 					Containers: []corev1.Container{
 						// the first container in a pod is the default selected
 						// by oc log so define the log stream container first.
@@ -146,29 +152,25 @@ func StatefulSet(
 								"-c",
 								"/usr/bin/tail -n+1 -F " + LogFile + " 2>/dev/null",
 							},
-							Image: instance.Spec.ContainerImage,
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &runAsUser,
-							},
-							Env:          env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts: []corev1.VolumeMount{GetLogVolumeMount()},
-							Resources:    instance.Spec.Resources,
+							Image:           instance.Spec.ContainerImage,
+							SecurityContext: pod.RestrictiveSecurityContext(users.CinderUID, users.CinderGID),
+							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:    []corev1.VolumeMount{GetLogVolumeMount()},
+							Resources:       instance.Spec.Resources,
 						},
 						{
 							Name: ComponentName,
 							Command: []string{
 								"/bin/bash",
 							},
-							Args:  args,
-							Image: instance.Spec.ContainerImage,
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: &cinderUser,
-							},
-							Env:            env.MergeEnvs([]corev1.EnvVar{}, envVars),
-							VolumeMounts:   volumeMounts,
-							Resources:      instance.Spec.Resources,
-							ReadinessProbe: apiProbes.Readiness,
-							LivenessProbe:  apiProbes.Liveness,
+							Args:            args,
+							Image:           instance.Spec.ContainerImage,
+							SecurityContext: pod.RestrictiveSecurityContext(users.CinderUID, users.CinderGID),
+							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
+							VolumeMounts:    volumeMounts,
+							Resources:       instance.Spec.Resources,
+							ReadinessProbe:  apiProbes.Readiness,
+							LivenessProbe:   apiProbes.Liveness,
 						},
 					},
 					Volumes: volumes,

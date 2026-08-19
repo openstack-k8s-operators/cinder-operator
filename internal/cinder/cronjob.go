@@ -20,6 +20,9 @@ import (
 
 	"fmt"
 
+	"github.com/openstack-k8s-operators/lib-common/modules/common/pod"
+	"github.com/openstack-k8s-operators/lib-common/modules/users"
+
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,9 +35,7 @@ func CronJob(
 	labels map[string]string,
 	annotations map[string]string,
 ) *batchv1.CronJob {
-	cinderUser := int64(cinderv1.CinderUserID)
-	cinderGroup := int64(cinderv1.CinderGroupID)
-	config0644AccessMode := int32(0644)
+	configAccessMode := int32(0440)
 
 	dbPurgeCommand := fmt.Sprintf(
 		"/usr/bin/cinder-manage --debug --config-dir /etc/cinder/cinder.conf.d db purge %d",
@@ -47,7 +48,7 @@ func CronJob(
 			Name: "db-purge-config-data",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					DefaultMode: &config0644AccessMode,
+					DefaultMode: &configAccessMode,
 					SecretName:  instance.Name + "-config-data",
 					Items: []corev1.KeyToPath{
 						{
@@ -116,17 +117,16 @@ func CronJob(
 									Command: []string{
 										"/bin/bash",
 									},
-									Args:         args,
-									VolumeMounts: cronJobVolumeMounts,
-									SecurityContext: &corev1.SecurityContext{
-										RunAsUser:  &cinderUser,
-										RunAsGroup: &cinderGroup,
-									},
+									Args:            args,
+									VolumeMounts:    cronJobVolumeMounts,
+									SecurityContext: pod.RestrictiveSecurityContext(users.CinderUID, users.CinderGID),
 								},
 							},
-							Volumes:            append(GetVolumes(instance.Name, false, cronJobExtraMounts, DbsyncPropagation), cronJobVolumes...),
-							RestartPolicy:      corev1.RestartPolicyNever,
-							ServiceAccountName: instance.RbacResourceName(),
+							Volumes:                      append(GetVolumes(instance.Name, false, cronJobExtraMounts, DbsyncPropagation), cronJobVolumes...),
+							RestartPolicy:                corev1.RestartPolicyNever,
+							ServiceAccountName:           instance.RbacResourceName(),
+							AutomountServiceAccountToken: ptr.To(false),
+							SecurityContext:              pod.RestrictivePodSecurityContext(users.CinderUID, users.CinderGID),
 						},
 					},
 				},

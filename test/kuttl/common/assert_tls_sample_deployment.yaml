@@ -57,6 +57,7 @@ metadata:
 spec:
   template:
     spec:
+      automountServiceAccountToken: false
       containers:
       - args:
         - --single-child
@@ -64,12 +65,32 @@ spec:
         - /bin/sh
         - -c
         - /usr/bin/tail -n+1 -F /var/log/cinder/cinder-api.log 2>/dev/null
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 42407
+          runAsNonRoot: true
+          runAsUser: 42407
+          seccompProfile:
+            type: RuntimeDefault
         volumeMounts:
         - mountPath: /var/log/cinder
           name: logs
       - args:
         - -c
-        - /usr/local/bin/kolla_start
+        - /usr/sbin/httpd -DFOREGROUND
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 42407
+          runAsNonRoot: true
+          runAsUser: 42407
+          seccompProfile:
+            type: RuntimeDefault
         volumeMounts:
         - mountPath: /etc/machine-id
           name: etc-machine-id
@@ -77,42 +98,58 @@ spec:
         - mountPath: /usr/local/bin/container-scripts
           name: scripts
           readOnly: true
-        - mountPath: /var/lib/config-data/merged
-          name: config-data
-          readOnly: true
         - mountPath: /etc/my.cnf
           name: config-data
           readOnly: true
           subPath: my.cnf
+        - mountPath: /tmp
+          name: tmp
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
           readOnly: true
-        - mountPath: /var/lib/kolla/config_files/config.json
+        - mountPath: /etc/httpd/conf/httpd.conf
           name: config-data
           readOnly: true
-          subPath: cinder-api-config.json
+          subPath: httpd.conf
+        - mountPath: /etc/httpd/conf.d/ssl.conf
+          name: config-data
+          readOnly: true
+          subPath: ssl.conf
+        - mountPath: /etc/httpd/conf.d/10-cinder_wsgi.conf
+          name: config-data
+          readOnly: true
+          subPath: 10-cinder_wsgi.conf
+        - mountPath: /run/httpd
+          name: run-httpd
         - mountPath: /var/log/cinder
           name: logs
         - mountPath: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
           name: combined-ca-bundle
           readOnly: true
           subPath: tls-ca-bundle.pem
-        - mountPath: /var/lib/config-data/tls/certs/internal.crt
+        - mountPath: /etc/pki/tls/certs/internal.crt
           name: internal-tls-certs
           readOnly: true
           subPath: tls.crt
-        - mountPath: /var/lib/config-data/tls/private/internal.key
+        - mountPath: /etc/pki/tls/private/internal.key
           name: internal-tls-certs
           readOnly: true
           subPath: tls.key
-        - mountPath: /var/lib/config-data/tls/certs/public.crt
+        - mountPath: /etc/pki/tls/certs/public.crt
           name: public-tls-certs
           readOnly: true
           subPath: tls.crt
-        - mountPath: /var/lib/config-data/tls/private/public.key
+        - mountPath: /etc/pki/tls/private/public.key
           name: public-tls-certs
           readOnly: true
           subPath: tls.key
+      securityContext:
+        fsGroup: 42407
+        runAsGroup: 42407
+        runAsNonRoot: true
+        runAsUser: 42407
+        seccompProfile:
+          type: RuntimeDefault
       volumes:
       - hostPath:
           path: /etc/machine-id
@@ -124,14 +161,18 @@ spec:
           secretName: cinder-scripts
       - name: config-data
         secret:
-          defaultMode: 420
+          defaultMode: 288
           secretName: cinder-config-data
+      - emptyDir: {}
+        name: tmp
       - name: config-data-custom
         secret:
-          defaultMode: 420
+          defaultMode: 288
           secretName: cinder-api-config-data
       - emptyDir: {}
         name: logs
+      - emptyDir: {}
+        name: run-httpd
       - name: combined-ca-bundle
         secret:
           defaultMode: 292
@@ -155,10 +196,21 @@ metadata:
 spec:
   template:
     spec:
+      automountServiceAccountToken: false
       containers:
       - args:
         - -c
-        - /usr/local/bin/kolla_start
+        - /usr/bin/cinder-scheduler --config-dir /etc/cinder/cinder.conf.d
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 42407
+          runAsNonRoot: true
+          runAsUser: 42407
+          seccompProfile:
+            type: RuntimeDefault
         volumeMounts:
         - mountPath: /etc/machine-id
           name: etc-machine-id
@@ -166,30 +218,33 @@ spec:
         - mountPath: /usr/local/bin/container-scripts
           name: scripts
           readOnly: true
-        - mountPath: /var/lib/config-data/merged
-          name: config-data
-          readOnly: true
         - mountPath: /etc/my.cnf
           name: config-data
           readOnly: true
           subPath: my.cnf
+        - mountPath: /tmp
+          name: tmp
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
           readOnly: true
-        - mountPath: /var/lib/kolla/config_files/config.json
-          name: config-data
-          readOnly: true
-          subPath: cinder-scheduler-config.json
         - mountPath: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
           name: combined-ca-bundle
           readOnly: true
           subPath: tls-ca-bundle.pem
-        securityContext:
-          runAsUser: 42407
       - command:
         - /usr/local/bin/container-scripts/healthcheck.py
         - scheduler
         - /etc/cinder/cinder.conf.d
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 42407
+          runAsNonRoot: true
+          runAsUser: 42407
+          seccompProfile:
+            type: RuntimeDefault
         volumeMounts:
         - mountPath: /etc/machine-id
           name: etc-machine-id
@@ -197,24 +252,26 @@ spec:
         - mountPath: /usr/local/bin/container-scripts
           name: scripts
           readOnly: true
-        - mountPath: /var/lib/config-data/merged
-          name: config-data
-          readOnly: true
         - mountPath: /etc/my.cnf
           name: config-data
           readOnly: true
           subPath: my.cnf
+        - mountPath: /tmp
+          name: tmp
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
           readOnly: true
-        - mountPath: /var/lib/kolla/config_files/config.json
-          name: config-data
-          readOnly: true
-          subPath: cinder-scheduler-config.json
         - mountPath: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
           name: combined-ca-bundle
           readOnly: true
           subPath: tls-ca-bundle.pem
+      securityContext:
+        fsGroup: 42407
+        runAsGroup: 42407
+        runAsNonRoot: true
+        runAsUser: 42407
+        seccompProfile:
+          type: RuntimeDefault
       volumes:
       - hostPath:
           path: /etc/machine-id
@@ -226,11 +283,13 @@ spec:
           secretName: cinder-scripts
       - name: config-data
         secret:
-          defaultMode: 420
+          defaultMode: 288
           secretName: cinder-config-data
+      - emptyDir: {}
+        name: tmp
       - name: config-data-custom
         secret:
-          defaultMode: 420
+          defaultMode: 288
           secretName: cinder-scheduler-config-data
       - name: combined-ca-bundle
         secret:
@@ -247,10 +306,17 @@ metadata:
 spec:
   template:
     spec:
+      automountServiceAccountToken: false
+      hostPID: true
       containers:
       - args:
         - -c
-        - /usr/local/bin/kolla_start
+        - /usr/bin/cinder-volume --config-dir /etc/cinder/cinder.conf.d
+        securityContext:
+          privileged: true
+          runAsGroup: 42407
+          runAsNonRoot: true
+          runAsUser: 42407
         volumeMounts:
         - mountPath: /etc/machine-id
           name: etc-machine-id
@@ -258,13 +324,12 @@ spec:
         - mountPath: /usr/local/bin/container-scripts
           name: scripts
           readOnly: true
-        - mountPath: /var/lib/config-data/merged
-          name: config-data
-          readOnly: true
         - mountPath: /etc/my.cnf
           name: config-data
           readOnly: true
           subPath: my.cnf
+        - mountPath: /tmp
+          name: tmp
         - mountPath: /var/lib/cinder
           name: var-lib-cinder
         - mountPath: /etc/nvme
@@ -288,10 +353,24 @@ spec:
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
           readOnly: true
-        - mountPath: /var/lib/kolla/config_files/config.json
-          name: config-data
-          readOnly: true
-          subPath: cinder-volume-config.json
+        - mountPath: /usr/sbin/multipath
+          name: scripts
+          subPath: run-on-host
+        - mountPath: /usr/sbin/multipathd
+          name: scripts
+          subPath: run-on-host
+        - mountPath: /usr/sbin/iscsiadm
+          name: scripts
+          subPath: run-on-host
+        - mountPath: /lib/udev/scsi_id
+          name: scripts
+          subPath: run-on-host
+        - mountPath: /usr/sbin/cryptsetup
+          name: scripts
+          subPath: run-on-host
+        - mountPath: /usr/sbin/nvme
+          name: scripts
+          subPath: run-on-host
         - mountPath: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
           name: combined-ca-bundle
           readOnly: true
@@ -300,6 +379,16 @@ spec:
         - /usr/local/bin/container-scripts/healthcheck.py
         - volume
         - /etc/cinder/cinder.conf.d
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 42407
+          runAsNonRoot: true
+          runAsUser: 42407
+          seccompProfile:
+            type: RuntimeDefault
         volumeMounts:
         - mountPath: /etc/machine-id
           name: etc-machine-id
@@ -307,13 +396,12 @@ spec:
         - mountPath: /usr/local/bin/container-scripts
           name: scripts
           readOnly: true
-        - mountPath: /var/lib/config-data/merged
-          name: config-data
-          readOnly: true
         - mountPath: /etc/my.cnf
           name: config-data
           readOnly: true
           subPath: my.cnf
+        - mountPath: /tmp
+          name: tmp
         - mountPath: /var/lib/cinder
           name: var-lib-cinder
         - mountPath: /etc/nvme
@@ -337,10 +425,24 @@ spec:
         - mountPath: /etc/cinder/cinder.conf.d
           name: config-data-custom
           readOnly: true
-        - mountPath: /var/lib/kolla/config_files/config.json
-          name: config-data
-          readOnly: true
-          subPath: cinder-volume-config.json
+        - mountPath: /usr/sbin/multipath
+          name: scripts
+          subPath: run-on-host
+        - mountPath: /usr/sbin/multipathd
+          name: scripts
+          subPath: run-on-host
+        - mountPath: /usr/sbin/iscsiadm
+          name: scripts
+          subPath: run-on-host
+        - mountPath: /lib/udev/scsi_id
+          name: scripts
+          subPath: run-on-host
+        - mountPath: /usr/sbin/cryptsetup
+          name: scripts
+          subPath: run-on-host
+        - mountPath: /usr/sbin/nvme
+          name: scripts
+          subPath: run-on-host
         - mountPath: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
           name: combined-ca-bundle
           readOnly: true
@@ -356,8 +458,10 @@ spec:
           secretName: cinder-scripts
       - name: config-data
         secret:
-          defaultMode: 420
+          defaultMode: 288
           secretName: cinder-config-data
+      - emptyDir: {}
+        name: tmp
       - hostPath:
           path: /var/lib/cinder
           type: DirectoryOrCreate
@@ -396,7 +500,7 @@ spec:
         name: var-locks-cinder
       - name: config-data-custom
         secret:
-          defaultMode: 420
+          defaultMode: 288
           secretName: cinder-volume-volume1-config-data
       - name: combined-ca-bundle
         secret:

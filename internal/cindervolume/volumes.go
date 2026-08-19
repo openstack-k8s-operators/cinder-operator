@@ -10,14 +10,14 @@ import (
 
 // GetVolumes -
 func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderExtraVolMounts, propagationInstanceName string) []corev1.Volume {
-	var config0644AccessMode int32 = 0644
+	var configAccessMode int32 = 0440
 
 	volumes := []corev1.Volume{
 		{
 			Name: "config-data-custom",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					DefaultMode: &config0644AccessMode,
+					DefaultMode: &configAccessMode,
 					SecretName:  name + "-config-data",
 				},
 			},
@@ -31,24 +31,21 @@ func GetVolumes(parentName string, name string, extraVol []cinderv1beta1.CinderE
 
 // GetVolumeMounts - Cinder Volume VolumeMounts
 func GetVolumeMounts(extraVol []cinderv1beta1.CinderExtraVolMounts, usesLVM bool, propagationInstanceName string) []corev1.VolumeMount {
-	var configData string
-	if usesLVM {
-		configData = "cinder-volume-lvm-config.json"
-	} else {
-		configData = "cinder-volume-config.json"
-	}
 	volumeVolumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "config-data-custom",
 			MountPath: "/etc/cinder/cinder.conf.d",
 			ReadOnly:  true,
 		},
-		{
-			Name:      "config-data",
-			MountPath: "/var/lib/kolla/config_files/config.json",
-			SubPath:   configData,
-			ReadOnly:  true,
-		},
+		cinder.RunOnHostVolumeMount("/usr/sbin/multipath"),
+		cinder.RunOnHostVolumeMount("/usr/sbin/multipathd"),
+		cinder.RunOnHostVolumeMount("/usr/sbin/iscsiadm"),
+		cinder.RunOnHostVolumeMount("/lib/udev/scsi_id"),
+		cinder.RunOnHostVolumeMount("/usr/sbin/cryptsetup"),
+		cinder.RunOnHostVolumeMount("/usr/sbin/nvme"),
+	}
+	if usesLVM {
+		volumeVolumeMounts = append(volumeVolumeMounts, cinder.RunOnHostVolumeMount("/usr/sbin/lvm"))
 	}
 
 	// Set the propagation levels for CinderVolume, including the backend name
