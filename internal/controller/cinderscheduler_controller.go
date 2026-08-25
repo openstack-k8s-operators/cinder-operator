@@ -75,8 +75,9 @@ func (r *CinderSchedulerReconciler) GetScheme() *runtime.Scheme {
 // CinderSchedulerReconciler reconciles a Cinder object
 type CinderSchedulerReconciler struct {
 	client.Client
-	Kclient kubernetes.Interface
-	Scheme  *runtime.Scheme
+	Kclient   kubernetes.Interface
+	Scheme    *runtime.Scheme
+	APIReader client.Reader
 }
 
 // GetLogger returns a logger object with a logging prefix of "controller.name" and additional controller context fields
@@ -422,6 +423,11 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 
 	instance.Status.Conditions.MarkTrue(condition.InputReadyCondition, condition.InputReadyMessage)
 
+	inputSecretHash, err := util.ObjectHash([]string{instance.Spec.TransportURLSecret, instance.Spec.NotificationsURLSecret})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	//
 	// TLS input validation
 	//
@@ -488,7 +494,7 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 	// create hash over all the different input resources to identify if any those changed
 	// and a restart/recreate is required.
 	//
-	inputHash, hashChanged, err := r.createHashOfInputHashes(ctx, instance, configVars)
+	inputHash, _, err := r.createHashOfInputHashes(ctx, instance, configVars)
 	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
 			condition.ServiceConfigReadyCondition,
@@ -497,16 +503,6 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 			condition.ServiceConfigReadyErrorMessage,
 			err.Error()))
 		return ctrl.Result{}, err
-	} else if hashChanged {
-		Log.Info(fmt.Sprintf("%s... requeueing", condition.ServiceConfigReadyInitMessage))
-		instance.Status.Conditions.MarkFalse(
-			condition.ServiceConfigReadyCondition,
-			condition.InitReason,
-			condition.SeverityInfo,
-			condition.ServiceConfigReadyInitMessage)
-		// Hash changed and instance status should be updated (which will be done by main defer func),
-		// so we need to return and reconcile again
-		return ctrl.Result{}, nil
 	}
 	instance.Status.Conditions.MarkTrue(condition.ServiceConfigReadyCondition, condition.ServiceConfigReadyMessage)
 
@@ -677,7 +673,16 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 		return ctrl.Result{}, err
 	}
 
-	if instance.Status.ReadyCount > 0 {
+	ready := false
+	if statefulset.IsReady(ssData) {
+		ready, err = statefulset.IsReadyForInput(ctx, r.APIReader,
+			types.NamespacedName{Name: ssData.Name, Namespace: ssData.Namespace},
+			inputHash)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	if ready {
 		instance.Status.Conditions.MarkTrue(condition.DeploymentReadyCondition, condition.DeploymentReadyMessage)
 	} else if *instance.Spec.Replicas > 0 {
 		instance.Status.Conditions.Set(condition.FalseCondition(
@@ -685,13 +690,16 @@ func (r *CinderSchedulerReconciler) reconcileNormal(ctx context.Context, instanc
 			condition.RequestedReason,
 			condition.SeverityInfo,
 			condition.DeploymentReadyRunningMessage))
-
 	} else {
 		instance.Status.Conditions.MarkFalse(
 			condition.DeploymentReadyCondition,
 			condition.NotRequestedReason,
 			condition.SeverityInfo,
 			condition.DeploymentReadyInitMessage)
+	}
+
+	if instance.Status.Conditions.IsTrue(condition.DeploymentReadyCondition) {
+		instance.Status.AppliedInputSecretHash = inputSecretHash
 	}
 	// create StatefulSet - end
 
