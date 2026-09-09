@@ -60,6 +60,7 @@
         - cinder/cinder-backup
         - cinder/cinder-scheduler
         - cinder/cinder-volume
+        - tempest/tempest
 
 - job:
     name: cinder-s2i-test-ceph
@@ -121,3 +122,7 @@
       cifmw_test_operator_tempest_exclude_list: |
         test_encrypted_cinder_volumes_cryptsetup
         ^cinder_tempest_plugin.api.volume.test_volume_dependency.VolumeDependencyTests..*
+      cifmw_test_operator_tempest_container: openstack-tempest
+      cifmw_test_operator_tempest_registry: "{{ s2i_ci_content.registry }}"
+      cifmw_test_operator_tempest_namespace: "{{ s2i_ci_content.namespace}}"
+      cifmw_test_operator_tempest_image_tag: "{{ s2i_ci_content.tag }}"
