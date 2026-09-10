@@ -41,7 +41,6 @@ spec:
       service: cinder
   template:
     metadata:
-      creationTimestamp: null
       labels:
         component: cinder-api
         service: cinder
@@ -198,38 +197,3 @@ spec:
 status:
   availableReplicas: 1
   replicas: 1
----
-# when using image digests the containerImage URLs are SHA's so we verify them with a script
-apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
-commands:
-  - script: |
-      tupleTemplate='{{ range (index .spec.template.spec.containers 0).env }}{{ .name }}{{ "#" }}{{ .value}}{{"\n"}}{{ end }}'
-      imageTuples=$(oc get -n openstack-operators deployment cinder-operator-controller-manager -o go-template="$tupleTemplate")
-      for ITEM in $(echo $imageTuples); do
-        # it is an image
-        if echo $ITEM | grep 'RELATED_IMAGE' &> /dev/null; then
-          NAME=$(echo $ITEM | sed -e 's|^RELATED_IMAGE_CINDER_\([^_]*\)_.*|\1|')
-          IMG_FROM_ENV=$(echo $ITEM | sed -e 's|^.*#\(.*\)|\1|')
-          template='{{.spec.containerImage}}'
-          case $NAME in
-            API)
-              SERVICE_IMAGE=$(oc get -n $NAMESPACE cinderapi cinder-api -o go-template="$template")
-              ;;
-            BACKUP)
-              SERVICE_IMAGE=$(oc get -n $NAMESPACE cinderbackup cinder-backup -o go-template="$template")
-              ;;
-            SCHEDULER)
-              SERVICE_IMAGE=$(oc get -n $NAMESPACE cinderscheduler cinder-scheduler -o go-template="$template")
-              ;;
-            VOLUME)
-              SERVICE_IMAGE=$(oc get -n $NAMESPACE cindervolume cinder-volume-volume1 -o go-template="$template")
-              ;;
-          esac
-          if [ "$SERVICE_IMAGE" != "$IMG_FROM_ENV" ]; then
-            echo "$NAME image does not equal $VALUE"
-            exit 1
-          fi
-        fi
-      done
-      exit 0

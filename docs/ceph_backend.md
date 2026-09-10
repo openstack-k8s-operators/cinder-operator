@@ -68,13 +68,13 @@ spec:
   databaseUser: cinder
   cinderAPI:
     replicas: 1
-    containerImage: quay.io/podified-antelopecentos9/openstack-cinder-api:current-podified
+    containerImage: quay.io/openstack-k8s-operators/openstack-cinder-api:master-latest
   cinderScheduler:
     replicas: 1
-    containerImage: quay.io/podified-antelopecentos9/openstack-cinder-scheduler:current-podified
+    containerImage: quay.io/openstack-k8s-operators/openstack-cinder-scheduler:master-latest
   cinderBackup:
     replicas: 1
-    containerImage: quay.io/podified-antelopecentos9/openstack-cinder-backup:current-podified
+    containerImage: quay.io/openstack-k8s-operators/openstack-cinder-backup:master-latest
     customServiceConfig: |
       [DEFAULT]
       backup_driver = cinder.backup.drivers.ceph.CephBackupDriver
@@ -83,7 +83,7 @@ spec:
   secret: cinder-secret
   cinderVolumes:
     volume1:
-      containerImage: quay.io/podified-antelopecentos9/openstack-cinder-volume:current-podified
+      containerImage: quay.io/openstack-k8s-operators/openstack-cinder-volume:master-latest
       replicas: 1
       customServiceConfig: |
         [DEFAULT]

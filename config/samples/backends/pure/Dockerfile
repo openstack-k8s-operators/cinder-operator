@@ -1,6 +1,6 @@
-# Pure Storage Cinder Volume container for Antelope deployments
+# Pure Storage Cinder Volume container with backend dependencies
 
-FROM quay.io/podified-antelope-centos9/openstack-cinder-volume:current-podified
+FROM quay.io/openstack-k8s-operators/openstack-cinder-volume:master-latest
 
 ARG min_pureclient_version=1.17.0
 
