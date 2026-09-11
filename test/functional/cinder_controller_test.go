@@ -783,6 +783,15 @@ var _ = Describe("Cinder controller", func() {
 			endpoints := keystoneEndpoint.Spec.Endpoints
 			Expect(endpoints).To(HaveKeyWithValue("public", "https://cinder-public."+namespace+".svc:8776/v3"))
 			Expect(endpoints).To(HaveKeyWithValue("internal", "https://cinder-internal."+namespace+".svc:8776/v3"))
+
+			keystoneService := keystone.GetKeystoneService(cinderTest.CinderBlockStorageService)
+			Expect(keystoneService.Spec.ServiceType).To(Equal(cinder.ServiceTypeBlockStorage))
+			Expect(keystoneService.Spec.ServiceName).To(Equal(cinder.ServiceNameBlockStorage))
+
+			keystoneEndpoint = keystone.GetKeystoneEndpoint(cinderTest.CinderBlockStorageEndpoint)
+			endpoints = keystoneEndpoint.Spec.Endpoints
+			Expect(endpoints).To(HaveKeyWithValue("public", "https://cinder-public."+namespace+".svc:8776/v3"))
+			Expect(endpoints).To(HaveKeyWithValue("internal", "https://cinder-internal."+namespace+".svc:8776/v3"))
 		})
 
 		It("reconfigures the cinder pods when CA changes", func() {
@@ -1496,6 +1505,15 @@ var _ = Describe("Cinder controller", func() {
 			// check keystone endpoints
 			keystoneEndpoint := keystone.GetKeystoneEndpoint(cinderTest.CinderKeystoneEndpoint)
 			endpoints := keystoneEndpoint.Spec.Endpoints
+			Expect(endpoints).To(HaveKeyWithValue("public", "https://cinder-public."+namespace+".svc:8776/v3"))
+			Expect(endpoints).To(HaveKeyWithValue("internal", "https://cinder-internal."+namespace+".svc:8776/v3"))
+
+			keystoneService := keystone.GetKeystoneService(cinderTest.CinderBlockStorageService)
+			Expect(keystoneService.Spec.ServiceType).To(Equal(cinder.ServiceTypeBlockStorage))
+			Expect(keystoneService.Spec.ServiceName).To(Equal(cinder.ServiceNameBlockStorage))
+
+			keystoneEndpoint = keystone.GetKeystoneEndpoint(cinderTest.CinderBlockStorageEndpoint)
+			endpoints = keystoneEndpoint.Spec.Endpoints
 			Expect(endpoints).To(HaveKeyWithValue("public", "https://cinder-public."+namespace+".svc:8776/v3"))
 			Expect(endpoints).To(HaveKeyWithValue("internal", "https://cinder-internal."+namespace+".svc:8776/v3"))
 

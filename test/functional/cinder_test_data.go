@@ -67,6 +67,8 @@ type CinderTestData struct {
 	CinderDBPurge                  types.NamespacedName
 	CinderKeystoneService          types.NamespacedName
 	CinderKeystoneEndpoint         types.NamespacedName
+	CinderBlockStorageService      types.NamespacedName
+	CinderBlockStorageEndpoint     types.NamespacedName
 	CinderServicePublic            types.NamespacedName
 	CinderServiceInternal          types.NamespacedName
 	CinderConfigSecret             types.NamespacedName
@@ -179,6 +181,14 @@ func GetCinderTestData(cinderName types.NamespacedName) CinderTestData {
 		CinderKeystoneEndpoint: types.NamespacedName{
 			Namespace: cinderName.Namespace,
 			Name:      cinder.ServiceNameV3,
+		},
+		CinderBlockStorageService: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      cinder.ServiceNameBlockStorage,
+		},
+		CinderBlockStorageEndpoint: types.NamespacedName{
+			Namespace: cinderName.Namespace,
+			Name:      cinder.ServiceNameBlockStorage,
 		},
 		InternalAPINAD: types.NamespacedName{
 			Namespace: cinderName.Namespace,

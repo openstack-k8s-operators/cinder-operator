@@ -29,10 +29,15 @@ const (
 	ServiceName = "cinder"
 	// ServiceNameV3 -
 	ServiceNameV3 = "cinderv3"
+	// ServiceNameBlockStorage - API service name for the official block-storage service type
+	ServiceNameBlockStorage = "block-storage"
 	// ServiceType -
 	ServiceType = "cinder"
 	// ServiceTypeV3 -
 	ServiceTypeV3 = "volumev3"
+	// ServiceTypeBlockStorage - Official service type per OpenStack Service Types Authority
+	// https://service-types.openstack.org/
+	ServiceTypeBlockStorage = "block-storage"
 	// DatabaseName -
 	DatabaseName = "cinder"
 
