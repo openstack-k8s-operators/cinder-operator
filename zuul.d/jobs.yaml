@@ -44,3 +44,63 @@
           volume-feature-enabled.extend_attached_volume True
           volume-feature-enabled.volume_revert True
           volume.storage_protocol 'ceph'
+
+- job:
+    name: cinder-s2i-content-provider
+    parent: s2i-openstack-container-content-provider
+    description: |
+      Build s2i cinder service images for cinder-s2i-tempest.
+    required-projects:
+      - name: openstack-k8s-operators/s2i-openstack-containers
+        override-checkout: main
+    vars:
+      s2i_ci_images:
+        - cinder/cinder-api
+        - cinder/cinder-backup
+        - cinder/cinder-scheduler
+        - cinder/cinder-volume
+
+- job:
+    name: cinder-s2i-tempest
+    parent: cinder-operator-tempest
+    description: |
+      Validate speculatively-built s2i cinder images against a live
+      HCI OpenStack deployment with Ceph. s2i-built images from the
+      content provider are applied to OpenStackVersion during
+      edpm_prepare via ci-framework set_containers before the control
+      plane is deployed.
+
+      Scalar OpenStackVersion fields (API, backup, scheduler) come from
+      the s2i image map. cinder-volume is a backend map
+      (cinderVolumeImages) and is injected for the HCI CinderVolume
+      named volume1; the operator always resets the default key.
+    required-projects:
+      - name: openstack-k8s-operators/s2i-openstack-containers
+        override-checkout: main
+    vars:
+      # Operator CP owns content_provider_registry_ip (catalog + CRC
+      # insecure list). Append the s2i registry so CRC can pull both.
+      cifmw_crc_additional_insecure_registries:
+        - "{{ s2i_content_provider_registry_ip }}:5001"
+      cifmw_crc_additional_allowed_registries:
+        - "{{ s2i_content_provider_registry_ip }}:5001"
+      cifmw_set_containers_preserve_unlisted: true
+      # Zuul rejects vars that start with "_". Keep the mapping in one
+      # expression: scalar OpenStackVersion fields from the s2i provider,
+      # plus cinderVolumeImages.volume1 for the HCI CinderVolume.
+      cifmw_set_containers_images: >-
+        {{
+          (
+            s2i_content_provider_os_custom_container_images | dict2items |
+            json_query('[].{name: key, full_registry: value}')
+          ) + [{
+            'name': 'cinderVolumeImages',
+            'full_registry': (
+              s2i_content_provider_registry_ip ~ ':5001/' ~
+              s2i_ci_content.namespace ~
+              '/openstack-cinder-volume:' ~
+              s2i_ci_content.tag
+            ),
+            'backends': ['volume1']
+          }]
+        }}

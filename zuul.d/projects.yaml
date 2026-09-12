@@ -12,3 +12,10 @@
         - cinder-operator-tempest:
             dependencies:
               - openstack-k8s-operators-content-provider
+        - cinder-s2i-content-provider:
+            voting: false
+        - cinder-s2i-tempest:
+            voting: false
+            dependencies:
+              - openstack-k8s-operators-content-provider
+              - cinder-s2i-content-provider
