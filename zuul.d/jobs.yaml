@@ -23,7 +23,7 @@
     name: cinder-operator-tempest
     parent: podified-multinode-hci-deployment-crc-1comp-backends
     irrelevant-files: *common-irrelevant-files
-    vars:
+    vars: &cinder_operator_test_vars
       cifmw_test_operator_tempest_concurrency: 3
       cifmw_test_operator_tempest_include_list: |
         ^tempest.api.volume.
@@ -44,3 +44,85 @@
           volume-feature-enabled.extend_attached_volume True
           volume-feature-enabled.volume_revert True
           volume.storage_protocol 'ceph'
+
+- job:
+    name: cinder-s2i-content-provider
+    parent: s2i-openstack-container-content-provider
+    description: |
+      Build s2i cinder (including cinder-backup) service images
+      for cinder-s2i test jobs.
+    required-projects:
+      - name: openstack-k8s-operators/s2i-openstack-containers
+        override-checkout: main
+    vars:
+      s2i_ci_images:
+        - cinder/cinder-api
+        - cinder/cinder-backup
+        - cinder/cinder-scheduler
+        - cinder/cinder-volume
+        - tempest/tempest
+
+- job:
+    name: cinder-s2i-test-ceph
+    parent: s2i-test-base-ceph
+    description: |
+      Validate speculatively-built s2i cinder (including cinder-backup) images
+      against a live HCI OpenStack deployment with Ceph.
+    irrelevant-files: *common-irrelevant-files
+    vars:
+      s2i_cinder_volume_backends: ['volume1']
+      cifmw_cephadm_min_compat_client: mimic
+      cifmw_test_operator_tempest_concurrency: 3
+      cifmw_test_operator_tempest_include_list: |
+        ^tempest.api.volume..*
+        ^tempest.scenario.test_encrypted_cinder_volumes..*
+        ^tempest.scenario.test_stamp_pattern..*
+        ^tempest.scenario.test_volume_..*
+        ^cinder_tempest_plugin..*
+        ^barbican_tempest_plugin.tests.scenario.test_image_signing.ImageSigningVolumeTest..*
+        ^barbican_tempest_plugin.tests.scenario.test_volume_encryption..*
+      cifmw_test_operator_tempest_exclude_list: |
+        test_encrypted_cinder_volumes_cryptsetup
+      # enable after creating multiattach volume type: compute-feature-enabled.volume_multiattach true
+      cifmw_test_operator_tempest_tempestconf_config:
+        overrides: |
+          compute-feature-enabled.attach_encrypted_volume True
+          compute-feature-enabled.volume_multiattach True
+          image_signature_verification.enforced False
+          image_signature_verification.certificate_validation False
+          volume-feature-enabled.extend_attached_encrypted_volume True
+          volume-feature-enabled.extend_attached_volume True
+          volume-feature-enabled.volume_revert True
+          volume.storage_protocol 'ceph'
+          volume.volume_type_multiattach 'multiattach'
+
+- job:
+    name: cinder-s2i-test-ceph-nomimic
+    parent: cinder-s2i-test-ceph
+    description: |
+      Variant of cinder-s2i-test-ceph which tests
+      against ceph without setting min-compact-client to mimic.
+      It requires volume-feature-enabled.volume_image_dep_tests to be
+      disabled as those tests are known to fail without the new
+      features enabled by the >=mimic client setting.
+    vars:
+      cifmw_cephadm_min_compat_client: ''
+      cifmw_test_operator_tempest_tempestconf_config:
+        overrides: |
+          compute-feature-enabled.attach_encrypted_volume True
+          compute-feature-enabled.volume_multiattach True
+          image_signature_verification.enforced False
+          image_signature_verification.certificate_validation False
+          volume-feature-enabled.extend_attached_encrypted_volume True
+          volume-feature-enabled.extend_attached_volume True
+          volume-feature-enabled.volume_image_dep_tests False
+          volume-feature-enabled.volume_revert True
+          volume.storage_protocol 'ceph'
+          volume.volume_type_multiattach 'multiattach'
+      cifmw_test_operator_tempest_exclude_list: |
+        test_encrypted_cinder_volumes_cryptsetup
+        ^cinder_tempest_plugin.api.volume.test_volume_dependency.VolumeDependencyTests..*
+      cifmw_test_operator_tempest_container: openstack-tempest
+      cifmw_test_operator_tempest_registry: "{{ s2i_ci_content.registry }}"
+      cifmw_test_operator_tempest_namespace: "{{ s2i_ci_content.namespace}}"
+      cifmw_test_operator_tempest_image_tag: "{{ s2i_ci_content.tag }}"

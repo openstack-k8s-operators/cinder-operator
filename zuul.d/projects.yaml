@@ -12,3 +12,12 @@
         - cinder-operator-tempest:
             dependencies:
               - openstack-k8s-operators-content-provider
+        - cinder-s2i-content-provider
+        - cinder-s2i-test-ceph:
+            dependencies:
+              - openstack-k8s-operators-content-provider
+              - cinder-s2i-content-provider
+        - cinder-s2i-test-ceph-nomimic:
+            dependencies:
+              - openstack-k8s-operators-content-provider
+              - cinder-s2i-content-provider
