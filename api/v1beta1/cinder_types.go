@@ -37,13 +37,13 @@ const (
 	// Container image fall-back defaults
 
 	// CinderAPIContainerImage is the fall-back container image for CinderAPI
-	CinderAPIContainerImage = "quay.io/openstack-k8s-operators/openstack-cinder-api:master-latest"
+	CinderAPIContainerImage = "quay.io/openstack-s2i-containers/openstack-cinder-api:master-latest"
 	// CinderBackupContainerImage is the fall-back container image for CinderBackup
-	CinderBackupContainerImage = "quay.io/openstack-k8s-operators/openstack-cinder-backup:master-latest"
+	CinderBackupContainerImage = "quay.io/openstack-s2i-containers/openstack-cinder-backup:master-latest"
 	// CinderSchedulerContainerImage is the fall-back container image for CinderScheduler
-	CinderSchedulerContainerImage = "quay.io/openstack-k8s-operators/openstack-cinder-scheduler:master-latest"
+	CinderSchedulerContainerImage = "quay.io/openstack-s2i-containers/openstack-cinder-scheduler:master-latest"
 	// CinderVolumeContainerImage is the fall-back container image for CinderVolume
-	CinderVolumeContainerImage = "quay.io/openstack-k8s-operators/openstack-cinder-volume:master-latest"
+	CinderVolumeContainerImage = "quay.io/openstack-s2i-containers/openstack-cinder-volume:master-latest"
 
 	// DBPurgeDefaultAge - Default age, in days, for purging deleted DB records
 	DBPurgeDefaultAge = 30
