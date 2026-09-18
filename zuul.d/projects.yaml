@@ -1,6 +1,22 @@
 ---
+- project-template:
+    name: cinder-operator-s2i-component-jobs
+    github-check:
+      jobs:
+        - cinder-s2i-content-provider
+        - cinder-s2i-test-ceph:
+            dependencies:
+              - openstack-k8s-operators-content-provider
+              - cinder-s2i-content-provider
+        - cinder-s2i-test-ceph-nomimic:
+            dependencies:
+              - openstack-k8s-operators-content-provider
+              - cinder-s2i-content-provider
+
 - project:
     name: openstack-k8s-operators/cinder-operator
+    templates:
+      - cinder-operator-s2i-component-jobs
     github-check:
       jobs:
         - openstack-k8s-operators-content-provider:
@@ -9,6 +25,6 @@
         - cinder-operator-kuttl:
             dependencies:
               - openstack-k8s-operators-content-provider
-        - cinder-operator-tempest:
+        - cinder-operator-antelope-tempest:
             dependencies:
               - openstack-k8s-operators-content-provider
