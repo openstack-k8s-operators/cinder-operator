@@ -24,7 +24,7 @@
             dependencies:
               - s2i-openstack-container-content-provider
               - s2i-openstack-container-consumer-smoke
-        - cinder-s2i-test-ceph: *cinder_s2i_component_overrides
+        - cinder-s2i-test-ceph-nomimic: *cinder_s2i_component_overrides
 
 - project:
     name: openstack-k8s-operators/cinder-operator
