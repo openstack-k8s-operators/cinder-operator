@@ -297,7 +297,7 @@ here as it was:
     enabled: true
     template:
       cinderAPI:
-        containerImage: quay.io/openstack-k8s-operators/openstack-cinder-api:master-latest
+        containerImage: quay.io/openstack-s2i-containers/openstack-cinder-api:master-latest
         customServiceConfig: |
           [DEFAULT]
           log_file=
@@ -315,7 +315,7 @@ here as it was:
         replicas: 10
         resources: {}
       cinderBackup:
-        containerImage: quay.io/openstack-k8s-operators/openstack-cinder-backup:master-latest
+        containerImage: quay.io/openstack-s2i-containers/openstack-cinder-backup:master-latest
         customServiceConfig: |
           [DEFAULT]
           backup_driver=cinder.backup.drivers.nfs.NFSBackupDriver
@@ -327,7 +327,7 @@ here as it was:
         replicas: 1
         resources: {}
       cinderScheduler:
-        containerImage: quay.io/openstack-k8s-operators/openstack-cinder-scheduler:master-latest
+        containerImage: quay.io/openstack-s2i-containers/openstack-cinder-scheduler:master-latest
         customServiceConfig: |
           [DEFAULT]
           debug=False
@@ -337,7 +337,7 @@ here as it was:
         resources: {}
       cinderVolumes:
         lvm-iscsi:
-          containerImage: quay.io/openstack-k8s-operators/openstack-cinder-volume:master-latest
+          containerImage: quay.io/openstack-s2i-containers/openstack-cinder-volume:master-latest
           customServiceConfig: |
             [DEFAULT]
             debug = False

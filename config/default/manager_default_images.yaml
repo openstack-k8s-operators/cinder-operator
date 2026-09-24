@@ -12,10 +12,10 @@ spec:
       - name: manager
         env:
         - name: RELATED_IMAGE_CINDER_API_IMAGE_URL_DEFAULT
-          value: quay.io/openstack-k8s-operators/openstack-cinder-api:master-latest
+          value: quay.io/openstack-s2i-containers/openstack-cinder-api:master-latest
         - name: RELATED_IMAGE_CINDER_BACKUP_IMAGE_URL_DEFAULT
-          value: quay.io/openstack-k8s-operators/openstack-cinder-backup:master-latest
+          value: quay.io/openstack-s2i-containers/openstack-cinder-backup:master-latest
         - name: RELATED_IMAGE_CINDER_SCHEDULER_IMAGE_URL_DEFAULT
-          value: quay.io/openstack-k8s-operators/openstack-cinder-scheduler:master-latest
+          value: quay.io/openstack-s2i-containers/openstack-cinder-scheduler:master-latest
         - name: RELATED_IMAGE_CINDER_VOLUME_IMAGE_URL_DEFAULT
-          value: quay.io/openstack-k8s-operators/openstack-cinder-volume:master-latest
+          value: quay.io/openstack-s2i-containers/openstack-cinder-volume:master-latest

@@ -1,5 +1,5 @@
 # HPE 3PAR Cinder Volume container with backend dependencies
-FROM quay.io/openstack-k8s-operators/openstack-cinder-volume:master-latest
+FROM quay.io/openstack-s2i-containers/openstack-cinder-volume:master-latest
 
 ARG min_3parclient_version=4.2.10
 MAINTAINER HPE
