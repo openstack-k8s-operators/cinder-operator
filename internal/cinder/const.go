@@ -31,6 +31,12 @@ const (
 	ServiceNameV3 = "cinderv3"
 	// ServiceNameBlockStorage - API service name for the official block-storage service type
 	ServiceNameBlockStorage = "block-storage"
+	// ComponentDBSync - component label for the db-sync job pods
+	ComponentDBSync = "cinder-db-sync"
+	// ComponentOnlineDataMigrations - component label for the online-data-migrations job pods
+	ComponentOnlineDataMigrations = "cinder-online-data-migrations"
+	// ComponentDBPurge - component label for the db-purge cronjob pods
+	ComponentDBPurge = "cinder-db-purge"
 	// ServiceType -
 	ServiceType = "cinder"
 	// ServiceTypeV3 -

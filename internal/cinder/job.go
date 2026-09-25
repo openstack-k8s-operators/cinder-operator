@@ -3,6 +3,7 @@ package cinder
 import (
 	"fmt"
 	cinderv1beta1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/env"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/pod"
 	"github.com/openstack-k8s-operators/lib-common/modules/users"
@@ -10,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"maps"
 )
 
 // ManageJobType defines the type of cinder-manage command to run
@@ -85,16 +87,24 @@ func ManageJob(
 
 	envVars := map[string]env.Setter{}
 
+	component := ComponentDBSync
+	if jobNameSuffix == OnlineDataMigrationsJobType {
+		component = ComponentOnlineDataMigrations
+	}
+	podLabels := maps.Clone(labels)
+	podLabels[common.ComponentSelector] = component
+
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", instance.Name, string(jobNameSuffix)),
 			Namespace: instance.Namespace,
-			Labels:    labels,
+			Labels:    podLabels,
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: annotations,
+					Labels:      podLabels,
 				},
 				Spec: corev1.PodSpec{
 					RestartPolicy:                corev1.RestartPolicyOnFailure,
