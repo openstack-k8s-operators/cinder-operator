@@ -19,7 +19,9 @@ import (
 	cinderv1 "github.com/openstack-k8s-operators/cinder-operator/api/v1beta1"
 
 	"fmt"
+	"maps"
 
+	"github.com/openstack-k8s-operators/lib-common/modules/common"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/pod"
 	"github.com/openstack-k8s-operators/lib-common/modules/users"
 
@@ -42,6 +44,9 @@ func CronJob(
 		instance.Spec.DBPurge.Age)
 
 	args := []string{"-c", dbPurgeCommand}
+
+	podLabels := maps.Clone(labels)
+	podLabels[common.ComponentSelector] = ComponentDBPurge
 
 	cronJobVolumes := []corev1.Volume{
 		{
@@ -91,7 +96,7 @@ func CronJob(
 			Name:        fmt.Sprintf("%s-db-purge", ServiceName),
 			Namespace:   instance.Namespace,
 			Annotations: annotations,
-			Labels:      labels,
+			Labels:      podLabels,
 		},
 		Spec: batchv1.CronJobSpec{
 			Schedule:          instance.Spec.DBPurge.Schedule,
@@ -99,7 +104,7 @@ func CronJob(
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: annotations,
-					Labels:      labels,
+					Labels:      podLabels,
 				},
 				Spec: batchv1.JobSpec{
 					Parallelism: ptr.To(int32(1)),
@@ -107,7 +112,7 @@ func CronJob(
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: annotations,
-							Labels:      labels,
+							Labels:      podLabels,
 						},
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
