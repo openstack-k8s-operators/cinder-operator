@@ -38,6 +38,3 @@
         - cinder-operator-kuttl:
             dependencies:
               - openstack-k8s-operators-content-provider
-        - cinder-operator-antelope-tempest:
-            dependencies:
-              - openstack-k8s-operators-content-provider
