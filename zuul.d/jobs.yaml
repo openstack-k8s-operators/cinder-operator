@@ -56,10 +56,6 @@
         ^barbican_tempest_plugin.tests.scenario.test_volume_encryption..*
       cifmw_test_operator_tempest_exclude_list: |
         test_encrypted_cinder_volumes_cryptsetup
-      # Enable the extend attached encrypted volume test when a nova > 2025.1 is available
-      # See https://bugs.launchpad.net/ceph/+bug/2116852
-      cifmw_test_operator_tempest_expected_failures_list: |
-        tempest.api.volume.admin.test_encrypted_volumes_extend.EncryptedVolumesExtendAttachedTest.test_extend_attached_encrypted_volume_luksv1
       # enable after creating multiattach volume type: compute-feature-enabled.volume_multiattach true
       cifmw_test_operator_tempest_tempestconf_config:
         overrides: |
