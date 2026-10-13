@@ -1355,6 +1355,7 @@ func (r *CinderReconciler) generateServiceConfigs(
 		cinder.DatabaseName)
 	templateParameters["MemcachedServersWithInet"] = memcached.GetMemcachedServerListWithInetString()
 	templateParameters["MemcachedServers"] = memcached.GetMemcachedServerListString()
+	templateParameters["MemcachedTLS"] = memcached.GetMemcachedTLSSupport()
 	templateParameters["TimeOut"] = instance.Spec.APITimeout
 	templateParameters["QuorumQueues"] = transportURLQuorumQueues
 
