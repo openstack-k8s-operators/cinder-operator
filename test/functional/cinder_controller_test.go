@@ -272,6 +272,48 @@ var _ = Describe("Cinder controller", func() {
 			CinderVolumeNotExists(cinderTest.Instance)
 		})
 	})
+	When("Both TransportURL secret and osp-secret are available with MTLS memcached", func() {
+		BeforeEach(func() {
+			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, GetDefaultCinderSpec()))
+			DeferCleanup(k8sClient.Delete, ctx, CreateCinderMessageBusSecret(cinderTest.Instance.Namespace, cinderTest.RabbitmqSecretName))
+			DeferCleanup(mariadb.DeleteDBService, mariadb.CreateDBService(
+				cinderTest.Instance.Namespace,
+				GetCinder(cinderName).Spec.DatabaseInstance,
+				corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{{Port: 3306}},
+				},
+			),
+			)
+			infra.SimulateTransportURLReady(cinderTest.CinderTransportURL)
+			DeferCleanup(infra.DeleteMemcached, infra.CreateMTLSMemcached(namespace, cinderTest.MemcachedInstance, memcachedSpec))
+			infra.SimulateMTLSMemcachedReady(cinderTest.CinderMemcached)
+			mariadb.SimulateMariaDBAccountCompleted(cinderTest.Database)
+			mariadb.SimulateMariaDBDatabaseCompleted(cinderTest.Database)
+		})
+		It("configures keystone_authtoken memcached with TLS and MTLS", func() {
+			keystoneAPI := keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPI)
+
+			th.ExpectCondition(
+				cinderTest.Instance,
+				ConditionGetterFunc(CinderConditionGetter),
+				condition.ServiceConfigReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			configData := string(th.GetSecret(cinderTest.CinderConfigSecret).Data["00-global-defaults.conf"])
+			memcachedInstance := infra.GetMemcached(cinderTest.CinderMemcached)
+
+			// With TLS the TLS-listener server list is used and memcache TLS is
+			// enabled; MTLS adds the client cert files.
+			Expect(configData).Should(
+				ContainSubstring(fmt.Sprintf("memcached_servers = %s", memcachedInstance.GetMemcachedServerListString())))
+			Expect(configData).Should(ContainSubstring("memcache_tls_enabled = true"))
+			Expect(configData).Should(ContainSubstring("memcache_tls_certfile ="))
+			Expect(configData).Should(ContainSubstring("memcache_tls_keyfile ="))
+			Expect(configData).Should(ContainSubstring("memcache_tls_cafile ="))
+		})
+	})
 	When("Both TransportURL secret and osp-secret are available", func() {
 		BeforeEach(func() {
 			DeferCleanup(th.DeleteInstance, CreateCinder(cinderTest.Instance, GetDefaultCinderSpec()))
@@ -301,6 +343,29 @@ var _ = Describe("Cinder controller", func() {
 			Eventually(func() corev1.Secret {
 				return th.GetSecret(cinderTest.CinderConfigScripts)
 			}, timeout, interval).ShouldNot(BeNil())
+		})
+		It("configures keystone_authtoken memcached without TLS", func() {
+			keystoneAPI := keystone.CreateKeystoneAPI(cinderTest.Instance.Namespace)
+			DeferCleanup(keystone.DeleteKeystoneAPI, keystoneAPI)
+
+			th.ExpectCondition(
+				cinderTest.Instance,
+				ConditionGetterFunc(CinderConditionGetter),
+				condition.ServiceConfigReadyCondition,
+				corev1.ConditionTrue,
+			)
+
+			configData := string(th.GetSecret(cinderTest.CinderConfigSecret).Data["00-global-defaults.conf"])
+			memcachedInstance := infra.GetMemcached(cinderTest.CinderMemcached)
+
+			// Without TLS the inet-prefixed server list must be used (IPv6
+			// correctness) and no memcache TLS settings must be emitted.
+			Expect(configData).Should(
+				ContainSubstring(fmt.Sprintf("memcached_servers = %s", memcachedInstance.GetMemcachedServerListWithInetString())))
+			Expect(configData).ShouldNot(ContainSubstring("memcache_tls_enabled = true"))
+			Expect(configData).ShouldNot(ContainSubstring("memcache_tls_certfile"))
+			Expect(configData).ShouldNot(ContainSubstring("memcache_tls_keyfile"))
+			Expect(configData).ShouldNot(ContainSubstring("memcache_tls_cafile"))
 		})
 		It("includes region_name in config when KeystoneAPI has region set", func() {
 			const testRegion = "regionTwo"
