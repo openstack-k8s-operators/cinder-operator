@@ -231,6 +231,10 @@ func (r *Cinder) ValidateCreate() (admission.Warnings, error) {
 	return nil, nil
 }
 
+func validateServicePortNames(basePath *field.Path, overrides map[service.Endpoint]service.RoutedOverrideSpec) field.ErrorList {
+	return common_webhook.ValidatePortNameOverrides(basePath, overrides, common_webhook.DefaultServicePortNames())
+}
+
 // ValidateCreate - Exported function wrapping non-exported validate functions,
 // this function can be called externally to validate an cinder spec.
 func (spec *CinderSpec) ValidateCreate(
@@ -247,6 +251,9 @@ func (spec *CinderSpec) ValidateCreate(
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
+		basePath.Child("cinderAPI").Child("override").Child("service"),
+		spec.CinderAPI.Override.Service)...)
+	allErrs = append(allErrs, validateServicePortNames(
 		basePath.Child("cinderAPI").Child("override").Child("service"),
 		spec.CinderAPI.Override.Service)...)
 
@@ -279,6 +286,9 @@ func (spec *CinderSpecCore) ValidateCreate(
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
+		basePath.Child("cinderAPI").Child("override").Child("service"),
+		spec.CinderAPI.Override.Service)...)
+	allErrs = append(allErrs, validateServicePortNames(
 		basePath.Child("cinderAPI").Child("override").Child("service"),
 		spec.CinderAPI.Override.Service)...)
 
@@ -363,6 +373,9 @@ func (spec *CinderSpec) ValidateUpdate(
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
 		basePath.Child("cinderAPI").Child("override").Child("service"),
 		spec.CinderAPI.Override.Service)...)
+	allErrs = append(allErrs, validateServicePortNames(
+		basePath.Child("cinderAPI").Child("override").Child("service"),
+		spec.CinderAPI.Override.Service)...)
 
 	allErrs = append(allErrs, spec.ValidateCinderTopology(basePath, namespace)...)
 
@@ -396,6 +409,9 @@ func (spec *CinderSpecCore) ValidateUpdate(
 
 	// validate the service override key is valid
 	allErrs = append(allErrs, service.ValidateRoutedOverrides(
+		basePath.Child("cinderAPI").Child("override").Child("service"),
+		spec.CinderAPI.Override.Service)...)
+	allErrs = append(allErrs, validateServicePortNames(
 		basePath.Child("cinderAPI").Child("override").Child("service"),
 		spec.CinderAPI.Override.Service)...)
 
