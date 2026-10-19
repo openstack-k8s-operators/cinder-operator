@@ -99,6 +99,9 @@
 - job:
     name: cinder-s2i-test-nfs
     parent: s2i-test-base
+    required-projects:
+      - name: github.com/openstack-k8s-operators/cinder-operator
+        override-checkout: main
     # Use a nodeset that provides a more powerful CRC node, because
     # the resources of the CRC node provided by the base job are
     # not enough when the tests executed are slightly more than basics
