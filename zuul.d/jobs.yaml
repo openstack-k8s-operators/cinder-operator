@@ -111,7 +111,7 @@
       with a NFS backend against a live OpenStack deployment.
     irrelevant-files: *common-irrelevant-files
     vars:
-      s2i_cinder_volume_backends: ['volume1']
+      s2i_cinder_volume_backends: ['nfs']
       cifmw_edpm_deploy_nfs: true
       cifmw_nfs_shares:
         - cinder
