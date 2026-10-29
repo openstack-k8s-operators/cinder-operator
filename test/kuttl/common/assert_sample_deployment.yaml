@@ -41,7 +41,6 @@ spec:
       service: cinder
   template:
     metadata:
-      creationTimestamp: null
       labels:
         component: cinder-api
         service: cinder
