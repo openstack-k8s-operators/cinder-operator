@@ -301,7 +301,9 @@ Watch for probe failure patterns:
 oc describe pod cinder-volume-vol1-0 -n openstack
 
 # View probe timing in container spec
-oc get pod cinder-api-0 -n openstack -o jsonpath='{.spec.containers[1].livenessProbe}'
+# Works with uniquePodNames true or false
+CINDER_NAME=$(oc get cinder -n openstack -o jsonpath='{.items[0].metadata.name}')
+oc get pod ${CINDER_NAME}-api-0 -n openstack -o jsonpath='{.spec.containers[1].livenessProbe}'
 ```
 
 ### 4. Understand the Sidecar Probe Architecture
