@@ -132,3 +132,21 @@
           image_signature_verification.certificate_validation False
           volume-feature-enabled.volume_revert True
           volume.storage_protocol 'nfs'
+
+- job:
+    name: cinder-s2i-test-glancecindernfs
+    parent: glance-s2i-test-cindernfs
+    description: |
+      Validate speculatively-built s2i cinder images by deploying glance
+      with a cinder backend, which in turn uses a Generic NFS backend.
+      The NFS server is deployed by ci-framework on the EDPM node.
+      This job inherits from the corresponding glance job and
+      it is used to ensure that a cinder change does not introduce
+      regressions when used as a glance backend.
+    vars:
+      # only override the list of tests by adding a few scenario tests
+      cifmw_test_operator_tempest_include_list: |
+        ^tempest.api.image.v2.test_images_dependency.ImageDependencyTests.test_nova_image_snapshot_dependency
+        ^barbican_tempest_plugin.tests.scenario.test_image_signing.ImageSigningTest.test_signed_image_upload_and_boot
+        ^tempest.scenario.test_snapshot_pattern..*
+        ^tempest.scenario.test_stamp_pattern..*
