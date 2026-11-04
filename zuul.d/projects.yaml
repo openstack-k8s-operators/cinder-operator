@@ -14,6 +14,14 @@
             files:
                - ^config/samples/backends/base/
                - ^config/samples/backends/nfs/
+    github-experimental-trigger:
+      jobs:
+        - cinder-s2i-content-provider
+        - openstack-k8s-operators-content-provider:
+            vars:
+              cifmw_install_yamls_sdk_version: v1.41.1
+        - cinder-s2i-test-nfs:
+            dependencies: *cinder_s2i_operator_test_dependencies
 
 # project template to be used in the s2i repository
 - project-template:
