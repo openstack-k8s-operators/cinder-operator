@@ -65,6 +65,8 @@ spec:
         - /bin/sh
         - -c
         - /usr/bin/tail -n+1 -F /var/log/cinder/cinder-api.log 2>/dev/null
+        command:
+        - /usr/bin/dumb-init
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -79,8 +81,13 @@ spec:
         - mountPath: /var/log/cinder
           name: logs
       - args:
+        - --single-child
+        - --
+        - /bin/bash
         - -c
         - /usr/sbin/httpd -DFOREGROUND
+        command:
+        - /usr/bin/dumb-init
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -199,8 +206,13 @@ spec:
       automountServiceAccountToken: false
       containers:
       - args:
+        - --single-child
+        - --
+        - /bin/bash
         - -c
         - /usr/bin/cinder-scheduler --config-dir /etc/cinder/cinder.conf.d
+        command:
+        - /usr/bin/dumb-init
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -310,8 +322,13 @@ spec:
       hostPID: true
       containers:
       - args:
+        - --single-child
+        - --
+        - /bin/bash
         - -c
         - /usr/bin/cinder-volume --config-dir /etc/cinder/cinder.conf.d
+        command:
+        - /usr/bin/dumb-init
         securityContext:
           privileged: true
           runAsGroup: 42407

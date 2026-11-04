@@ -2239,13 +2239,15 @@ var _ = Describe("Cinder Webhook", func() {
 			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
 			th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
 		})
-		It("Check the resulting probes generated in the statefulSet", func() {
+		It("Check the resulting commands and probes generated in the statefulSet", func() {
 			th.SimulateStatefulSetReplicaReady(cinderTest.CinderAPI)
 			th.SimulateStatefulSetReplicaReady(cinderTest.CinderScheduler)
 			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
 			// Check CinderAPI
 			Eventually(func(g Gomega) {
 				apiContainer := th.GetStatefulSet(cinderTest.CinderAPI).Spec.Template.Spec.Containers[1]
+				g.Expect(apiContainer.Command).To(Equal([]string{"/usr/bin/dumb-init"}))
+				g.Expect(apiContainer.Args).To(Equal([]string{"--single-child", "--", "/bin/bash", "-c", "/usr/sbin/httpd -DFOREGROUND"}))
 				g.Expect(apiContainer.LivenessProbe).ToNot(BeNil())
 				g.Expect(apiContainer.LivenessProbe.HTTPGet.Path).To(Equal(stsOverride["path"]))
 				g.Expect(apiContainer.LivenessProbe.InitialDelaySeconds).To(Equal(stsOverride["initialDelaySeconds"]))
@@ -2260,6 +2262,8 @@ var _ = Describe("Cinder Webhook", func() {
 			// Check CinderScheduler
 			Eventually(func(g Gomega) {
 				schedContainer := th.GetStatefulSet(cinderTest.CinderScheduler).Spec.Template.Spec.Containers[0]
+				g.Expect(schedContainer.Command).To(Equal([]string{"/usr/bin/dumb-init"}))
+				g.Expect(schedContainer.Args).To(Equal([]string{"--single-child", "--", "/bin/bash", "-c", "/usr/bin/cinder-scheduler --config-dir /etc/cinder/cinder.conf.d"}))
 				g.Expect(schedContainer.LivenessProbe).ToNot(BeNil())
 				g.Expect(schedContainer.LivenessProbe.HTTPGet.Path).To(Equal("/healthcheck"))
 				g.Expect(schedContainer.LivenessProbe.InitialDelaySeconds).To(Equal(int32(20)))
@@ -2275,6 +2279,8 @@ var _ = Describe("Cinder Webhook", func() {
 			// Check CinderVolume
 			Eventually(func(g Gomega) {
 				volContainer := th.GetStatefulSet(cinderTest.CinderVolumes[0]).Spec.Template.Spec.Containers[0]
+				g.Expect(volContainer.Command).To(Equal([]string{"/usr/bin/dumb-init"}))
+				g.Expect(volContainer.Args).To(Equal([]string{"--single-child", "--", "/bin/bash", "-c", "/usr/bin/cinder-volume --config-dir /etc/cinder/cinder.conf.d"}))
 				g.Expect(volContainer.LivenessProbe).ToNot(BeNil())
 				g.Expect(volContainer.LivenessProbe.HTTPGet.Path).To(Equal("/healthcheck"))
 				g.Expect(volContainer.LivenessProbe.InitialDelaySeconds).To(Equal(int32(20)))
@@ -2290,6 +2296,8 @@ var _ = Describe("Cinder Webhook", func() {
 			// Check CinderBackup
 			Eventually(func(g Gomega) {
 				bkpContainer := th.GetStatefulSet(cinderTest.CinderBackup).Spec.Template.Spec.Containers[0]
+				g.Expect(bkpContainer.Command).To(Equal([]string{"/usr/bin/dumb-init"}))
+				g.Expect(bkpContainer.Args).To(Equal([]string{"--single-child", "--", "/bin/bash", "-c", "/usr/bin/cinder-backup --config-dir /etc/cinder/cinder.conf.d"}))
 				g.Expect(bkpContainer.LivenessProbe).ToNot(BeNil())
 				g.Expect(bkpContainer.LivenessProbe.HTTPGet.Path).To(Equal("/healthcheck"))
 				g.Expect(bkpContainer.LivenessProbe.InitialDelaySeconds).To(Equal(int32(20)))

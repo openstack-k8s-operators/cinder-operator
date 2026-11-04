@@ -85,10 +85,13 @@ spec:
         - mountPath: /var/log/cinder
           name: logs
       - args:
+        - --single-child
+        - --
+        - /bin/bash
         - -c
         - /usr/sbin/httpd -DFOREGROUND
         command:
-        - /bin/bash
+        - /usr/bin/dumb-init
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
