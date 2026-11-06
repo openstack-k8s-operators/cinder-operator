@@ -41,7 +41,9 @@ import (
 	memcachedv1 "github.com/openstack-k8s-operators/infra-operator/apis/memcached/v1beta1"
 	topologyv1 "github.com/openstack-k8s-operators/infra-operator/apis/topology/v1beta1"
 	keystonev1 "github.com/openstack-k8s-operators/keystone-operator/api/v1beta1"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/clusterdns"
 	condition "github.com/openstack-k8s-operators/lib-common/modules/common/condition"
+	commonservice "github.com/openstack-k8s-operators/lib-common/modules/common/service"
 	util "github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	mariadb_test "github.com/openstack-k8s-operators/mariadb-operator/api/test/helpers"
 	mariadbv1 "github.com/openstack-k8s-operators/mariadb-operator/api/v1beta1"
@@ -663,8 +665,12 @@ var _ = Describe("Cinder controller", func() {
 			// gets a LoadBalancer Service with MetalLB annotations
 			service := th.GetService(cinderTest.CinderServiceInternal)
 			Expect(service.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
+			Expect(service.Name).To(Equal(cinderTest.CinderServiceInternal.Name))
+			Expect(service.Spec.Ports).To(HaveLen(1))
+			Expect(service.Spec.Ports[0].Name).To(Equal("internal"))
+			Expect(service.Spec.Ports[0].Port).To(Equal(int32(8776)))
 			Expect(service.Annotations).To(
-				HaveKeyWithValue("dnsmasq.network.openstack.org/hostname", "cinder-internal."+cinder.Namespace+".svc"))
+				HaveKeyWithValue(commonservice.AnnotationHostnameKey, "cinder-internal."+cinder.Namespace+".svc"))
 			Expect(service.Annotations).To(
 				HaveKeyWithValue("metallb.universe.tf/address-pool", "osp-internalapi"))
 			Expect(service.Annotations).To(
@@ -672,11 +678,115 @@ var _ = Describe("Cinder controller", func() {
 			Expect(service.Annotations).To(
 				HaveKeyWithValue("metallb.universe.tf/loadBalancerIPs", "internal-lb-ip-1,internal-lb-ip-2"))
 
+			publicService := th.GetService(cinderTest.CinderServicePublic)
+			Expect(publicService.Name).To(Equal(cinderTest.CinderServicePublic.Name))
+			Expect(publicService.Spec.Ports).To(HaveLen(1))
+			Expect(publicService.Spec.Ports[0].Name).To(Equal("public"))
+			Expect(publicService.Spec.Ports[0].Port).To(Equal(int32(8776)))
+
 			// check keystone endpoints
 			keystoneEndpoint := keystone.GetKeystoneEndpoint(cinderTest.CinderKeystoneEndpoint)
 			endpoints := keystoneEndpoint.Spec.Endpoints
 			Expect(endpoints).To(HaveKeyWithValue("public", "http://cinder-public."+cinder.Namespace+".svc:8776/v3"))
 			Expect(endpoints).To(HaveKeyWithValue("internal", "http://cinder-internal."+cinder.Namespace+".svc:8776/v3"))
+		})
+
+		It("uses endpointURL hosts for vhosts, keeps the in-cluster DNS hostname annotation for internal only", func() {
+			th.SimulateStatefulSetReplicaReadyWithPods(
+				cinderTest.CinderAPI,
+				map[string][]string{cinderName.Namespace + "/internalapi": {"10.0.0.1"}},
+			)
+			keystone.SimulateKeystoneEndpointReady(cinderTest.CinderKeystoneEndpoint)
+
+			instance := GetCinder(cinderTest.Instance)
+			_, err := controllerutil.CreateOrPatch(ctx, k8sClient, instance, func() error {
+				overrides := instance.Spec.CinderAPI.Override.Service
+				overrides[commonservice.EndpointPublic] = commonservice.RoutedOverrideSpec{
+					EndpointURL: ptr.To("http://cinder-public.example.org:8776/v3"),
+					OverrideSpec: commonservice.OverrideSpec{
+						Spec: &commonservice.OverrideServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+					},
+				}
+				internalOverride := overrides[commonservice.EndpointInternal]
+				internalOverride.EndpointURL = ptr.To("http://cinder-internal.example.org:8776/v3")
+				overrides[commonservice.EndpointInternal] = internalOverride
+				instance.Spec.CinderAPI.Override.Service = overrides
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			endpoints := []struct {
+				name string
+				host string
+				port string
+			}{
+				{name: cinderTest.CinderServicePublic.Name, host: "cinder-public.example.org", port: "public"},
+				{name: cinderTest.CinderServiceInternal.Name, host: "cinder-internal.example.org", port: "internal"},
+			}
+			Eventually(func(g Gomega) {
+				for _, endpoint := range endpoints {
+					svc := &corev1.Service{}
+					key := types.NamespacedName{Namespace: namespace, Name: endpoint.name}
+					g.Expect(k8sClient.Get(ctx, key, svc)).To(Succeed())
+					g.Expect(svc.Name).To(Equal(endpoint.name))
+					g.Expect(svc.Spec.Type).To(Equal(corev1.ServiceTypeLoadBalancer))
+					g.Expect(svc.Spec.Ports).To(HaveLen(1))
+					g.Expect(svc.Spec.Ports[0].Name).To(Equal(endpoint.port))
+					g.Expect(svc.Spec.Ports[0].Port).To(Equal(int32(8776)))
+
+					alias := endpoint.name + "." + namespace + ".svc"
+					if endpoint.port == string(commonservice.EndpointPublic) {
+						g.Expect(svc.Annotations).NotTo(HaveKey(commonservice.AnnotationHostnameKey))
+					} else {
+						g.Expect(svc.Annotations).To(HaveKeyWithValue(commonservice.AnnotationHostnameKey, alias))
+					}
+				}
+
+				configSecret := &corev1.Secret{}
+				g.Expect(k8sClient.Get(ctx, cinderTest.CinderConfigSecret, configSecret)).To(Succeed())
+				config := string(configSecret.Data["10-cinder_wsgi.conf"])
+				for _, endpoint := range endpoints {
+					alias := endpoint.name + "." + namespace + ".svc"
+					g.Expect(config).To(ContainSubstring(fmt.Sprintf(
+						"ServerName %s\n  ServerAlias %s",
+						endpoint.host,
+						alias,
+					)))
+					g.Expect(config).To(ContainSubstring("ServerAlias " + alias + "." + clusterdns.GetDNSClusterDomain()))
+				}
+			}, timeout, interval).Should(Succeed())
+
+			instance = GetCinder(cinderTest.Instance)
+			_, err = controllerutil.CreateOrPatch(ctx, k8sClient, instance, func() error {
+				overrides := instance.Spec.CinderAPI.Override.Service
+				internalOverride := overrides[commonservice.EndpointInternal]
+				internalOverride.EndpointURL = nil
+				overrides[commonservice.EndpointInternal] = internalOverride
+				publicOverride := overrides[commonservice.EndpointPublic]
+				publicOverride.EndpointURL = ptr.To(fmt.Sprintf(
+					"http://%s.%s.svc:8776/v3",
+					cinderTest.CinderServicePublic.Name,
+					namespace,
+				))
+				overrides[commonservice.EndpointPublic] = publicOverride
+				instance.Spec.CinderAPI.Override.Service = overrides
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func(g Gomega) {
+				for _, endpoint := range endpoints {
+					svc := &corev1.Service{}
+					key := types.NamespacedName{Namespace: namespace, Name: endpoint.name}
+					g.Expect(k8sClient.Get(ctx, key, svc)).To(Succeed())
+					expectedHostname := endpoint.name + "." + namespace + ".svc"
+					if endpoint.port == string(commonservice.EndpointPublic) {
+						g.Expect(svc.Annotations).NotTo(HaveKey(commonservice.AnnotationHostnameKey))
+					} else {
+						g.Expect(svc.Annotations).To(HaveKeyWithValue(commonservice.AnnotationHostnameKey, expectedHostname))
+					}
+				}
+			}, timeout, interval).Should(Succeed())
 		})
 	})
 	When("A Cinder with TLS is created", func() {
