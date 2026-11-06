@@ -133,9 +133,13 @@ func StatefulSet(
 						{
 							Name: ComponentName,
 							Command: []string{
-								"/bin/bash",
+								"/usr/bin/dumb-init",
 							},
-							Args:  args,
+							Args: append([]string{
+								"--single-child",
+								"--",
+								"/bin/bash",
+							}, args...),
 							Image: instance.Spec.ContainerImage,
 							// cinder-volume needs Privileged for LVM/iSCSI/multipath
 							// device management via the host's nsenter'd binaries

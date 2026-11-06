@@ -111,9 +111,13 @@ func StatefulSet(
 						{
 							Name: ComponentName,
 							Command: []string{
-								"/bin/bash",
+								"/usr/bin/dumb-init",
 							},
-							Args:            args,
+							Args: append([]string{
+								"--single-child",
+								"--",
+								"/bin/bash",
+							}, args...),
 							Image:           instance.Spec.ContainerImage,
 							SecurityContext: pod.RestrictiveSecurityContext(users.CinderUID, users.CinderGID),
 							Env:             env.MergeEnvs([]corev1.EnvVar{}, envVars),
