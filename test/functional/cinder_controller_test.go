@@ -753,6 +753,9 @@ var _ = Describe("Cinder controller", func() {
 						alias,
 					)))
 					g.Expect(config).To(ContainSubstring("ServerAlias " + alias + "." + clusterdns.GetDNSClusterDomain()))
+					// preload the WSGI app in every worker at process start
+					// so a request cannot race the app import
+					g.Expect(config).To(ContainSubstring("process-group=" + endpoint.port + " application-group=%{GLOBAL}"))
 				}
 			}, timeout, interval).Should(Succeed())
 
