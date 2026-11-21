@@ -91,11 +91,6 @@ func (r *CinderAPIReconciler) GetLogger(ctx context.Context) logr.Logger {
 
 var keystoneServices = []map[string]string{
 	{
-		"type": cinder.ServiceTypeBlockStorage,
-		"name": cinder.ServiceNameBlockStorage,
-		"desc": "Cinder Block Storage Service",
-	},
-	{
 		"type": cinder.ServiceTypeV3,
 		"name": cinder.ServiceNameV3,
 		"desc": "Cinder V3 Service",
@@ -603,7 +598,6 @@ func (r *CinderAPIReconciler) reconcileInit(
 	if instance.Status.APIEndpoints == nil {
 		instance.Status.APIEndpoints = map[string]map[string]string{}
 	}
-	instance.Status.APIEndpoints[cinder.ServiceNameBlockStorage] = apiEndpointsV3
 	instance.Status.APIEndpoints[cinder.ServiceNameV3] = apiEndpointsV3
 	// V3 - end
 
