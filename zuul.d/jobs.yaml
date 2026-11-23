@@ -98,7 +98,7 @@
 
 - job:
     name: cinder-s2i-test-nfs
-    parent: s2i-test-base
+    parent: s2i-test-base-2comp
     required-projects:
       - name: github.com/openstack-k8s-operators/cinder-operator
         override-checkout: main
