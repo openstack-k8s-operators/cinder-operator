@@ -20,22 +20,6 @@
         - cinder
 
 - job:
-    name: cinder-s2i-content-provider
-    parent: s2i-openstack-container-content-provider
-    description: |
-      Build s2i cinder (including cinder-backup) service images
-      for cinder-s2i test jobs.
-    required-projects:
-      - name: openstack-k8s-operators/s2i-openstack-containers
-        override-checkout: main
-    vars:
-      s2i_ci_images:
-        - cinder/cinder-api
-        - cinder/cinder-backup
-        - cinder/cinder-scheduler
-        - cinder/cinder-volume
-
-- job:
     name: cinder-s2i-test-ceph
     parent: s2i-test-base-ceph
     description: |

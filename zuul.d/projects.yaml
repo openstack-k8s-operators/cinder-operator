@@ -4,11 +4,17 @@
     name: cinder-operator-s2i-testing
     github-check:
       jobs:
-        - cinder-s2i-content-provider
+        - openstack-s2i-content-provider:
+            vars:
+              cifmw_install_yamls_sdk_version: v1.41.1
+              s2i_ci_images:
+                - cinder/cinder-api
+                - cinder/cinder-backup
+                - cinder/cinder-scheduler
+                - cinder/cinder-volume
         - cinder-s2i-test-ceph:
             dependencies: &cinder_s2i_operator_test_dependencies
-              - openstack-k8s-operators-content-provider
-              - cinder-s2i-content-provider
+              - openstack-s2i-content-provider
         - cinder-s2i-test-nfs:
             dependencies: *cinder_s2i_operator_test_dependencies
             files:
@@ -16,8 +22,7 @@
                - ^config/samples/backends/nfs/
     github-experimental-trigger:
       jobs:
-        - cinder-s2i-content-provider
-        - openstack-k8s-operators-content-provider:
+        - openstack-s2i-content-provider:
             vars:
               cifmw_install_yamls_sdk_version: v1.41.1
         - cinder-s2i-test-nfs:
@@ -49,9 +54,9 @@
       - cinder-operator-s2i-testing
     github-check:
       jobs:
-        - openstack-k8s-operators-content-provider:
+        - openstack-s2i-content-provider:
             vars:
               cifmw_install_yamls_sdk_version: v1.41.1
         - cinder-operator-kuttl:
             dependencies:
-              - openstack-k8s-operators-content-provider
+              - openstack-s2i-content-provider
